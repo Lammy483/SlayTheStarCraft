@@ -3,7 +3,7 @@ import argparse, ast, csv, importlib.util, py_compile, sys, xml.etree.ElementTre
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 RELEASE_ROOT=ROOT.parent
-VERSION="1.0.2.17"
+VERSION="1.1.0"
 
 def load_installer():
     spec=importlib.util.spec_from_file_location("slay_release_installer", ROOT/"install_slay.py")
@@ -117,6 +117,12 @@ def check_payload():
     # Validate the clean bundled Galaxy payload without requiring a release/version banner inside it.
     # This catches accidental verifier-only requirements before Download Data reaches the patch stage.
     installer_module=load_installer()
+    # Exercise the exact sibling-module loader used later by Download Data.
+    # Embedded Python runs with a restricted ._pth, so a plain module-name
+    # import can fail even when the helper is correctly bundled beside installer.
+    endless_patcher = installer_module._load_endless_client_patcher()
+    if not callable(endless_patcher):
+        raise RuntimeError("Endless client patch helper failed to load")
     host_library='include "APRogue"\nvoid libABFE498B_InitCustomScript () {\n}\nvoid libABFE498B_TestInit () {\n    libABFE498B_InitTriggers();\n    APRogue_Init();\n}\n'
     installer_module.validate_galaxy(host_library, galaxy)
     bootstrap=(RELEASE_ROOT/"Tools"/"bootstrap_slay_runtime.ps1").read_text(encoding="utf-8")

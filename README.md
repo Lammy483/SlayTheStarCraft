@@ -6,9 +6,16 @@ This repository tracks the source for the Windows launcher, Slay runtime/client 
 
 ## Current development version
 
-`1.0.2.17`
+`1.1.0`
 
-The stable public release lineage is `1.0.2`; `1.0.2.x` builds are development work toward the next bug-fix release.
+`develop/v1.1.0` is the active integration line for the next feature release. The stable public release lineage remains `1.0.2` until this branch is promoted.
+
+### 1.1.0 development changes
+
+- Integrates Wangfeng's optional StarCraft-style English command UI.
+- Adds selectable playable races during run setup.
+- Adds an optional Endless Mode while keeping Standard Mode as the default.
+- Fixes portable-runtime loading of the Endless client patch helper.
 
 ### 1.0.2.17 changes
 

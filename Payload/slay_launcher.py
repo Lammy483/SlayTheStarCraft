@@ -47,7 +47,7 @@ from typing import Any
 
 
 
-PACKAGE_VERSION = "1.0.2.17"
+PACKAGE_VERSION = "1.1.0"
 
 LAUNCHER_ENV = "SLAY_LAUNCHER_MODE"
 

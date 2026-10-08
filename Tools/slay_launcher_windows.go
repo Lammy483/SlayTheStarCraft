@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	version = "1.0.2.17"
+	version = "1.1.0"
 
 	className  = "SlayTheStarCraftLauncherWindow"
 	windowName = "Slay the StarCraft"

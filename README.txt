@@ -1,9 +1,9 @@
-Slay the StarCraft v1.0.2.17
+Slay the StarCraft v1.1.0
 
 Slay the StarCraft is a single-player StarCraft II roguelike built on the
 Archipelago StarCraft II framework.
 
-V1.0.2.17 DEVELOPMENT
+V1.1.0 DEVELOPMENT
 
 - True Golden Armada now chooses unrestricted random playable-map patrol destinations after 10 mission minutes. Its fleet attack-moves to those points, so routes can naturally cross and engage the player base.
 - Removed the temporary 10x development selection boost from recently added mutations; new mutations now use the same normal selection weighting as established mutations.
@@ -84,7 +84,7 @@ Built on the v1.0.2.10 development branch from the stable v1.0.2 release.
   warp effect, then unpauses and attacks.
 
 GETTING STARTED
-1. Extract the entire "Slay the StarCraft v1.0.2.17" folder somewhere writable.
+1. Extract the entire "Slay the StarCraft v1.1.0" folder somewhere writable.
 2. Release packages include SlayTheStarCraft.exe. GitHub source checkouts omit generated binaries; contributors should build it first with Tools\build_launcher.ps1.
 3. Double-click SlayTheStarCraft.exe.
 4. If required game data is missing or needs an update, click Download Data and

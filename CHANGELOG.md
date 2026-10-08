@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0 - Development
+
+- Integrated Wangfeng's English StarCraft-style command UI.
+- Added selectable Terran/Zerg/Protoss run setup.
+- Added optional Endless Mode while Standard Mode remains the default.
+- Fixed private embedded-Python loading of the Endless client patch helper during Download Data.
+
 This file records public/development milestones. The more detailed rolling development notes remain in `README.txt`.
 
 ## 1.0.2.17 - Development
