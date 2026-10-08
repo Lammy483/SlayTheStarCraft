@@ -3681,6 +3681,80 @@ def validate_galaxy_aprg_calls_declared(apr_text: str) -> None:
 
 
 
+def validate_galaxy_call_arity(source: str, function_name: str, expected_args: int) -> None:
+    """Validate top-level argument counts for Galaxy calls, including nested calls and strings."""
+    call_re = re.compile(r"\\b" + re.escape(function_name) + r"\\s*\\(")
+    for match in call_re.finditer(source):
+        # Skip occurrences that are inside a line comment.
+        line_start = source.rfind("\n", 0, match.start()) + 1
+        comment_start = source.find("//", line_start, match.start())
+        if comment_start >= 0:
+            continue
+        line_no = source.count("\n", 0, match.start()) + 1
+        i = match.end()
+        depth = 1
+        commas = 0
+        has_content = False
+        in_string = False
+        escaped = False
+        block_comment = False
+        line_comment = False
+        while i < len(source) and depth:
+            ch = source[i]
+            nxt = source[i + 1] if i + 1 < len(source) else ""
+            if line_comment:
+                if ch == "\n":
+                    line_comment = False
+                i += 1
+                continue
+            if block_comment:
+                if ch == "*" and nxt == "/":
+                    block_comment = False
+                    i += 2
+                else:
+                    i += 1
+                continue
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == '"':
+                    in_string = False
+                i += 1
+                continue
+            if ch == "/" and nxt == "/":
+                line_comment = True
+                i += 2
+                continue
+            if ch == "/" and nxt == "*":
+                block_comment = True
+                i += 2
+                continue
+            if ch == '"':
+                in_string = True
+                has_content = True
+            elif ch == "(":
+                depth += 1
+                has_content = True
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            elif ch == "," and depth == 1:
+                commas += 1
+            elif depth == 1 and not ch.isspace():
+                has_content = True
+            i += 1
+        if depth != 0:
+            raise RuntimeError(f"APRogue.galaxy has an unterminated {function_name} call at line {line_no}")
+        count = commas + 1 if has_content else 0
+        if count != expected_args:
+            raise RuntimeError(
+                f"APRogue.galaxy {function_name} call at line {line_no} has {count} arguments; expected {expected_args}"
+            )
+
+
 def validate_galaxy(lib_text: str, apr_text: str) -> None:
 
     if 'include "APRogue"' not in lib_text or "APRogue_Init();" not in lib_text:
@@ -3706,6 +3780,8 @@ def validate_galaxy(lib_text: str, apr_text: str) -> None:
     if apr_text.count("{") != apr_text.count("}"):
 
         raise RuntimeError("APRogue.galaxy has unbalanced braces")
+
+    validate_galaxy_call_arity(apr_text, "UnitCreate", 6)
 
     validate_galaxy_declaration_order(apr_text)
 

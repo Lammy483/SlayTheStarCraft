@@ -451,7 +451,7 @@ def verify_v10215_changes(payload_dir: Path) -> None:
             raise RuntimeError(f"Missing v1.0.2.17 runtime/catalog update: {token}")
     for token in (
         "APRG_TickImmortalZergling",
-        'UnitCreate(1, "Zergling"',
+        'UnitCreate(1, "Zergling", c_unitCreateIgnorePlacement, owner, spawnPoint',
         "c_unitStateInvulnerable, true",
         "c_unitStateTargetable, false",
         "g_aprgMacroReadyTime + 60.0",
@@ -465,6 +465,9 @@ def verify_v10215_changes(payload_dir: Path) -> None:
     ):
         if token not in galaxy:
             raise RuntimeError(f"Missing v1.0.2.17 Galaxy prototype: {token}")
+    if 'UnitCreate(1, "Zergling", owner, spawnPoint' in galaxy:
+        raise RuntimeError("Immortal Zergling still uses the invalid five-argument UnitCreate call")
+
     for token in (
         "test_potion_run_token = slay.test_potion_run_token(self.ctx)",
         "{mercenary_upgrade_packed2} {test_potion_run_token}",
@@ -539,6 +542,15 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
             raise RuntimeError(f"Missing v1.1.0 UI batch command token: {token}")
     if "slay_wheel_zoom_bound" in command or "def wheel_zoom(" in command:
         raise RuntimeError("Mission map still captures mouse wheel for zoom")
+    for token in (
+        "marker_cross=Line(points=[],width=dp(2))",
+        "marker.points=[cx-14,cy-14,cx+14,cy+14]",
+        "marker_cross.points=[cx-14,cy+14,cx+14,cy-14]",
+    ):
+        if token not in command:
+            raise RuntimeError(f"Missing corrected unavailable-mission X marker: {token}")
+    if "[cx-7,cy-7,cx+7,cy+7,cx-7,cy+7,cx+7,cy-7]" in command:
+        raise RuntimeError("Unavailable-mission X still uses the connected polyline with a horizontal segment")
     for token in (
         "sound.volume = 0.08",
         'text="[b]DIFFICULTY DESCRIPTION[/b]"',

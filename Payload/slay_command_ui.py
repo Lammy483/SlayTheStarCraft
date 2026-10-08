@@ -563,7 +563,7 @@ def decorate_node(manager,b):
         Color(*accent);ring=Line(circle=(0,0,1),width=dp(2.4 if status=='available' else 1.2))
         Color(.25,.6,.8,.28);orbit=Line(circle=(0,0,1),width=dp(.7))
         Color(.95,.29,.24,1 if danger else 0);warning=Line(circle=(0,0,1,25,155),width=dp(3))
-        Color(*accent);marker=Line(points=[],width=dp(2))
+        Color(*accent);marker=Line(points=[],width=dp(2));marker_cross=Line(points=[],width=dp(2))
     def update(*_):
         cx=b.center_x;cy=b.y+dp(NODE_PLANET_CENTER_Y);radius=dp(39)
         halo.pos=(cx-radius-dp(6),cy-radius-dp(6));halo.size=(2*(radius+dp(6)),)*2
@@ -572,7 +572,12 @@ def decorate_node(manager,b):
         title.pos=(b.x,b.y+dp(2));title.size=(b.width,dp(48))
         status_label.pos=(b.x,b.y+dp(51));status_label.size=(b.width,dp(24))
         nameplate.pos=(b.x+dp(6),b.y+dp(2));nameplate.size=(b.width-dp(12),dp(74))
-        marker.points=[cx-7,cy-2,cx-1,cy-8,cx+10,cy+7] if status=='completed' else [cx-7,cy-7,cx+7,cy+7,cx-7,cy+7,cx+7,cy-7] if status=='abandoned' else []
+        if status=='completed':
+            marker.points=[cx-7,cy-2,cx-1,cy-8,cx+10,cy+7];marker_cross.points=[]
+        elif status=='abandoned':
+            marker.points=[cx-14,cy-14,cx+14,cy+14];marker_cross.points=[cx-14,cy+14,cx+14,cy-14]
+        else:
+            marker.points=[];marker_cross.points=[]
     b._slay_node_update=update
     b.bind(pos=update,size=update);update()
     b.slay_planet_source=str(planet_source(name));b.slay_node_caption=title

@@ -12,7 +12,7 @@ Set-StrictMode -Version 2.0
 $BootstrapScriptPath = $PSCommandPath
 
 $PackageVersion = "1.1.0"
-$RuntimeRevision = "ui-batch-r4"
+$RuntimeRevision = "galaxy-fix-r5"
 $PythonVersion = "3.13.16"
 $PythonArchiveName = "python-$PythonVersion-embed-amd64.zip"
 $PythonUrl = "https://www.python.org/ftp/python/$PythonVersion/$PythonArchiveName"

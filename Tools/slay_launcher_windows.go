@@ -18,7 +18,7 @@ import (
 
 const (
 	version = "1.1.0"
-	runtimeRevision = "ui-batch-r4"
+	runtimeRevision = "galaxy-fix-r5"
 
 	className  = "SlayTheStarCraftLauncherWindow"
 	windowName = "Slay the StarCraft"

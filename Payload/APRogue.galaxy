@@ -18529,7 +18529,7 @@ void APRG_TickImmortalZergling(int player, fixed now) {
         spawnPoint = APRG_FindGroundPointNear(UnitGetPosition(anchor), 2.0, 10.0);
         if (spawnPoint == null) { return; }
         owner = UnitGetOwner(anchor);
-        created = UnitCreate(1, "Zergling", owner, spawnPoint, RandomFixed(0.0, 360.0));
+        created = UnitCreate(1, "Zergling", c_unitCreateIgnorePlacement, owner, spawnPoint, RandomFixed(0.0, 360.0));
         g_aprgImmortalZergling = UnitGroupUnitFromEnd(created, 1);
         if (g_aprgImmortalZergling == null) { return; }
         UnitSetState(g_aprgImmortalZergling, c_unitStateInvulnerable, true);

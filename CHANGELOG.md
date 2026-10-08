@@ -2,6 +2,9 @@
 
 ## 1.1.0 - Development
 
+- Fixed an Immortal Zergling Galaxy compile error caused by a five-argument `UnitCreate` call; release validation now checks all `UnitCreate` calls for the required six arguments.
+- Fixed the unavailable-mission X marker by drawing two separate diagonals and doubled its size.
+
 - Integrated Wangfeng's English StarCraft-style command UI.
 - Added selectable Terran/Zerg/Protoss run setup.
 - Added optional Endless Mode while Standard Mode remains the default.
