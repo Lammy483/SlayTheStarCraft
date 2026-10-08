@@ -100,6 +100,9 @@ def main() -> None:
         from worlds.sc2 import client_gui
         import slay_command_ui
         slay_command_ui.install(client_gui)
+    from worlds.sc2 import client_gui
+    import slay_endless_ui
+    slay_endless_ui.install(client_gui)
 
 
 

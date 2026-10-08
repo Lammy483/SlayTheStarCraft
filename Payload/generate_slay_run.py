@@ -5092,3 +5092,74 @@ if __name__ == "__main__":
 
     raise SystemExit(main())
 
+
+
+def endless_map_key(node: dict[str, Any]) -> str:
+    name = str(node.get("mission_name", node.get("name", "")))
+    for suffix in (" (Terran)", " (Zerg)", " (Protoss)"):
+        if name.endswith(suffix):
+            name = name[:-len(suffix)]
+            break
+    return name.strip().casefold()
+
+def generate_endless_layer(run: dict[str, Any], progress: dict[str, Any]) -> list[dict[str, Any]]:
+    """Use the existing mission pools, effect rolls and rewards for one three-choice floor."""
+    import copy
+    floor = int(progress["floor"])
+    rng = random.Random(f"{run['run_seed']}:endless:{floor}")
+    excluded = {key for offer in progress.get("offers", [])[-4:] for key in offer}
+    from worlds.sc2.mission_tables import lookup_id_to_mission, MissionFlag
+    candidates = []
+    for original in run["nodes"].values():
+        if endless_map_key(original) in excluded:
+            continue
+        native = lookup_id_to_mission[int(original["mission_id"])]
+        candidates.append(dict(original, id=int(original["mission_id"]), name=original["mission_name"],
+                               short_name=native.get_short_name(), pool=int(original.get("mission_pool", 0)),
+                               timed_defense=bool(MissionFlag.TimedDefense in native.flags),
+                               race_swap=bool(MissionFlag.RaceSwap in native.flags)))
+    if len({m["short_name"] for m in candidates}) < 3:
+        raise RuntimeError("Not enough distinct maps for the five-floor exclusion rule.")
+    capacity = min(4, len({endless_map_key(n) for n in run["nodes"].values()}) // 5)
+    choice_count = min(rng.choice((2, 3, 3, 4)), capacity, len({m["short_name"] for m in candidates}))
+    selected = []
+    used = set()
+    counts = Counter()
+    risk_count = 2 if floor >= 5 and rng.random() < .25 else 1
+    risky_lanes = set(rng.sample(range(choice_count), min(risk_count, choice_count-1)))
+    tier = min(3, floor // 4)
+    difficulty = ("easy", "medium", "hard", "brutal")[tier]
+    length = max(11, floor + 3)
+    for lane in range(choice_count):
+        remaining = [m for m in candidates if m["short_name"] not in used]
+        mission = choose_mission(remaining, set(), used, counts, min(4, floor / 4), rng)
+        used.add(mission["short_name"])
+        counts[mission["race"]] += 1
+        risk = lane in risky_lanes
+        roll_layer = floor + int(risk)
+        exclusions, help_exclusions = _effect_exclusions_for_mission(mission)
+        effects = roll_effects(roll_layer, length, difficulty, rng,
+                              forbidden_mutators=exclusions, forbidden_blessings=help_exclusions,
+                              mission_pool=mission["pool"], mutation_frequency=run.get("mutation_frequency", "normal"),
+                              blessing_frequency=run.get("blessing_frequency", "normal"))
+        # Risk uses the same legal rolls; pick the harder of three, without new enemy stat rules.
+        if risk:
+            for _ in range(2):
+                trial = roll_effects(roll_layer, length, difficulty, rng,
+                                     forbidden_mutators=exclusions, forbidden_blessings=help_exclusions,
+                                     mission_pool=mission["pool"], mutation_frequency=run.get("mutation_frequency", "normal"),
+                                     blessing_frequency=run.get("blessing_frequency", "normal"))
+                if trial[2] * 150 - trial[3] * 100 > effects[2] * 150 - effects[3] * 100:
+                    effects = trial
+        mutators, blessings, mut_value, bless_value = effects
+        multiplier = float(run.get("victory_credit_reward_multiplier", 1))
+        base_reward = credit_reward(mission["pool"], floor, mut_value, bless_value, bool(blessings), rng,
+                                    mission_name=mission["name"], victory_credit_reward_multiplier=1)
+        node = copy.deepcopy(mission)
+        node.update(layer=floor, lane=lane, lane_count=choice_count, next=[], high_risk=risk, mutators=mutators, blessings=blessings,
+                    mutation_value=mut_value, blessing_value=bless_value,
+                    credit_reward=round((base_reward + 50 * floor + (100 if risk else 0)) * multiplier),
+                    danger_credit_bonus=0, difficulty_override=tier)
+        node["commander_hero_index"], node["commander_hero_name"] = commander_choice(run["run_seed"], mission["id"]) if "general" in blessings else (-1, "")
+        selected.append(node)
+    return selected
