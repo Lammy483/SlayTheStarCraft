@@ -1948,6 +1948,14 @@ def initialize_context(ctx: Any) -> None:
     ctx.slay_state = _load_local_state(ctx)
 
     ctx.slay_state_loaded = True
+    if endless_mode(ctx):
+        ctx.missions_unlocked = True
+        if not isinstance(state(ctx).get("endless"), dict):
+            progress = {"floor": 0, "choices": [], "history": [], "offers": [], "selected": None}
+            _new_endless_floor(ctx, progress)
+            state(ctx)["endless"] = progress
+            _persist_state(ctx)
+
 
 
 
@@ -2301,6 +2309,15 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
 
         state["route_layout_x_fractions"] = route_layout
 
+    progress = value.get("endless")
+    if isinstance(progress, Mapping):
+        history = progress.get("history", [])
+        choices = progress.get("choices", [])
+        floor = int(progress.get("floor", 0))
+        if floor != len(history) or not 2 <= len(choices) <= 4:
+            raise ValueError("Invalid endless floor history or candidate count")
+        state["endless"] = copy.deepcopy(dict(progress))
+
     return state
 
 
@@ -2620,6 +2637,12 @@ def _merged_nodes(ctx: Any) -> dict[int, dict[str, Any]]:
         return {}
 
     raw = ctx.slay_config.get("nodes", {})
+    if endless_mode(ctx) and state_ready(ctx):
+        progress = state(ctx).get("endless")
+        if isinstance(progress, dict):
+            raw = {str(int(n["mission_id"])): n for n in progress["choices"]}
+            raw.update({str(-(index+1)): dict(n, mission_id=-(index+1), next=[], _display_status="completed")
+                        for index, n in enumerate(progress["history"])})
 
     overrides = state(ctx).get("node_effect_overrides", {}) if state_ready(ctx) else {}
 
@@ -2659,6 +2682,10 @@ def nodes(ctx: Any) -> dict[int, dict[str, Any]]:
 
     for mid, data in result.items():
 
+        if endless_mode(ctx):
+            data["danger_credit_bonus"] = 0
+            data["_endless_floor"] = True
+            continue
         if _mission_is_difficulty_outlier_in_nodes(result, mid, config):
 
 
@@ -2848,6 +2875,8 @@ def _mission_is_difficulty_outlier_in_nodes(
 
 
 def mission_is_difficulty_outlier(ctx: Any, mission_id: int) -> bool:
+    if endless_mode(ctx):
+        return bool((node(ctx, mission_id) or {}).get("high_risk"))
 
     return _mission_is_difficulty_outlier_in_nodes(
 
@@ -2960,6 +2989,9 @@ def test_potion_run_token(ctx: Any) -> int:
 
 
 def chosen_path(ctx: Any) -> list[int]:
+    if endless_mode(ctx):
+        selected = state(ctx).get("endless", {}).get("selected")
+        return [] if selected is None else [int(selected)]
 
     valid = nodes(ctx)
 
@@ -2970,6 +3002,8 @@ def chosen_path(ctx: Any) -> list[int]:
 
 
 def completed_mission_ids(ctx: Any) -> set[int]:
+    if endless_mode(ctx):
+        return set(range(-len(state(ctx).get("endless", {}).get("history", [])), 0))
 
 
 
@@ -3034,6 +3068,9 @@ def _initial_nodes(ctx: Any) -> list[int]:
 
 
 def _raw_frontier(ctx: Any) -> list[int]:
+    if endless_mode(ctx) and state_ready(ctx):
+        progress = state(ctx)["endless"]
+        return [int(progress["selected"])] if progress["selected"] is not None else [int(n["mission_id"]) for n in progress["choices"]]
 
 
 
@@ -3066,6 +3103,8 @@ def _raw_frontier(ctx: Any) -> list[int]:
 
 
 def sync_commit_from_checks(ctx: Any) -> bool:
+    if endless_mode(ctx):
+        return False
 
 
 
@@ -3312,6 +3351,11 @@ def _mission_effect_description(ctx: Any, mission_id: int, effect_id: str) -> st
 
 
 def node_status(ctx: Any, mission_id: int) -> str:
+    if endless_mode(ctx) and state_ready(ctx):
+        if int(mission_id) < 0: return "completed"
+        progress = state(ctx)["endless"]
+        if progress["selected"] == int(mission_id): return "selected"
+        return "available" if int(mission_id) in current_frontier(ctx) else "abandoned"
 
     mission_id = int(mission_id)
 
@@ -3798,6 +3842,22 @@ def consume_auto_victory_skip(ctx: Any, mission_id: int) -> bool:
 
 
 def commit_mission(ctx: Any, mission_id: int) -> bool:
+    if endless_mode(ctx):
+        mission_id = int(mission_id)
+        if not can_launch(ctx, mission_id): return False
+        progress = state(ctx)["endless"]
+        fresh = progress["selected"] is None
+        progress["selected"] = mission_id
+        ctx.difficulty_override = int((node(ctx, mission_id) or {}).get("difficulty_override", 0))
+        _arm_godmode_for_mission(ctx, mission_id)
+        if fresh:
+            if int(state(ctx).get("saving_grace_charges", 0)) > 0: _assign_saving_grace(ctx, mission_id)
+            if int(state(ctx).get("risky_investment_charges", 0)) > 0: _assign_risky_investment(ctx, mission_id)
+            _consume_test_overrides_for_mission(ctx, mission_id)
+        state(ctx)["chosen"] = [mission_id]
+        _persist_state(ctx)
+        _consume_auto_victory_for_mission(ctx, mission_id)
+        return True
 
 
 
@@ -11018,6 +11078,8 @@ def ui_signature(ctx: Any) -> tuple[Any, ...]:
 
 
 def edge_pairs(ctx: Any) -> list[tuple[int, int]]:
+    if endless_mode(ctx):
+        return []
 
     graph = nodes(ctx)
 
@@ -11038,6 +11100,8 @@ def edge_pairs(ctx: Any) -> list[tuple[int, int]]:
 
 
 def route_layout_x_fractions(ctx: Any) -> dict[int, float]:
+    if endless_mode(ctx):
+        return {}
 
 
 
@@ -11140,6 +11204,8 @@ def remember_route_layout_x_fractions(ctx: Any, positions: Mapping[int, float]) 
 
 
 def route_horizontal_positions(ctx: Any) -> dict[int, float]:
+    if endless_mode(ctx):
+        return {}
 
 
 
@@ -11202,6 +11268,8 @@ def route_horizontal_positions(ctx: Any) -> dict[int, float]:
 
 
 def traversed_edge_pairs(ctx: Any) -> set[tuple[int, int]]:
+    if endless_mode(ctx):
+        return []
 
 
 
@@ -11209,3 +11277,35 @@ def traversed_edge_pairs(ctx: Any) -> set[tuple[int, int]]:
 
     return {(path[i], path[i + 1]) for i in range(len(path) - 1)}
 
+
+
+def endless_mode(ctx: Any) -> bool:
+    return enabled(ctx) and ctx.slay_config.get("game_mode", "adventure") == "endless"
+
+def _new_endless_floor(ctx: Any, progress: dict[str, Any]) -> None:
+    from SlayTheStarCraft import generate_endless_layer, endless_map_key
+    choices = generate_endless_layer(ctx.slay_config, progress)
+    progress["choices"] = choices
+    progress["selected"] = None
+    progress["offers"] = (progress.get("offers", []) + [[endless_map_key(n) for n in choices]])[-4:]
+
+def complete_endless_mission(ctx: Any, mission_id: int, floor: int) -> bool:
+    if not endless_mode(ctx):
+        return False
+    progress = state(ctx)["endless"]
+    if progress["floor"] != floor or progress["selected"] != int(mission_id):
+        return False
+    winner = next(n for n in progress["choices"] if int(n["mission_id"]) == int(mission_id))
+    updated = copy.deepcopy(progress)
+    updated["history"].append(copy.deepcopy(node(ctx, mission_id) or winner))
+    updated["floor"] += 1
+    _new_endless_floor(ctx, updated)
+    s = state(ctx)
+    s["endless"] = updated
+    s["chosen"] = []
+    for key in ("temporary_blessings", "temporary_mutations", "node_effect_overrides", "test_mission_overrides"):
+        s.get(key, {}).pop(str(mission_id), None)
+    _persist_state(ctx)
+    ctx.finished_game = False
+    credits(ctx)
+    return True

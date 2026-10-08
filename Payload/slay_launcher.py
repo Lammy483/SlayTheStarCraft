@@ -386,9 +386,12 @@ def generate_run(
     extra_shop_slots: int = DEFAULT_EXTRA_SHOP_SLOTS,
     start_with_spear: bool = DEFAULT_START_WITH_SPEAR,
     start_with_kerrigan: bool = DEFAULT_START_WITH_KERRIGAN,
+    game_mode: str = "adventure",
 
 ) -> tuple[Path, dict[str, Any]]:
 
+    if game_mode not in {"adventure", "endless"}:
+        raise ValueError("Unsupported game mode")
     if difficulty not in DIFFICULTIES:
 
         raise ValueError(f"Unsupported difficulty: {difficulty}")
@@ -454,7 +457,7 @@ def generate_run(
 
         "--starting-credits", str(starting_credits),
 
-        "--layers", str(int(campaign_length) - 1),
+        "--layers", str((DEFAULT_CAMPAIGN_LENGTH if game_mode == "endless" else int(campaign_length)) - 1),
 
         "--mutation-frequency-multiplier", str(float(mutation_frequency)),
 
@@ -488,6 +491,13 @@ def generate_run(
         raise RuntimeError("Generator completed but did not create the expected Slay run/YAML files.")
 
     run_data = json.loads(transient_run.read_text(encoding="utf-8"))
+
+    run_data["game_mode"] = game_mode
+    if game_mode == "endless":
+        from SlayTheStarCraft import endless_map_key
+        if len({endless_map_key(n) for n in run_data["nodes"].values()}) < 15:
+            raise ValueError("Endless mode requires at least 15 distinct maps for its five-floor exclusion rule.")
+    transient_run.write_text(json.dumps(run_data, indent=2), encoding="utf-8")
 
     run_id = str(run_data.get("run_id", "")).strip()
 
@@ -586,6 +596,7 @@ def generate_run(
             "starting_credits": int(run_data.get("starting_credits", starting_credits)),
 
             "current_credits": int(run_data.get("starting_credits", starting_credits)),
+            "game_mode": game_mode,
 
             "mutation_frequency": float(run_data.get("mutation_frequency", mutation_frequency)),
 
@@ -1165,6 +1176,7 @@ def install_launcher_tab(manager: Any) -> None:
         spinner.bind(text=selected)
         return spinner
 
+    game_mode_button = make_spinner("adventure", {"adventure": "Standard Mode", "endless": "Endless Mode"})
     difficulty_button = make_spinner(DEFAULT_DIFFICULTY, {value: value.title() for value in DIFFICULTIES})
     game_speed_button = make_spinner(DEFAULT_GAME_SPEED, {
         "default": "Default", "slower": "Slower", "slow": "Slow",
@@ -1177,6 +1189,7 @@ def install_launcher_tab(manager: Any) -> None:
     item_credit_input = compact_text_input(text=str(DEFAULT_ITEM_CREDIT_REWARD), multiline=False, input_filter="int")
 
     # Column 1: campaign/gameplay.
+    add_field(0, "Game Mode", game_mode_button)
     add_field(0, "Gameplay Difficulty", difficulty_button)
     add_field(0, "Game Speed", game_speed_button)
     add_field(0, "Campaign Length", campaign_length_input)
@@ -1251,6 +1264,7 @@ def install_launcher_tab(manager: Any) -> None:
 
         seed_input.disabled = busy
 
+        game_mode_button.disabled = busy
         difficulty_button.disabled = busy
 
         game_speed_button.disabled = busy
@@ -1376,6 +1390,8 @@ def install_launcher_tab(manager: Any) -> None:
 
         seed_input.text = ""
 
+        game_mode_button.text = "Standard Mode"
+        game_mode_button.slay_value = "adventure"
         difficulty_button.text = DEFAULT_DIFFICULTY.title()
 
         difficulty_button.slay_value = DEFAULT_DIFFICULTY
@@ -1513,6 +1529,7 @@ def install_launcher_tab(manager: Any) -> None:
                     item_credit_reward=item_credit_reward,
 
                     game_speed=game_speed, campaign_length=campaign_length,
+                    game_mode=game_mode_button.slay_value,
                     extra_shop_slots=extra_shop_slots, start_with_spear=start_with_spear,
                     start_with_kerrigan=start_with_kerrigan,
 

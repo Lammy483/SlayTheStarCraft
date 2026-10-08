@@ -4768,6 +4768,8 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         client_entry_target: bundled_client_entry.read_text(encoding="utf-8"),
 
+        **{ap_root / name: (source / name).read_text(encoding="utf-8-sig") for name in ("slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_endless_ui.py")},
+
         generator_target: bundled_generator.read_text(encoding="utf-8"),
 
         apr_target: apr_text,
@@ -4865,6 +4867,9 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
         shutil.copy2(bundled_launcher, launcher_target)
 
         shutil.copy2(bundled_client_entry, client_entry_target)
+
+        for name in ("slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_endless_ui.py"):
+            shutil.copy2(source / name, ap_root / name)
 
 
 
@@ -5147,6 +5152,12 @@ def uninstall(ap_root: pathlib.Path, sc2_root: pathlib.Path) -> None:
 
 
 
+
+_native_patch_client = patch_client
+
+def patch_client(text):
+    from slay_endless_client import patch_endless_client
+    return patch_endless_client(_native_patch_client(text))
 
 def main() -> int:
 
