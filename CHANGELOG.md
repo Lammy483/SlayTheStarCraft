@@ -2,6 +2,9 @@
 
 ## 1.1.0 - Development
 
+- Fixed themed navigation by preserving Archipelago's internal tab/screen keys while keeping the visible labels Console Log, Missions, and Settings. Generate Run once again switches to the mission view.
+- Mira's Mercenaries now choose ground camps connected by pathing to the player's home base on normal missions; island missions retain unrestricted ground spawning.
+
 - Fixed an Immortal Zergling Galaxy compile error caused by a five-argument `UnitCreate` call; release validation now checks all `UnitCreate` calls for the required six arguments.
 - Fixed the unavailable-mission X marker by drawing two separate diagonals and doubled its size.
 

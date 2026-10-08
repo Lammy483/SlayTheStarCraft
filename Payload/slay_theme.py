@@ -389,13 +389,13 @@ def _install_navigation(manager) -> None:
         return
     nav = BoxLayout(size_hint_y=None, height=dp(54), spacing=dp(8), padding=[dp(24), dp(6)])
     panel(nav, color=(0.025, 0.065, 0.105, 1), border=False)
-    log_tab = next((t for t in manager.tabs.children if getattr(t, "text", "") in {"Archipelago", "Console Log"}), None)
-    # Match the original client order/names while keeping the themed navigation.
-    manager.slay_mission_tab.text = "Missions"
-    manager.slay_setup_tab.text = "Settings"
+    # Keep the underlying Archipelago tab text unchanged. MDScreenManagerBase
+    # uses tab.text as the screen key, so renaming the actual tab objects breaks
+    # both manual navigation and the launcher's automatic post-generation switch.
+    # The custom themed buttons below provide the user-facing names/order instead.
+    log_tab = next((t for t in manager.tabs.children if getattr(t, "text", "") == "Archipelago"), None)
     tabs = []
     if log_tab:
-        log_tab.text = "Console Log"
         tabs.append((log_tab, "Console Log"))
     tabs.extend(((manager.slay_mission_tab, "Missions"), (manager.slay_setup_tab, "Settings")))
     for tab, caption in tabs:

@@ -557,9 +557,17 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
         '(log_tab, "Console Log")',
         '(manager.slay_mission_tab, "Missions")',
         '(manager.slay_setup_tab, "Settings")',
+        'getattr(t, "text", "") == "Archipelago"',
     ):
         if token not in theme:
             raise RuntimeError(f"Missing v1.1.0 theme update: {token}")
+    for forbidden in (
+        'manager.slay_mission_tab.text = "Missions"',
+        'manager.slay_setup_tab.text = "Settings"',
+        'log_tab.text = "Console Log"',
+    ):
+        if forbidden in theme:
+            raise RuntimeError(f"Theme must not rename Archipelago's internal tab/screen key: {forbidden}")
     if "Redfrog" in theme or "ASSEMBLE YOUR ARMY" in theme:
         raise RuntimeError("Removed acknowledgement/splash copy is still present")
     if "sound.volume=.08" not in support:
@@ -577,6 +585,14 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
     for token in ("def _slay_show_purchase_reveal", "slay.consume_shop_purchase_reveal(self.ctx)"):
         if token not in installer:
             raise RuntimeError(f"Missing shop purchase reveal path: {token}")
+    galaxy = (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8")
+    for token in (
+        "bool requirePlayerPathing = APRG_GroundSpawnsNeedPlayerPathing();",
+        "if (requirePlayerPathing && (home == null || !PointPathingIsConnected(candidate, UnitGetPosition(home)))) { continue; }",
+        "if (requirePlayerPathing) { return APRG_FindRaidOriginGroundPoint(player); }",
+    ):
+        if token not in galaxy:
+            raise RuntimeError(f"Missing Mira Mercenaries player-base pathing guard: {token}")
 
 def main():
     pa = argparse.ArgumentParser()

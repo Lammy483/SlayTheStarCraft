@@ -12500,13 +12500,16 @@ bool APRG_MiraPointNearAlliedBase(point candidate, int player) {
 point APRG_FindMiraCampPoint(int player) {
     int attempt;
     point candidate;
+    unit home = APRG_FindPlayerHomeStructure(player);
     unit nearestPlayerStructure;
     unit nearestEnemy;
+    bool requirePlayerPathing = APRG_GroundSpawnsNeedPlayerPathing();
     unitgroup enemies = APRG_EnemyAllUnits(player);
 
     for (attempt = 0; attempt < APRG_MAX_POINT_ATTEMPTS; attempt += 1) {
         candidate = RegionRandomPoint(RegionPlayableMap());
         if (candidate == null || !PointPathingPassable(candidate)) { continue; }
+        if (requirePlayerPathing && (home == null || !PointPathingIsConnected(candidate, UnitGetPosition(home)))) { continue; }
         nearestPlayerStructure = APRG_NearestPlayerStructure(candidate, player);
         if (nearestPlayerStructure != null && DistanceBetweenPoints(candidate, UnitGetPosition(nearestPlayerStructure)) < 24.0) { continue; }
         if (APRG_MiraPointNearAlliedBase(candidate, player)) { continue; }
@@ -12514,6 +12517,7 @@ point APRG_FindMiraCampPoint(int player) {
         if (nearestEnemy != null && DistanceBetweenPoints(candidate, UnitGetPosition(nearestEnemy)) < 18.0) { continue; }
         return candidate;
     }
+    if (requirePlayerPathing) { return APRG_FindRaidOriginGroundPoint(player); }
     return APRG_FindStaticPatrolGroundPoint(player);
 }
 
