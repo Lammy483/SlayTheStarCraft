@@ -1,0 +1,32 @@
+diff --git a/Payload/generate_slay_run.py b/Payload/generate_slay_run.py
+--- a/Payload/generate_slay_run.py
++++ b/Payload/generate_slay_run.py
+@@
+-EFFECT_SELECTION_MULTIPLIER = {"general": 3.0, "multi_class": 2.0, 'hellion_run_by': 10.0, 'diamondback_wanderers': 10.0, 'leviathan_outside_base': 10.0, 'odin_delayed_assault': 10.0, 'combined_raids': 10.0, 'brakk_primal_army': 10.0, 'orlan_fortress': 10.0, 'enemy_spear_of_adun': 10.0, 'true_golden_armada': 10.0}
++EFFECT_SELECTION_MULTIPLIER = {"general": 3.0, "multi_class": 2.0}
+
+diff --git a/Payload/APRogue.galaxy b/Payload/APRogue.galaxy
+--- a/Payload/APRogue.galaxy
++++ b/Payload/APRogue.galaxy
+@@
+     if (GameGetMissionTime() < 600.0) {
+         destination = APRG_GoldenSafePatrolDestination(UnitGetPosition(anchor), player, g_aprgTrueGoldenPatrolIndex);
+         if (destination == null) { return; }
+     }
+     else {
+-        if (g_aprgFixedPatrolPointCount <= 0) { return; }
+-        if (g_aprgTrueGoldenPatrolIndex < 0 || g_aprgTrueGoldenPatrolIndex >= g_aprgFixedPatrolPointCount) { g_aprgTrueGoldenPatrolIndex = 0; }
+-        destination = g_aprgFixedPatrolPoints[g_aprgTrueGoldenPatrolIndex];
++        // After ten minutes the Armada is no longer constrained to enemy-side
++        // patrol anchors. Pick anywhere in the playable map and attack-move there;
++        // this deliberately allows routes through the player's base.
++        destination = RegionRandomPoint(RegionPlayableMap());
+         if (destination == null) { return; }
+     }
+
+     UnitGroupIssueOrder(g_aprgTrueGoldenFleet, OrderTargetingPoint(AbilityCommand("attack", 0), destination), c_orderQueueReplace);
+-    if (g_aprgFixedPatrolPointCount > 0) {
++    if (GameGetMissionTime() < 600.0 && g_aprgFixedPatrolPointCount > 0) {
+         g_aprgTrueGoldenPatrolIndex = (g_aprgTrueGoldenPatrolIndex + 1) % g_aprgFixedPatrolPointCount;
+     }
+ }
