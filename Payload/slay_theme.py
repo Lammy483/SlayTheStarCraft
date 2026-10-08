@@ -20,6 +20,7 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.filechooser import FileChooserListView
+from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
@@ -235,13 +236,19 @@ def _style_setup(manager, container) -> None:
 
     root = manager.slay_setup_tab.content
     children = list(reversed(root.children))
-    if len(children) == 7:
-        title, instructions, form, race_row, status, actions, spacer = children
-    elif len(children) == 6:
-        title, instructions, form, status, actions, spacer = children
-        race_row = None
-    else:
+    if len(children) not in (6, 7):
         _theme_log(f"Setup theme skipped: expected 6 or 7 root widgets, found {len(children)}")
+        return
+    # The generator may move Available Races before or after the options grid.
+    # Do not unpack these two widgets by position: doing so silently hides the
+    # entire grid in the themed launcher when their order changes.
+    title, instructions = children[:2]
+    status, actions, spacer = children[-3:]
+    middle = children[2:-3]
+    form = next((widget for widget in middle if isinstance(widget, GridLayout)), None)
+    race_row = next((widget for widget in middle if widget is not form), None)
+    if form is None or len(middle) not in (1, 2):
+        _theme_log("Setup theme skipped: cannot identify the generator options grid")
         return
 
     root.clear_widgets()
@@ -282,14 +289,14 @@ def _style_setup(manager, container) -> None:
     form.spacing = [dp(18), dp(12)]
     form.height = dp(350)
     form.size_hint_y = None
-    settings_scroll = ScrollView(do_scroll_x=False)
-    settings_scroll.add_widget(form)
-    settings.add_widget(settings_scroll)
-
     if race_row is not None:
         race_row.size_hint_y = None
         race_row.height = dp(42)
         settings.add_widget(race_row)
+
+    settings_scroll = ScrollView(do_scroll_x=False)
+    settings_scroll.add_widget(form)
+    settings.add_widget(settings_scroll)
 
     status.size_hint_y = None
     status.height = dp(42)

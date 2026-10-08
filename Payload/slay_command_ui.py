@@ -610,9 +610,9 @@ def decorate_node(manager,b):
     b.canvas.before.clear();b.canvas.after.clear()
     race_colors={'Terran':(.52,.75,1,1),'Zerg':(.85,.59,.98,1),'Protoss':(1,.83,.42,1)}
     # The tinted fill is intentionally subdued, not a saturated race-color slab.
-    race_fills={'Terran':(.068,.091,.113,.90),'Zerg':(.091,.069,.109,.90),
-                'Protoss':(.105,.096,.067,.90)}
-    fill=race_fills.get(race,(.10,.12,.14,.93))
+    race_fills={'Terran':(.068,.091,.113,.50),'Zerg':(.091,.069,.109,.50),
+                'Protoss':(.105,.096,.067,.50)}
+    fill=race_fills.get(race,(.10,.12,.14,.50))
     race_color=race_colors.get(race,(.85,.90,.96,1))
     title=label('[b]'+tr(display_name)+'[/b]',font_size=dp(21),halign='left',valign='middle',size_hint=(None,None))
     race_label=label(race,font_size=dp(17),color=race_color,halign='left',valign='middle',size_hint=(None,None))
@@ -626,7 +626,7 @@ def decorate_node(manager,b):
     for widget in (title,race_label,status_label):b.add_widget(widget)
     with b.canvas.before:
         Color(*fill);nameplate=RoundedRectangle(pos=(0,0),size=(0,0),radius=[dp(18)]*4)
-        Color(*race_color[:3],.19);card_edge=Line(rounded_rectangle=(0,0,0,0,dp(18)),width=dp(1))
+        Color(*race_color[:3],.095);card_edge=Line(rounded_rectangle=(0,0,0,0,dp(18)),width=dp(1))
         Color(.05,.18,.28,.45);halo=Ellipse(pos=(0,0),size=(0,0))
         Color(1,1,1,.42 if status=='abandoned' else 1)
         planet=Rectangle(texture=texture(planet_source(name)) or fallback_planet(name),pos=(0,0),size=(0,0))

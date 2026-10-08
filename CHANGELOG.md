@@ -1,3 +1,10 @@
+## v1.1.0 r19 — Launcher settings hotfix and 50% translucent planet cards
+
+- Fix r18 themed-launcher regression that hid the game options: the launcher now inserts Available Races above the form, but the theme still unpacked the seven root widgets in their old order, treating the race row as the form. Detect the four-column GridLayout by widget type so changes to widget order cannot silently remove the full settings controls.
+- Keep Available Races immediately above the generator options, with right-aligned explanation and functioning race selection. Retain Generate/Load/Reset actions, the folder selector and difficulty description panel.
+- Set all three race-tinted mission rectangle fills and the fallback rectangle fill to 50% alpha. Soften the surrounding race-tinted outline to match.
+- Add executable mock-Kivy layout regression tests for both orderings and the no-race fallback, plus 50% opacity checks. SC2 gameplay and all potion effects unchanged.
+
 ## v1.1.0 r18 — generator, mission map, potion HUD and boon icon polish
 
 - Moved race selection above the main generator options; right-aligned both its title and difficulty note immediately beside the checkboxes.
