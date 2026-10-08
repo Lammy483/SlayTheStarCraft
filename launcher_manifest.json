@@ -18,5 +18,6 @@
     "bootstrap.pypa.io",
     "raw.githubusercontent.com/eagleflo/mpyq"
   ],
-  "release_channel": "open_beta"
+  "release_channel": "open_beta",
+  "runtime_revision": "ui-batch-r4"
 }

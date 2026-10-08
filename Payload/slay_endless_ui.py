@@ -18,7 +18,11 @@ def install(module):
             result[mid]=(dp(140)+(width-dp(280))*((lane+.5)/count),dp(30+layers.index(int(n['layer']))*205))
         return result
     command.resolve_route_positions=positions
-    def build(manager,dt):
+    # IMPORTANT: keep this wrapper named build_mission_table. Kivy's WeakMethod
+    # schedules bound callbacks by their function __name__; naming this wrapper
+    # "build" makes Clock later resolve manager.build() instead of the mission
+    # refresh callback, leaving the themed route tab blank.
+    def build_mission_table(manager,dt):
         if not (slay.endless_mode(manager.ctx) and slay.state_ready(manager.ctx)) or manager.launching:
             return original(manager,dt)
         manager.mission_buttons=[]
@@ -34,5 +38,5 @@ def install(module):
         chart=manager.slay_chart
         for i,layer in enumerate(chart.layers):
             chart.add_widget(command.label('Floor '+str(layer+1),size_hint=(None,None),size=(dp(100),dp(30)),pos=(dp(4),dp(95+i*205))))
-    cls.build_mission_table=build
+    cls.build_mission_table=build_mission_table
     cls._slay_endless_ui=True

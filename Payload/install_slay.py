@@ -4481,6 +4481,9 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
     bundled_client_entry = source / "slay_client_entry.py"
 
+    bundled_theme = source / "slay_theme.py"
+    bundled_theme_assets = source / "slay_assets"
+
     bundled_effect_catalog = source / "EFFECT_CATALOG.csv"
 
     bundled_boon_catalog = source / "BOON_CATALOG.csv"
@@ -4517,6 +4520,8 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         (bundled_client_entry, "portable launcher client entry"),
 
+        (bundled_theme, "English SC2 theme module"),
+
         (bundled_effect_catalog, "effect catalog"),
 
         (bundled_boon_catalog, "boon catalog"),
@@ -4540,6 +4545,10 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
         if not path.is_file():
 
             raise FileNotFoundError(f"{label} not found: {path}")
+
+    # Extracted StarCraft II artwork is optional source material and is not
+    # required in the public repository. Portable test packages may bundle a
+    # local slay_assets directory; otherwise the command UI uses drawn fallbacks.
 
 
 
@@ -4769,7 +4778,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         client_entry_target: bundled_client_entry.read_text(encoding="utf-8"),
 
-        **{ap_root / name: (source / name).read_text(encoding="utf-8-sig") for name in ("slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_endless_ui.py")},
+        **{ap_root / name: (source / name).read_text(encoding="utf-8-sig") for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_endless_ui.py")},
 
         generator_target: bundled_generator.read_text(encoding="utf-8"),
 
@@ -4869,8 +4878,11 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         shutil.copy2(bundled_client_entry, client_entry_target)
 
-        for name in ("slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_endless_ui.py"):
+        for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_endless_ui.py"):
             shutil.copy2(source / name, ap_root / name)
+        assets_source = source / "slay_assets"
+        if assets_source.is_dir():
+            shutil.copytree(assets_source, ap_root / "slay_assets", dirs_exist_ok=True)
 
 
 
@@ -5141,6 +5153,14 @@ def uninstall(ap_root: pathlib.Path, sc2_root: pathlib.Path) -> None:
         if path.exists():
 
             path.unlink()
+
+    for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_endless_ui.py"):
+        extra = ap_root / name
+        if extra.exists():
+            extra.unlink()
+    themed_assets = ap_root / "slay_assets"
+    if themed_assets.exists():
+        shutil.rmtree(themed_assets)
 
     if dependency_variant_dir.exists():
 

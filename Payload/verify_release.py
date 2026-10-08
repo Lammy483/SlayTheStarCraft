@@ -47,6 +47,7 @@ def check_payload():
     verify_v10215_changes(ROOT)
     verify_v10216_changes(ROOT)
     verify_v10217_changes(ROOT)
+    verify_v110_ui_batch(ROOT)
     if (RELEASE_ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()!=VERSION: raise RuntimeError("VERSION.txt mismatch")
     exe_path = RELEASE_ROOT / "SlayTheStarCraft.exe"
     if exe_path.is_file():
@@ -93,6 +94,11 @@ def check_payload():
     if '"kerrigan_primal_status": "always_zerg"' not in generator: raise RuntimeError("Kerrigan latent form is not Always Zerg")
     for token in ("DEFAULT_CAMPAIGN_LENGTH = 12", "def _base_effect_means", "def _is_final_quarter", "def _is_past_halfway", "def _effect_selection_weight", "--mutation-frequency-multiplier", "--blessing-frequency-multiplier", '"extra_shop_slots"', '"start_with_spear"', '"start_with_kerrigan"'):
         if token not in generator: raise RuntimeError(f"Missing dynamic-run generator token: {token}")
+    endless_ui=(ROOT/"slay_endless_ui.py").read_text(encoding="utf-8")
+    if "def build_mission_table(manager,dt):" not in endless_ui:
+        raise RuntimeError("Endless UI mission-table wrapper must preserve the build_mission_table callback name")
+    if "cls.build_mission_table=build_mission_table" not in endless_ui:
+        raise RuntimeError("Endless UI mission-table wrapper is not installed under its preserved callback name")
     launcher=(ROOT/"slay_launcher.py").read_text(encoding="utf-8")
     for token in ("Campaign Length", "Mutation Frequency Multiplier", "Blessing Frequency Multiplier", "Extra Shop Slots", "Start with Spear of Adun", "Start with Kerrigan"):
         if token not in launcher: raise RuntimeError(f"Missing launcher setting: {token}")
@@ -508,6 +514,57 @@ def verify_v10217_changes(payload_dir: Path) -> None:
         if token not in galaxy:
             raise RuntimeError(f"Missing v1.0.2.17 True Golden Armada patrol update: {token}")
 
+
+
+def verify_v110_ui_batch(payload_dir: Path) -> None:
+    command = (payload_dir / "slay_command_ui.py").read_text(encoding="utf-8")
+    theme = (payload_dir / "slay_theme.py").read_text(encoding="utf-8")
+    launcher = (payload_dir / "slay_launcher.py").read_text(encoding="utf-8")
+    support = (payload_dir / "slay_ui_support.py").read_text(encoding="utf-8")
+    endless = (payload_dir / "slay_endless_ui.py").read_text(encoding="utf-8")
+    installer = (payload_dir / "install_slay.py").read_text(encoding="utf-8")
+    for token in (
+        "DEFAULT_ROUTE_SCALE=.60",
+        "self.view_mode=getattr(manager,self.view_key,'list')",
+        "SHOP_SECTION_COLUMNS",
+        "INVENTORY_SECTION_COLUMNS",
+        "SECTION_PALETTE",
+        "scroll.scroll_wheel_distance=dp(90)",
+        "scale/DEFAULT_ROUTE_SCALE",
+        "width=dp(2.4 if status=='available' else 1.2)",
+        "width=dp(3)",
+        "font_size=dp(26)",
+    ):
+        if token not in command:
+            raise RuntimeError(f"Missing v1.1.0 UI batch command token: {token}")
+    if "slay_wheel_zoom_bound" in command or "def wheel_zoom(" in command:
+        raise RuntimeError("Mission map still captures mouse wheel for zoom")
+    for token in (
+        "sound.volume = 0.08",
+        'text="[b]DIFFICULTY DESCRIPTION[/b]"',
+        '(log_tab, "Console Log")',
+        '(manager.slay_mission_tab, "Missions")',
+        '(manager.slay_setup_tab, "Settings")',
+    ):
+        if token not in theme:
+            raise RuntimeError(f"Missing v1.1.0 theme update: {token}")
+    if "Redfrog" in theme or "ASSEMBLE YOUR ARMY" in theme:
+        raise RuntimeError("Removed acknowledgement/splash copy is still present")
+    if "sound.volume=.08" not in support:
+        raise RuntimeError("Command UI sound volume was not reduced")
+    for token in (
+        'Seed (leave blank for random)',
+        'option.background_color = (0.12, 0.42, 0.62, 1.0) if active',
+        'spinner.bind(is_open=',
+    ):
+        if token not in launcher:
+            raise RuntimeError(f"Missing v1.1.0 settings UI update: {token}")
+    if "def build_mission_table(manager,dt):" not in endless or "cls.build_mission_table=build_mission_table" not in endless:
+        raise RuntimeError("Endless mission-table wrapper lost the Kivy-safe function name")
+    # Keep randomized blessing/upgrade-pack purchase reveals wired through the native purchase path.
+    for token in ("def _slay_show_purchase_reveal", "slay.consume_shop_purchase_reveal(self.ctx)"):
+        if token not in installer:
+            raise RuntimeError(f"Missing shop purchase reveal path: {token}")
 
 def main():
     pa = argparse.ArgumentParser()

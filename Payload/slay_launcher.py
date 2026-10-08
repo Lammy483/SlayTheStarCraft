@@ -1185,9 +1185,25 @@ def install_launcher_tab(manager: Any) -> None:
             sync_height=True, size_hint_y=None, height=dp(42),
         )
         spinner.slay_value = default_value
+
+        def sync_option_highlights(*_args: Any) -> None:
+            dropdown = getattr(spinner, "_dropdown", None)
+            container = getattr(dropdown, "container", None)
+            if container is None:
+                return
+            for option in getattr(container, "children", ()):
+                if not isinstance(option, SlaySpinnerOption):
+                    continue
+                active = option.text == spinner.text
+                option.background_color = (0.12, 0.42, 0.62, 1.0) if active else (0.18, 0.20, 0.24, 1.0)
+                option.color = (1.0, 1.0, 1.0, 1.0) if active else (0.96, 0.97, 1.0, 1.0)
+
         def selected(instance: Spinner, text: str) -> None:
             instance.slay_value = label_to_value.get(text, default_value)
+            Clock.schedule_once(lambda _dt: sync_option_highlights(), 0)
+
         spinner.bind(text=selected)
+        spinner.bind(is_open=lambda _instance, opened: Clock.schedule_once(lambda _dt: sync_option_highlights(), 0) if opened else None)
         return spinner
 
     game_mode_button = make_spinner("adventure", {"adventure": "Standard Mode", "endless": "Endless Mode"})
@@ -1211,7 +1227,7 @@ def install_launcher_tab(manager: Any) -> None:
     # Column 2: effect generation and seed.
     add_field(1, "Mutation Frequency Multiplier", mutation_multiplier_input)
     add_field(1, "Blessing Frequency Multiplier", blessing_multiplier_input)
-    add_field(1, "Seed", seed_input)
+    add_field(1, "Seed (leave blank for random)", seed_input)
 
     # Column 3: economy.
     add_field(2, "Starting Credits", credits_input)

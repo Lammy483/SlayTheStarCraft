@@ -105,7 +105,7 @@ def _click(widget,*_):
         from kivy.core.audio import SoundLoader
         _SOUNDS[kind]=SoundLoader.load(str(source)) if source.is_file() else None
     sound=_SOUNDS[kind]
-    if sound:sound.stop();sound.volume=.32;sound.play()
+    if sound:sound.stop();sound.volume=.08;sound.play()
 
 
 def button(widget):

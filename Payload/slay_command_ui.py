@@ -2,6 +2,8 @@
 from pathlib import Path
 from collections import defaultdict, OrderedDict
 import math,re
+import os
+import traceback
 from kivy.clock import Clock
 from kivy.metrics import dp
 from kivy.core.image import Image as CoreImage
@@ -28,6 +30,38 @@ SECTIONS=('Terran Units','Terran Upgrades','Zerg Units','Zerg Upgrades','Protoss
           'Defensive Structures & Detectors','General Upgrades','Mercenary Contracts','Mercenaries','Kerrigan','Spear of Adun','Boons','Blessings','Mutations')
 STATUS={'available':('Available',CYAN),'selected':('Current Mission',(.3,1,.64,1)),'completed':('Completed',(.3,.85,.52,1)),
         'future':('Locked',(.3,.47,.61,1)),'abandoned':('Unavailable',(.48,.38,.43,1)),'loading':('Loading',(.52,.63,.7,1))}
+
+DEFAULT_ROUTE_SCALE=.60
+NODE_PLANET_CENTER_Y=128
+SHOP_SECTION_COLUMNS={
+    'Terran Units':0,'Terran Upgrades':0,'Defensive Structures & Detectors':0,
+    'Zerg Units':1,'Zerg Upgrades':1,'General Upgrades':1,
+    'Protoss Units':2,'Protoss Upgrades':2,'Boons':2,
+    'Mercenary Contracts':3,'Mercenaries':3,'Kerrigan':3,'Spear of Adun':3,
+}
+INVENTORY_SECTION_COLUMNS=dict(SHOP_SECTION_COLUMNS,**{'Blessings':2,'Mutations':2})
+SECTION_PALETTE={
+    'Terran Units':(.155,.178,.198,1),'Terran Upgrades':(.170,.191,.211,1),
+    'Defensive Structures & Detectors':(.155,.190,.188,1),
+    'Zerg Units':(.184,.158,.194,1),'Zerg Upgrades':(.198,.170,.206,1),
+    'General Upgrades':(.184,.184,.184,1),
+    'Protoss Units':(.199,.190,.158,1),'Protoss Upgrades':(.211,.201,.170,1),
+    'Mercenary Contracts':(.145,.175,.215,1),'Mercenaries':(.160,.190,.168,1),
+    'Kerrigan':(.198,.164,.181,1),'Spear of Adun':(.225,.195,.120,1),
+    'Boons':(.215,.145,.150,1),'Blessings':(.180,.155,.205,1),'Mutations':(.205,.150,.160,1),
+}
+
+
+def _command_ui_log(message):
+    root=os.environ.get('SLAY_PORTABLE_ROOT','').strip()
+    if not root:return
+    try:
+        path=Path(root)/'Runtime'/'Logs'/'SlayCommandUI.log'
+        path.parent.mkdir(parents=True,exist_ok=True)
+        with path.open('a',encoding='utf-8',errors='replace') as handle:
+            handle.write(message.rstrip()+'\n')
+    except Exception:
+        pass
 
 def texture(source):
     source=str(source)
@@ -215,22 +249,22 @@ class RelicCard(BoxLayout):
 
 class RelicRow(BoxLayout):
     def __init__(self,entry,category,select,shop=False,purchase=None,compact=False,**kwargs):
-        super().__init__(orientation='horizontal',spacing=dp(6 if compact else 12),padding=dp(6 if compact else 10),**kwargs)
-        panel(self,color=(.025,.065,.105,1))
-        self.add_widget(Image(texture=texture(local_icon(entry['id'],entry.get('icon',''),category)),size_hint_x=None,width=dp(48)))
+        super().__init__(orientation='horizontal',spacing=dp(5 if compact else 12),padding=dp(4 if compact else 10),**kwargs)
+        panel(self,color=SECTION_PALETTE.get(category,(.025,.065,.105,1)))
+        self.add_widget(Image(texture=texture(local_icon(entry['id'],entry.get('icon',''),category)),size_hint_x=None,width=dp(42 if compact else 48)))
         text=BoxLayout(orientation='vertical',spacing=dp(4))
-        title=label('[b]'+entry['name']+'[/b]',halign='left',valign='top',auto_height=True,size_hint_y=None,height=dp(26),font_size=dp(15))
-        title.bind(texture_size=lambda w,s:setattr(w,'height',max(dp(26),s[1])))
+        title=label('[b]'+entry['name']+'[/b]',halign='left',valign='top',auto_height=True,size_hint_y=None,height=dp(23 if compact else 26),font_size=dp(14 if compact else 15))
+        title.bind(texture_size=lambda w,s:setattr(w,'height',max(dp(23 if compact else 26),s[1])))
         text.add_widget(title)
         description=label(entry.get('description',''),halign='left',valign='top',auto_height=True,size_hint_y=None)
-        description.bind(texture_size=lambda w,s:setattr(w,'height',max(dp(28),s[1])))
+        description.bind(texture_size=lambda w,s:setattr(w,'height',max(dp(22 if compact else 28),s[1])))
         text.add_widget(description)
-        text.bind(minimum_height=lambda w,h:setattr(self,'height',max(dp(108),h+dp(20))))
+        text.bind(minimum_height=lambda w,h:setattr(self,'height',max(dp(88 if compact else 108),h+dp(14 if compact else 20))))
         self.add_widget(text)
-        actions=BoxLayout(orientation='vertical',spacing=dp(6),size_hint_x=None,width=dp(140 if compact else 150))
+        actions=BoxLayout(orientation='vertical',spacing=dp(6),size_hint_x=None,width=dp(128 if compact else 150))
         if not compact:actions.add_widget(control('Details',lambda *_:select(entry),size_hint_y=None,height=dp(32)))
         if shop:
-            self.purchase_button=control('',lambda *_:purchase(entry['id']),font_size=dp(12),size_hint_y=None,height=dp(46),halign='center',valign='middle')
+            self.purchase_button=control('',lambda *_:purchase(entry['id']),font_size=dp(12),size_hint_y=None,height=dp(40 if compact else 46),halign='center',valign='middle')
             self.purchase_button.bind(size=lambda w,s:setattr(w,'text_size',(max(dp(1),s[0]-dp(10)),s[1])))
             self.purchase_button.slay_sound='command'
             self.purchase_button.slay_item_id=entry['id']
@@ -253,12 +287,12 @@ class CardConsole:
         self.category=getattr(manager,'slay_card_shop_category' if shop else 'slay_card_inventory_category',None)
         self.page=0;self.page_size=8;self.card_widgets={};self.sale_items=set(sale_items)
         self.view_key='slay_shop_view_mode' if shop else 'slay_inventory_view_mode'
-        self.view_mode=getattr(manager,self.view_key,'cards')
+        self.view_mode=getattr(manager,self.view_key,'list')
         self.page_size=16 if self.view_mode=='list' else 8
         self.popup=Popup(title='Slay the StarCraft Shop' if shop else 'Slay the StarCraft Inventory',size_hint=(.98,.94),separator_color=CYAN,
                          background='')
-        root=BoxLayout(orientation='vertical',spacing=dp(12),padding=dp(10));panel(root,border=False)
-        top=BoxLayout(size_hint_y=None,height=dp(54),spacing=dp(10))
+        root=BoxLayout(orientation='vertical',spacing=dp(8),padding=dp(8));panel(root,border=False)
+        top=BoxLayout(size_hint_y=None,height=dp(46),spacing=dp(8))
         top.add_widget(label('[b]Supply Depot[/b]' if shop else '[b]Supply Inventory[/b]',font_size=dp(24),halign='left'))
         self.credit=label('',halign='right');top.add_widget(self.credit)
         self.view_button=control('',lambda *_:self.toggle_view(),size_hint_x=None,width=dp(145))
@@ -295,7 +329,7 @@ class CardConsole:
         self.tech_panel=BoxLayout(orientation='vertical',size_hint_y=None,height=0)
         inspect.add_widget(self.tech_panel)
         body.add_widget(inspect);self.inspector=inspect;root.add_widget(body)
-        footer=BoxLayout(size_hint_y=None,height=dp(42),spacing=dp(10))
+        footer=BoxLayout(size_hint_y=None,height=dp(36),spacing=dp(8))
         footer.add_widget(label('' if shop else 'View acquired supplies, units, upgrades and permanent effects',halign='left',font_size=dp(13)))
         footer.add_widget(control('Return to Route',self.popup.dismiss,size_hint_x=None,width=dp(170)));root.add_widget(footer)
         self.popup.content=root;self.popup.slay_scroll=self.scroll;self.popup.slay_purchase_buttons={}
@@ -318,7 +352,10 @@ class CardConsole:
         self.pages.height=0 if overview else dp(37)
         self.pages.opacity=0 if overview else 1
         self.pages.disabled=overview
-        cols=4 if width>dp(1350) else 3 if width>dp(1000) else 2
+        # The list overview mirrors the original four-column shop/inventory layout.
+        # Keep four columns even during the Popup's tiny pre-open geometry pass; otherwise
+        # the first render permanently creates too few column holders until view toggling.
+        cols=4 if overview else (4 if width>dp(1350) else 3 if width>dp(1000) else 2)
         if self.grid.cols!=cols:self.grid.cols=cols
         self.grid.row_force_default=self.view_mode!='list'
         self.grid.row_default_height=0 if self.view_mode=='list' else dp(250) if self.popup.height>dp(760) else dp(235)
@@ -391,21 +428,20 @@ class CardConsole:
             height=max(dp(1),*(column.height for column in columns))
             for holder in holders:holder.height=height
         for column in columns:column.bind(height=align_columns)
-        counts=[0]*len(columns)
+        section_columns=SHOP_SECTION_COLUMNS if self.shop else INVENTORY_SECTION_COLUMNS
         for category,names in self.sections:
             if category=='Current Discounts' or not names:continue
-            index=0 if category.startswith('Terran') else 1 if category.startswith('Zerg') else 2 if category.startswith('Protoss') else counts.index(min(counts))
-            index=min(index,len(columns)-1)
-            group=BoxLayout(orientation='vertical',size_hint_y=None,padding=dp(6),spacing=dp(4))
+            index=min(section_columns.get(category,2),len(columns)-1)
+            group=BoxLayout(orientation='vertical',size_hint_y=None,padding=dp(4),spacing=dp(3))
             group.bind(minimum_height=group.setter('height'))
-            panel(group,color=(.025,.065,.105,1))
-            group.add_widget(label('[b]'+tr(category)+'[/b]',size_hint_y=None,height=dp(30)))
+            panel(group,color=SECTION_PALETTE.get(category,(.18,.18,.18,1)))
+            group.add_widget(label('[b]'+tr(category)+'[/b]',size_hint_y=None,height=dp(26),font_size=dp(13)))
             for name in names:
                 entry=self.entries[name]
-                row=RelicRow(entry,category,self.inspect,self.shop,lambda item:self.manager._slay_buy(item,self.popup),compact=True,size_hint_y=None,height=dp(108))
+                row=RelicRow(entry,category,self.inspect,self.shop,lambda item:self.manager._slay_buy(item,self.popup),compact=True,size_hint_y=None,height=dp(88))
                 group.add_widget(row);self.card_widgets[name]=row
                 if self.shop:self.popup.slay_purchase_buttons[name]=row.purchase_button
-            columns[index].add_widget(group);counts[index]+=len(names)
+            columns[index].add_widget(group)
         align_columns()
         self.scroll.scroll_y=1
         if self.shop:self.manager._slay_refresh_shop_controls(self.popup)
@@ -516,26 +552,26 @@ def decorate_node(manager,b):
     danger=slay.mission_is_difficulty_outlier(manager.ctx,int(b.mission_id))
     b.text='';b.background_normal='';b.background_down='';b.background_color=(0,0,0,0)
     b.canvas.before.clear();b.canvas.after.clear()
-    title=label('[b]'+tr(name)+'[/b]',font_size=dp(14),halign='center',valign='top',size_hint=(None,None))
+    title=label('[b]'+tr(name)+'[/b]',font_size=dp(26),halign='center',valign='top',size_hint=(None,None))
     b.add_widget(title)
-    status_label=label(caption+(' · High Risk' if danger else ''),font_size=dp(11),color=accent,halign='center',size_hint=(None,None))
+    status_label=label(caption+(' · High Risk' if danger else ''),font_size=dp(19),color=accent,halign='center',size_hint=(None,None))
     b.add_widget(status_label)
     with b.canvas.before:
         Color(.014,.041,.067,.98);nameplate=Rectangle(pos=(0,0),size=(0,0))
         Color(.05,.18,.28,.55);halo=Ellipse(pos=(0,0),size=(0,0))
         Color(1,1,1,.42 if status=='abandoned' else 1);planet=Rectangle(texture=texture(planet_source(name)) or fallback_planet(name),pos=(0,0),size=(0,0))
-        Color(*accent);ring=Line(circle=(0,0,1),width=dp(1.2))
+        Color(*accent);ring=Line(circle=(0,0,1),width=dp(2.4 if status=='available' else 1.2))
         Color(.25,.6,.8,.28);orbit=Line(circle=(0,0,1),width=dp(.7))
-        Color(.95,.29,.24,1 if danger else 0);warning=Line(circle=(0,0,1,25,155),width=dp(2))
+        Color(.95,.29,.24,1 if danger else 0);warning=Line(circle=(0,0,1,25,155),width=dp(3))
         Color(*accent);marker=Line(points=[],width=dp(2))
     def update(*_):
-        cx=b.center_x;cy=b.y+dp(107);radius=dp(39)
+        cx=b.center_x;cy=b.y+dp(NODE_PLANET_CENTER_Y);radius=dp(39)
         halo.pos=(cx-radius-dp(6),cy-radius-dp(6));halo.size=(2*(radius+dp(6)),)*2
         planet.pos=(cx-dp(44),cy-dp(44));planet.size=(dp(88),dp(88))
         ring.circle=(cx,cy,radius+dp(5));orbit.circle=(cx,cy,radius+dp(11));warning.circle=(cx,cy,radius+dp(11),25,155)
-        title.pos=(b.x,b.y+dp(2));title.size=(b.width,dp(34))
-        status_label.pos=(b.x,b.y+dp(38));status_label.size=(b.width,dp(16))
-        nameplate.pos=(b.x+dp(6),b.y+dp(2));nameplate.size=(b.width-dp(12),dp(53))
+        title.pos=(b.x,b.y+dp(2));title.size=(b.width,dp(48))
+        status_label.pos=(b.x,b.y+dp(51));status_label.size=(b.width,dp(24))
+        nameplate.pos=(b.x+dp(6),b.y+dp(2));nameplate.size=(b.width-dp(12),dp(74))
         marker.points=[cx-7,cy-2,cx-1,cy-8,cx+10,cy+7] if status=='completed' else [cx-7,cy-7,cx+7,cy+7,cx-7,cy+7,cx+7,cy-7] if status=='abandoned' else []
     b._slay_node_update=update
     b.bind(pos=update,size=update);update()
@@ -547,17 +583,45 @@ def build_chart(manager):
     from worlds.sc2 import slay_the_starcraft as slay
     buttons=manager.mission_buttons
     if not buttons:return
+    scroll=manager.campaign_scroll_panel
     if not getattr(manager,'slay_chart_container',False):
-        # The legacy MultiCampaignLayout KV height expression also observes the
-        # old table; a plain container gives the chart its own scroll extent.
+        # Attach through the known ScrollView instead of trusting old_panel.parent.
+        # During the first themed refresh Kivy can briefly report parent=None;
+        # marking the chart installed at that point used to leave every route
+        # widget in a detached container and produce a silent black screen.
         old_panel=manager.campaign_panel
-        parent=old_panel.parent
         replacement=GridLayout(cols=1,size_hint=(None,None),padding=0)
-        if parent:
-            parent.remove_widget(old_panel)
-            parent.add_widget(replacement)
+        try:
+            if old_panel is not None and old_panel.parent is not None:
+                old_panel.parent.remove_widget(old_panel)
+            for child in list(getattr(scroll,'children',())):
+                if child is not replacement:
+                    scroll.remove_widget(child)
+            scroll.add_widget(replacement)
+        except Exception:
+            _command_ui_log('Chart container attach failed:\n'+traceback.format_exc())
+            Clock.schedule_once(lambda _dt: build_chart(manager),0)
+            return
         manager.campaign_panel=replacement
         manager.slay_chart_container=True
+        _command_ui_log(f'Chart container attached: scroll={scroll.size} replacement_parent={type(replacement.parent).__name__ if replacement.parent else None}')
+    else:
+        # A previous refresh may have run while the mission screen was detached.
+        # Reattach the existing chart container before taking any early-return.
+        panel_widget=manager.campaign_panel
+        if panel_widget.parent is not scroll:
+            try:
+                if panel_widget.parent is not None:
+                    panel_widget.parent.remove_widget(panel_widget)
+                for child in list(getattr(scroll,'children',())):
+                    if child is not panel_widget:
+                        scroll.remove_widget(child)
+                scroll.add_widget(panel_widget)
+                _command_ui_log('Reattached detached chart container to campaign scroll')
+            except Exception:
+                _command_ui_log('Chart container reattach failed:\n'+traceback.format_exc())
+                Clock.schedule_once(lambda _dt: build_chart(manager),0)
+                return
     if getattr(manager,'slay_chart_buttons',())==tuple(buttons) and getattr(manager,'slay_chart',None) and manager.slay_chart.parent:
         # Original refreshes can restore the compact rectangular-table height.
         # Keep the scroll extent owned by the taller planet chart.
@@ -569,7 +633,7 @@ def build_chart(manager):
     chart=FloatLayout(size_hint=(None,None),size=(dp(max(950,max_width*228+160)),dp((len(layers))*205+125)))
     for b in buttons:
         if b.parent:b.parent.remove_widget(b)
-        b.size_hint=(None,None);b.size=(dp(205),dp(165));decorate_node(manager,b);chart.add_widget(b)
+        b.size_hint=(None,None);b.size=(dp(205),dp(190));decorate_node(manager,b);chart.add_widget(b)
     chart.rows=rows;chart.layers=layers
     legend_text='[b]Sector Route[/b]    [color=64CAFF]◉ Available[/color]    [color=65DB8A]◉ Completed[/color]    [color=EF6E61]◉ High Risk[/color]'
     if manager.ctx.data_out_of_date:legend_text+='\n[color=FFAA66]Map or mod data is out of date. Run /download_data to update.[/color]'
@@ -587,8 +651,8 @@ def build_chart(manager):
             resize=getattr(manager,'slay_chart_resize',None)
             if resize:resize()
         manager.slay_set_zoom=change_zoom
-        slider=Slider(min=.05,max=1.5,value=getattr(manager,'slay_zoom',1),size_hint_x=1)
-        percent=label('100%',size_hint_x=None,width=dp(52),valign='middle')
+        slider=Slider(min=.05,max=1.5,value=getattr(manager,'slay_zoom',DEFAULT_ROUTE_SCALE),size_hint_x=1)
+        percent=label('100%',size_hint_x=None,width=dp(60),valign='middle')
         def slide(_,value):
             if getattr(manager,'slay_sync_zoom',False):return
             manager.slay_zoom_fit=False;manager.slay_zoom=value
@@ -609,7 +673,6 @@ def build_chart(manager):
     scaled.add_widget(chart);scene.add_widget(scaled)
     manager.campaign_panel.add_widget(scene)
     manager.slay_chart_scene=scene;manager.slay_chart_scatter=scaled
-    scroll=manager.campaign_scroll_panel
     # Remove the legacy table's side gutters and expose the full lower viewport.
     if scroll.parent:
         for sibling in list(scroll.parent.children):
@@ -618,16 +681,8 @@ def build_chart(manager):
     scroll.do_scroll_x=True;scroll.do_scroll_y=True
     scroll.scroll_type=['content'];scroll.bar_width=0
     scroll.scroll_x=.5;scroll.scroll_y=0
-    if not getattr(scroll,'slay_wheel_zoom_bound',False):
-        def wheel_zoom(widget,touch):
-            if widget.collide_point(*touch.pos) and getattr(touch,'is_mouse_scrolling',False):
-                direction=getattr(touch,'button','')
-                if direction in ('scrollup','scrolldown'):
-                    manager.slay_set_zoom(1/1.12 if direction=='scrollup' else 1.12)
-                return True
-            return False
-        scroll.bind(on_touch_down=wheel_zoom)
-        scroll.slay_wheel_zoom_bound=True
+    # Leave mouse-wheel events to ScrollView so the wheel scrolls vertically.
+    scroll.scroll_wheel_distance=dp(90)
     manager.campaign_panel.size_hint_x=None
     manager.slay_chart=chart;manager.slay_chart_buttons=tuple(buttons)
     manager.slay_chart_lines=None
@@ -640,7 +695,7 @@ def build_chart(manager):
     floor_labels = {}
     def layout(*_):
         chart.width=max(manager.campaign_scroll_panel.width,dp((3 if False else max_width)*228+160))
-        scale=min(manager.campaign_scroll_panel.width/chart.width,manager.campaign_scroll_panel.height/chart.height) if getattr(manager,'slay_zoom_fit',False) else getattr(manager,'slay_zoom',1)
+        scale=min(manager.campaign_scroll_panel.width/chart.width,manager.campaign_scroll_panel.height/chart.height) if getattr(manager,'slay_zoom_fit',False) else getattr(manager,'slay_zoom',DEFAULT_ROUTE_SCALE)
         scene.size=(max(chart.width*scale,scroll.width),max(chart.height*scale,scroll.height))
         scaled.size=chart.size;scaled.scale=scale
         chart.pos=(0,0)
@@ -650,7 +705,7 @@ def build_chart(manager):
         manager.slay_sync_zoom=True
         manager.slay_zoom_slider.min=min(.05,scroll.height/chart.height,scroll.width/chart.width)
         manager.slay_zoom_slider.value=scale
-        manager.slay_zoom_percent.text=f'{scale:.0%}'
+        manager.slay_zoom_percent.text=f'{scale/DEFAULT_ROUTE_SCALE:.0%}'
         manager.slay_sync_zoom=False
         scroll.scroll_x=.5
         positions=resolve_route_positions(graph_data,chart.width,preferred)
@@ -666,6 +721,7 @@ def build_chart(manager):
     if old:manager.campaign_scroll_panel.unbind(size=old)
     manager.slay_chart_resize=layout
     layout()
+    _command_ui_log(f'Chart built: buttons={len(buttons)} layers={len(layers)} chart={chart.size} scene={scene.size} scroll={scroll.size} panel_parent={type(manager.campaign_panel.parent).__name__ if manager.campaign_panel.parent else None}')
     header=getattr(manager,'slay_header',None)
     if header:
         for w in header.children:
@@ -709,7 +765,7 @@ def draw_edges(manager,*_):
     for src,dst in slay.edge_pairs(manager.ctx):
         a=by_id.get(src);b=by_id.get(dst)
         if not a or not b:continue
-        sx,sy=a.center_x,a.y+dp(107+51);dx,dy=b.center_x,b.y-dp(6)
+        sx,sy=a.center_x,a.y+dp(NODE_PLANET_CENTER_Y+51);dx,dy=b.center_x,b.y-dp(6)
         bend=max(dp(15),(dy-sy)*.52)
         bezier=[sx,sy,sx,sy+bend,dx,dy-bend,dx,dy]
         selected=(src,dst) in traversed
@@ -732,11 +788,41 @@ def install(module):
     if getattr(cls, '_slay_command_ui_installed', False):
         return
     original_build = cls.build_mission_table
+    def _restore_classic(manager):
+        replacement=getattr(manager,'campaign_panel',None)
+        legacy=getattr(manager,'_slay_command_ui_legacy_panel',None)
+        scroll=getattr(manager,'campaign_scroll_panel',None)
+        if legacy is not None and scroll is not None:
+            try:
+                if replacement is not None and replacement is not legacy and replacement.parent is scroll:
+                    scroll.remove_widget(replacement)
+                if legacy.parent is None:
+                    scroll.add_widget(legacy)
+                manager.campaign_panel=legacy
+            except Exception:
+                _command_ui_log('Fallback panel restore failed:\n'+traceback.format_exc())
+        manager.slay_chart=None
+        manager.slay_chart_container=False
+        manager.slay_chart_buttons=()
+        manager.first_check=True
+        manager.refresh_from_launching=False
+        try:
+            original_build(manager,0)
+        except Exception:
+            _command_ui_log('Classic fallback redraw failed:\n'+traceback.format_exc())
+
     def build_mission_table(manager, dt):
         original_build(manager, dt)
         from worlds.sc2 import slay_the_starcraft as slay
-        if slay.enabled(manager.ctx) and not manager.launching:
-            build_chart(manager)
+        if slay.enabled(manager.ctx) and not manager.launching and not getattr(manager,'_slay_command_ui_disabled',False):
+            if getattr(manager,'_slay_command_ui_legacy_panel',None) is None:
+                manager._slay_command_ui_legacy_panel=manager.campaign_panel
+            try:
+                build_chart(manager)
+            except Exception:
+                manager._slay_command_ui_disabled=True
+                _command_ui_log('Command UI disabled after build_chart exception:\n'+traceback.format_exc())
+                _restore_classic(manager)
     cls.build_mission_table = build_mission_table
     original_edges = cls.draw_slay_edges
     def draw_slay_edges(manager, *args):

@@ -16,6 +16,8 @@ This repository tracks the source for the Windows launcher, Slay runtime/client 
 - Adds selectable playable races during run setup.
 - Adds an optional Endless Mode while keeping Standard Mode as the default.
 - Fixes portable-runtime loading of the Endless client patch helper.
+- Ports the full English StarCraft-style theme and fixes the themed route lifecycle.
+- Uses the compact four-column list view as the default shop/inventory presentation while retaining the optional card view.
 
 ### 1.0.2.17 changes
 

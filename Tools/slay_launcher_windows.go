@@ -18,6 +18,7 @@ import (
 
 const (
 	version = "1.1.0"
+	runtimeRevision = "ui-batch-r4"
 
 	className  = "SlayTheStarCraftLauncherWindow"
 	windowName = "Slay the StarCraft"
@@ -106,6 +107,7 @@ type installConfig struct {
 
 type runtimeInfo struct {
 	SlayVersion    string `json:"slay_version"`
+	RuntimeRevision string `json:"runtime_revision"`
 	PythonVersion  string `json:"python_version"`
 	ArchipelagoRef string `json:"archipelago_ref"`
 	SC2DataAPI     string `json:"sc2_data_api"`
@@ -336,7 +338,7 @@ func runtimeDataReady() (bool, string) {
 	}
 	data = []byte(strings.TrimPrefix(string(data), "\ufeff"))
 	var info runtimeInfo
-	if json.Unmarshal(data, &info) != nil || info.SlayVersion != version {
+	if json.Unmarshal(data, &info) != nil || info.SlayVersion != version || info.RuntimeRevision != runtimeRevision {
 		return false, "Required data needs to be downloaded/updated for this Slay version."
 	}
 	required := []string{

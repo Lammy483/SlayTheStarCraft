@@ -5,6 +5,10 @@ Archipelago StarCraft II framework.
 
 V1.1.0 DEVELOPMENT
 
+- The English StarCraft-style theme now covers setup, mission route, shop, and inventory while preserving current v1.1.0 gameplay/settings.
+- Shop and inventory default to the compact four-column list view using the original category placement/colors; card view remains available.
+- Mission-route mouse wheel scrolls vertically, the route defaults to the new 100% scale (old 60%), and mission labels/available/elite outlines are more readable.
+- The themed navigation tabs are Console Log, Missions, and Settings; setup copy and dropdown selection highlighting were cleaned up.
 - True Golden Armada now chooses unrestricted random playable-map patrol destinations after 10 mission minutes. Its fleet attack-moves to those points, so routes can naturally cross and engage the player base.
 - Removed the temporary 10x development selection boost from recently added mutations; new mutations now use the same normal selection weighting as established mutations.
 - Fire in the Sky now excludes both Another Gorgon blessing and mutation in initial generation and runtime/random-effect acquisition.

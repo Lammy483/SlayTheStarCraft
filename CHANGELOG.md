@@ -6,6 +6,8 @@
 - Added selectable Terran/Zerg/Protoss run setup.
 - Added optional Endless Mode while Standard Mode remains the default.
 - Fixed private embedded-Python loading of the Endless client patch helper during Download Data.
+- Ported Wangfeng's full English SC2 theme lifecycle onto the v1.1.0 launcher and fixed the Endless mission-table wrapper that could leave the route blank.
+- Refined the themed UI: list view is the shop/inventory default, original four-column category layout/colors are restored, map zoom/scroll behavior is revised, mission labels/outlines are larger, navigation/settings copy is cleaned up, and UI sound volume is reduced.
 
 This file records public/development milestones. The more detailed rolling development notes remain in `README.txt`.
 

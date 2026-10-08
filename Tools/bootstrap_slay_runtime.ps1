@@ -12,6 +12,7 @@ Set-StrictMode -Version 2.0
 $BootstrapScriptPath = $PSCommandPath
 
 $PackageVersion = "1.1.0"
+$RuntimeRevision = "ui-batch-r4"
 $PythonVersion = "3.13.16"
 $PythonArchiveName = "python-$PythonVersion-embed-amd64.zip"
 $PythonUrl = "https://www.python.org/ftp/python/$PythonVersion/$PythonArchiveName"
@@ -596,6 +597,7 @@ try {
     $runtimeInfo = [ordered]@{
         format_version = 1
         slay_version = $PackageVersion
+        runtime_revision = $RuntimeRevision
         python_version = $PythonVersion
         archipelago_ref = $ArchipelagoRef
         sc2_data_api = "API4"
