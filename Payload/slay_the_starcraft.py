@@ -114,7 +114,7 @@ _AP_ITEM_DOCS = _load_ap_item_docs()
 
 def shop_entry_icon(item_name: str) -> str:
     if item_name in POTION_CATALOG:
-        return "btn-tech-terran-stimpack.png"  # common potion icon; UI fallback is safe
+        return "btn-tech-terran-stimpack.png"  # common consumable icon; UI fallback is safe
 
 
 
@@ -357,6 +357,7 @@ DEFENSIVE_STRUCTURE_ITEMS = {
     "Bunker", "Missile Turret", "Devastator Turret", "Planetary Fortress",
 
     "Perdition Turret", "Sensor Tower", "Psi Disrupter", "Hive Mind Emulator",
+    "Sonic Disrupter (Psi Disrupter)", "Psi Screen (Psi Disrupter)",
 
     "Argus Amplifier (Hive Mind Emulator)", "Psi Indoctrinator (Hive Mind Emulator)",
 
@@ -1183,25 +1184,25 @@ DEFAULT_STATE: dict[str, Any] = {
 # IDs are a stable wire format shared with APRogue.galaxy: do not reorder.
 POTION_PREFIX = "slay_potion::"
 POTION_DEFINITIONS = (
-    ("Mineral Reserves", 1, "Gain 1000 minerals.", "instant"),
-    ("Gas Reserves", 1, "Gain 1000 vespene gas.", "instant"),
-    ("Odin in a Bottle", 2, "Spawn the Odin at the selected location.", "point"),
-    ("Leviathan in a Bottle", 3, "Spawn the Wings of Liberty Leviathan at the selected location, with Mutalisk and Brood Lord spawns every 60 seconds.", "point"),
-    ("Hyperion in a Bottle", 4, "Spawn the Wings of Liberty Hyperion without Legendary Resistance at the selected location.", "point"),
-    ("Drop Pod Wave", 2, "Deploy ten Warfield-style uncontrollable Terran drop pods over two seconds around the selected area.", "point"),
-    ("Mass EMP", 1, "Set current shields and energy of all units to 0 and decloak for 30 seconds. Does not drain Spear of Adun energy.", "instant"),
-    ("Tactical Nuke", 1, "Instantly detonate a tactical nuke at the selected location.", "point"),
-    ("Tosh's Miners", 1, "Deploy a flying Command Center carrying five SCVs at the selected location.", "point"),
-    ("Stealth Protocol", 2, "Cloak all of your units and structures for 60 seconds.", "instant"),
-    ("Mass Stimpack", 2, "All your units gain 50% movement and attack speed for 60 seconds, losing 1 HP per second.", "instant"),
-    ("Spear of Adun Recharge", 2, "Refill the Spear of Adun energy and reset all Spear cooldowns.", "instant"),
-    ("Second Kerrigan", 2, "Spawn a second Kerrigan who will not respawn on death.", "instant"),
-    ("Mercenary Favor", 2, "Call down every available unlocked Merc Compound and Predator Nest mercenary without costing charges or resetting cooldowns.", "instant"),
-    ("Guardian Matrix", 1, "Give the selected friendly unit 2000 temporary shields, removed when depleted.", "friendly"),
-    ("Corruption Spores", 1, "The selected unit or structure takes double damage until it dies.", "unit"),
-    ("Mass Marines", 1, "Lose up to 5000 minerals. Spawn one autonomous, uncommandable Marine at your base for every 10 minerals spent, spread over two seconds.", "instant"),
-    ("Mass Spellcasters", 1, "Lose up to 5000 vespene gas. Spawn one autonomous spellcaster at your base for every 20 gas spent, spread over two seconds.", "instant"),
-    ("Spawn [amount] [unit]", 1, "Spawn a randomized combat unit squad worth 2000 combined minerals and gas at a chosen point. The specific unit and amount appear when offered.", "point"),
+    ("Mineral Reserves", 1, 'Gain 1000 minerals', "instant"),
+    ("Gas Reserves", 1, 'Gain 1000 vespene gas', "instant"),
+    ("Odin in a Bottle", 2, 'Spawn the Odin', "point"),
+    ("Leviathan in a Bottle", 3, 'Spawn the WoL leviathan but with its spawn mutalisk and spawn brood lord abilities on a 60 second cooldown', "point"),
+    ("Hyperion in a Bottle", 4, 'Spawn the WoL hyperion with its legendary resistance removed', "point"),
+    ("Drop Pod Wave", 2, 'Call down 10 terran drop pods on target area.', "point"),
+    ("Mass EMP", 1, 'Reduce all shields and energy of all units to 0 and remove all cloaked for 30 seconds', "instant"),
+    ("Tactical Nuke", 1, 'Immediately detonate a single tactical nuke at target location', "point"),
+    ("Tosh's Miners", 1, 'Drop down a flying command center with 5 scvs loaded inside of it at target location', "point"),
+    ("Stealth Protocol", 2, 'All of your units and structures become stealthed for 1 minute', "instant"),
+    ("Mass Stimpack", 2, 'All of your units gain 50% movement and attack speed for 1 minute, but they all lose 1 hp per second during this time.', "instant"),
+    ("Spear of Adun Recharge", 2, "Set the Spear of Adun's energy to maximum and refresh all of its cooldowns.", "instant"),
+    ("Second Kerrigan", 2, 'Spawn a second kerrigan that does not respawn on death', "instant"),
+    ("Mercenary Favor", 2, 'Instantly call down all units unlocked in the predator nest and merc compound for free regardless of cooldown and charges', "instant"),
+    ("Guardian Matrix", 1, 'Target unit gains 2000 shields until the shields are completely depleted', "friendly"),
+    ("Corruption Spores", 1, 'Target unit or structure takes double damage until death', "unit"),
+    ("Mass Marines", 1, 'Instantly lose up to 5000 minerals. For every 10 minerals lost, spawn a marine at your base that automatically attacks the enemy.', "instant"),
+    ("Mass Spellcasters", 1, 'Instantly lose up to 5000 gas. For every 20 gas spent, spawn a random spellcaster at your base. The spellcasters automatically attack the enemy and use their abilities.', "instant"),
+    ("Spawn [amount] [unit]", 1, 'Spawn [amount] [unit] at target location that automatically attacks the enemy.', "point"),
 )
 POTION_CATALOG = {
     POTION_PREFIX + str(index): dict(index=index, name=name, severity=severity,
@@ -1239,7 +1240,7 @@ POTION_CATALOG.update({
     POTION_VARIANT_PREFIX + str(i): dict(
         index=1900+i, name=f"Spawn {2000 // (mineral + gas)} {plural}",
         severity=1, rarity=1, price=125,
-        description=f"Spawn {2000 // (mineral + gas)} {plural} at a chosen location. They automatically attack enemy positions.",
+        description=f"Spawn {2000 // (mineral + gas)} {plural} at target location that automatically attacks the enemy.",
         target="point", unit=unit_type, amount=2000 // (mineral + gas))
     for i, (_singular, plural, unit_type, mineral, gas) in enumerate(POTION_RANDOM_UNITS, 1)
 })
@@ -1356,7 +1357,7 @@ SHOP_CATEGORY_ORDER = (
 
     "Defensive Structures & Detectors", "General Upgrades",
 
-    "Mercenary Contracts", "Mercenaries", "Kerrigan", "Spear of Adun", "Boons", "Potions",
+    "Mercenary Contracts", "Mercenaries", "Kerrigan", "Spear of Adun", "Boons", "Consumables",
 
 )
 
@@ -7174,7 +7175,7 @@ def _item_race_key(item_name: str, data: Any | None = None) -> str:
 def shop_category_for_item(item_name: str, ctx: Any | None = None, owned_unlocks: set[str] | None = None) -> str:
 
     if item_name in POTION_CATALOG:
-        return "Potions"
+        return "Consumables"
 
     if item_name.startswith(BOON_PREFIX):
 
@@ -10067,7 +10068,7 @@ def purchase(
     if item_name in POTION_CATALOG:
         slots = potion_inventory(ctx)
         if len(slots) >= POTION_CAPACITY:
-            return False, "Both potion slots are full (2/2). Use a potion before buying another."
+            return False, "Both consumable slots are full (2/2). Use a consumable before buying another."
         s = state(ctx)
         serial = max(int(s.get("potion_serial", 0)),
                      *(int(row.get("serial", 0)) for row in s.get("potion_inventory", []) if isinstance(row, dict)), 0) + 1
@@ -10075,7 +10076,7 @@ def purchase(
         s["potion_inventory"] = slots + [{"id": item_name, "serial": serial}]
         s["spent"] = int(s.get("spent", 0)) + price
         _persist_state(ctx)
-        return True, f"Purchased {POTION_CATALOG[item_name]['name']} for {price} credits ({len(slots)+1}/2 potion slots)."
+        return True, f"Purchased {POTION_CATALOG[item_name]['name']} for {price} credits ({len(slots)+1}/2 consumable slots)."
 
     if item_name.startswith(BOON_PREFIX):
 

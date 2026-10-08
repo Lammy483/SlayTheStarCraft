@@ -3890,15 +3890,41 @@ void APRG_RetargetHostilePatrollers() {
 
 point APRG_RandomHeroesOfStormPatrolPoint(unit hero) {
     int attempt;
+    int segment;
+    int segments;
+    int player;
+    fixed t;
+    bool protectedPeriod;
+    bool crossesProtectedArea;
     point current;
     point candidate;
+    point sample;
     if (hero == null || !UnitIsAlive(hero)) { return null; }
+    player = APRG_GetPrimaryPlayer();
+    protectedPeriod = GameGetMissionTime() < 240.0;
     current = UnitGetPosition(hero);
-    for (attempt = 0; attempt < APRG_MAX_POINT_ATTEMPTS; attempt += 1) {
+    for (attempt = 0; attempt < 32; attempt += 1) {
         candidate = RegionRandomPoint(RegionPlayableMap());
         if (candidate == null) { continue; }
         if (DistanceBetweenPoints(current, candidate) < 12.0) { continue; }
         if (!UnitPathableToPoint(hero, candidate, 3.0, 100000.0)) { continue; }
+        if (protectedPeriod) {
+            // Protect the whole proposed path, not just its destination. Sample
+            // at most 20% of 20 range per step so a shortcut cannot cross a base.
+            if (APRG_PointNearPlayerOrAlliedBuilding(candidate, player, 20.0)) { continue; }
+            crossesProtectedArea = false;
+            segments = MinI(80, MaxI(1, FixedToInt(DistanceBetweenPoints(current, candidate) / 3.0) + 1));
+            for (segment = 0; segment <= segments; segment += 1) {
+                t = IntToFixed(segment) / IntToFixed(segments);
+                sample = Point(PointGetX(current) + (PointGetX(candidate) - PointGetX(current)) * t,
+                               PointGetY(current) + (PointGetY(candidate) - PointGetY(current)) * t);
+                if (APRG_PointNearPlayerOrAlliedBuilding(sample, player, 20.0)) {
+                    crossesProtectedArea = true;
+                    break;
+                }
+            }
+            if (crossesProtectedArea) { continue; }
+        }
         return candidate;
     }
     return null;
@@ -8101,9 +8127,20 @@ void APRG_TrySpawnHostileHero(int player) {
     int owner;
     string heroType;
     unitgroup created;
+    int attempt;
+    point candidate;
     if (g_aprgHostileHeroesSpawned >= 7 || g_aprgHostileHeroRetries >= APRG_STATIC_SPAWN_MAX_RETRIES) { return; }
     g_aprgHostileHeroRetries += 1;
-    p = APRG_FindHeroPatrolOrigin(player);
+    // Heroes of the Storm must never materialize within 20 range of a
+    // player-owned or allied structure, even after the early-game grace period.
+    p = null;
+    for (attempt = 0; attempt < 12; attempt += 1) {
+        candidate = APRG_FindHeroPatrolOrigin(player);
+        if (candidate == null) { break; }
+        if (APRG_PointNearPlayerOrAlliedBuilding(candidate, player, 20.0)) { continue; }
+        p = candidate;
+        break;
+    }
     if (p == null) { return; }
     owner = APRG_FindHostileOwnerNearPoint(player, p);
     if (owner < 0) { return; }
@@ -18708,7 +18745,7 @@ bool APRG_TestPotionClick_Func(bool testConds, bool runActions) {
         BankSave(g_aprgTestPotionBank);
     }
     APRG_HideTestPotionUI(player);
-    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText("[Slay] Test Potion consumed: +1000 minerals."));
+    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText("[Slay] Test Consumable consumed: +1000 minerals."));
     return true;
 }
 
@@ -18727,7 +18764,7 @@ void APRG_TickTestPotionUI(int player) {
     g_aprgTestPotionButton = DialogControlCreate(g_aprgTestPotionDialog, c_triggerControlTypeButton);
     DialogControlSetSize(g_aprgTestPotionButton, players, 218, 54);
     DialogControlSetPosition(g_aprgTestPotionButton, players, c_anchorCenter, 0, 0);
-    DialogControlSetPropertyAsText(g_aprgTestPotionButton, c_triggerControlPropertyText, players, StringToText("TEST POTION  |  +1000 MINERALS"));
+    DialogControlSetPropertyAsText(g_aprgTestPotionButton, c_triggerControlPropertyText, players, StringToText("TEST CONSUMABLE  |  +1000 MINERALS"));
     DialogControlSetPropertyAsText(g_aprgTestPotionButton, c_triggerControlPropertyTooltip, players, StringToText("Single use. Grants 1000 minerals and is then removed."));
     DialogSetVisible(g_aprgTestPotionDialog, players, true);
     g_aprgTestPotionTrigger = TriggerCreate("APRG_TestPotionClick_Func");
@@ -18814,7 +18851,7 @@ void APRG_PotionRefreshButtons(int player) {
         if (g_aprgPotionPendingSlot == i) { labelText = labelText + "  [TARGETING]"; }
         DialogControlSetPropertyAsText(g_aprgPotionButton[i], c_triggerControlPropertyText, players, StringToText(labelText));
         DialogControlSetPropertyAsText(g_aprgPotionButton[i], c_triggerControlPropertyTooltip, players,
-            StringToText("One-time consumable. Targeted potions use the native StarCraft II cursor; right-click cancels without spending."));
+            StringToText("One-time consumable. Targeted consumables use the native StarCraft II cursor; right-click cancels without spending."));
         DialogControlSetEnabled(g_aprgPotionButton[i], players, !g_aprgPotionUsed[i] && g_aprgPotionType[i] > 0);
     }
     if (g_aprgPotionDialog != 0) {
@@ -19284,7 +19321,7 @@ bool APRG_PotionNativeOrder_Func(bool testConds, bool runActions) {
             (kind == 15 && UnitGetOwner(target) != player))) {
         APRG_PotionArmNativeTarget(player);
         UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-            StringToText("[Slay] Select a valid unit. Potion not consumed."));
+            StringToText("[Slay] Select a valid unit. Consumable not consumed."));
         return true;
     }
     if (APRG_PotionActivate(player, kind, pos, target)) {
@@ -19295,7 +19332,7 @@ bool APRG_PotionNativeOrder_Func(bool testConds, bool runActions) {
     } else {
         APRG_PotionArmNativeTarget(player);
         UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-            StringToText("[Slay] Invalid target. Potion not consumed."));
+            StringToText("[Slay] Invalid target. Consumable not consumed."));
     }
     return true;
 }
@@ -19316,7 +19353,7 @@ bool APRG_PotionClick_Func(bool testConds, bool runActions) {
         // mod catalog must never leave the UI stuck or spend the potion.
         if (!APRG_PotionArmNativeTarget(player)) {
             UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                StringToText("[Slay] Native potion targeting unavailable. Potion not consumed."));
+                StringToText("[Slay] Native consumable targeting unavailable. Consumable not consumed."));
             return true;
         }
         g_aprgPotionPendingSlot = slot;

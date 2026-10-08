@@ -72,7 +72,7 @@ class ShopR13Tests(unittest.TestCase):
         self.assertTrue((ROOT/'slay_assets/shop_popup_background.png').is_file())
     def test_shop_controls_renamed_and_no_extra_technology_button(self):
         self.assertIn("'[b]Shop[/b]' if shop",UI)
-        self.assertIn("'Exit Shop' if shop",UI)
+        self.assertIn("top.add_widget(control('Exit Shop'",UI)
         self.assertNotIn("control('Technology'",UI)
         self.assertNotIn("Return to Route",UI)
         self.assertNotIn("Supply Depot",UI)

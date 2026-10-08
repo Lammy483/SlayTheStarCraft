@@ -63,7 +63,7 @@ class PotionTests(unittest.TestCase):
             self.assertEqual((info['index'],info['name'],info['rarity'],info['target']), (i,name,rarity,target))
             self.assertEqual(NS['price_for_item']("slay_potion::"+str(i),self.ctx),125*rarity)
             self.assertEqual(info['price'],125*rarity)
-            self.assertEqual(NS['shop_category_for_item']("slay_potion::"+str(i)),"Potions")
+            self.assertEqual(NS['shop_category_for_item']("slay_potion::"+str(i)),"Consumables")
     def test_random_variants_are_named_and_budgeted_at_shop_time(self):
         for i, (singular,plural,unit,minerals,gas) in enumerate(NS['POTION_RANDOM_UNITS'],1):
             potion=NS['POTION_CATALOG'][f'slay_potion::19::{i}']

@@ -27,7 +27,7 @@ ICON_MAP=json.loads(Path(__file__).with_name('slay_ui_icons.json').read_text(enc
 TEXTURES=OrderedDict()
 CYAN=(.28,.78,1,1)
 SECTIONS=('Terran Units','Terran Upgrades','Zerg Units','Zerg Upgrades','Protoss Units','Protoss Upgrades',
-          'Defensive Structures & Detectors','General Upgrades','Mercenary Contracts','Mercenaries','Kerrigan','Spear of Adun','Boons','Potions','Blessings','Mutations')
+          'Defensive Structures & Detectors','General Upgrades','Mercenary Contracts','Mercenaries','Kerrigan','Spear of Adun','Boons','Consumables','Blessings','Mutations')
 STATUS={'available':('Available',CYAN),'selected':('Current Mission',(.3,1,.64,1)),'completed':('Completed',(.3,.85,.52,1)),
         'future':('Locked',(.3,.47,.61,1)),'abandoned':('Unavailable',(.48,.38,.43,1)),'loading':('Loading',(.52,.63,.7,1))}
 
@@ -40,7 +40,7 @@ SHOP_SECTION_COLUMNS={
     'Terran Units':0,'Terran Upgrades':0,'Defensive Structures & Detectors':0,
     'Zerg Units':1,'Zerg Upgrades':1,'General Upgrades':1,
     'Protoss Units':2,'Protoss Upgrades':2,'Boons':2,
-    'Mercenary Contracts':3,'Mercenaries':3,'Kerrigan':3,'Spear of Adun':3,'Potions':3,
+    'Mercenary Contracts':3,'Mercenaries':3,'Kerrigan':3,'Spear of Adun':3,'Consumables':3,
 }
 INVENTORY_SECTION_COLUMNS=dict(SHOP_SECTION_COLUMNS,**{'Blessings':2,'Mutations':2})
 SECTION_PALETTE={
@@ -50,7 +50,7 @@ SECTION_PALETTE={
     'General Upgrades':(.184,.184,.184,1),
     'Protoss Units':(.199,.190,.158,1),'Protoss Upgrades':(.211,.201,.170,1),
     'Mercenary Contracts':(.145,.175,.215,1),'Mercenaries':(.160,.190,.168,1),
-    'Kerrigan':(.198,.164,.181,1),'Spear of Adun':(.225,.195,.120,1),'Potions':(.125,.205,.215,1),
+    'Kerrigan':(.198,.164,.181,1),'Spear of Adun':(.225,.195,.120,1),'Consumables':(.125,.205,.215,1),
     'Boons':(.215,.145,.150,1),'Blessings':(.180,.155,.205,1),'Mutations':(.205,.150,.160,1),
 }
 
@@ -333,6 +333,9 @@ class CardConsole:
         self.credit=label('',halign='right');top.add_widget(self.credit)
         self.view_button=control('',lambda *_:self.toggle_view(),size_hint_x=None,width=dp(145))
         top.add_widget(self.view_button)
+        if shop:
+            # Put Exit Shop at the far right, immediately after Show Cards/List.
+            top.add_widget(control('Exit Shop',self.popup.dismiss,size_hint_x=None,width=dp(170)))
         root.add_widget(top)
         body=BoxLayout(spacing=dp(14))
         sidebar_scroll=ScrollView(size_hint_x=None,width=dp(170),do_scroll_x=False)
@@ -365,9 +368,11 @@ class CardConsole:
         self.tech_panel=BoxLayout(orientation='vertical',size_hint_y=None,height=0)
         inspect.add_widget(self.tech_panel)
         body.add_widget(inspect);self.inspector=inspect;root.add_widget(body)
-        footer=BoxLayout(size_hint_y=None,height=dp(36),spacing=dp(8))
-        footer.add_widget(label('' if shop else 'View acquired supplies, units, upgrades and permanent effects',halign='left',font_size=dp(13)))
-        footer.add_widget(control('Exit Shop' if shop else 'Close Inventory',self.popup.dismiss,size_hint_x=None,width=dp(170)));root.add_widget(footer)
+        if not shop:
+            footer=BoxLayout(size_hint_y=None,height=dp(36),spacing=dp(8))
+            footer.add_widget(label('View acquired supplies, units, upgrades and permanent effects',halign='left',font_size=dp(13)))
+            footer.add_widget(control('Close Inventory',self.popup.dismiss,size_hint_x=None,width=dp(170)))
+            root.add_widget(footer)
         self.popup.content=root;self.popup.slay_scroll=self.scroll;self.popup.slay_purchase_buttons={}
         self.popup.slay_credit_label=self.credit;self.popup.slay_console=self
         self.popup.bind(size=self.resize)
@@ -479,10 +484,10 @@ class CardConsole:
             group.bind(minimum_height=group.setter('height'))
             panel(group,color=SECTION_PALETTE.get(category,(.18,.18,.18,1)))
             heading = '[b]'+tr(category)+'[/b]'
-            if category == 'Potions':
+            if category == 'Consumables':
                 from worlds.sc2 import slay_the_starcraft as slay
                 count = len(slay.potion_inventory(self.manager.ctx))
-                heading += f'     [color=82DFF5]Potion slots: {count}/2[/color]'
+                heading += f'     [color=82DFF5]Consumable slots: {count}/2[/color]'
             group.add_widget(label(heading,size_hint_y=None,height=dp(26),font_size=dp(13)))
             for name in names:
                 entry=self.entries[name]
@@ -620,7 +625,8 @@ def decorate_node(manager,b):
                 color=(.83,.93,1,1),halign='left',valign='middle',size_hint=(None,None))
     race_label=Label(text=tr(race),markup=True,font_size=dp(17),color=race_color,
                      halign='left',valign='middle',size_hint=(None,None))
-    status_label=Label(text=tr(caption+(' · High Risk' if danger else '')),markup=True,
+    risk_suffix=' [color=FF5353]· High Risk[/color]' if danger else ''
+    status_label=Label(text=tr(caption)+risk_suffix,markup=True,
                        font_size=dp(16),color=accent,halign='left',valign='middle',size_hint=(None,None))
     # Measure unwrapped titles, then allow up to two complete lines for long
     # names. Never shorten the text or crop its leading words.
@@ -649,7 +655,7 @@ def decorate_node(manager,b):
         planet=Rectangle(texture=texture(planet_source(name)) or fallback_planet(name),pos=(0,0),size=(0,0))
         Color(*accent);ring=Line(circle=(0,0,1),width=dp(2.4 if status=='available' else 1.2))
         Color(.25,.6,.8,.28);orbit=Line(circle=(0,0,1),width=dp(.7))
-        Color(.95,.29,.24,1 if danger else 0);warning=Line(circle=(0,0,1,25,155),width=dp(3))
+        Color(.95,.29,.24,1 if danger else 0);warning=Line(circle=(0,0,1),width=dp(3))
         Color(*accent);marker=Line(points=[],width=dp(2));marker_cross=Line(points=[],width=dp(2))
     def update(*_):
         cx=b.x+dp(NODE_PLANET_X);cy=b.y+dp(NODE_PLANET_CENTER_Y);radius=dp(39)
@@ -657,7 +663,7 @@ def decorate_node(manager,b):
         card_edge.rounded_rectangle=(b.x+dp(1),b.y+dp(1),max(0,b.width-dp(2)),max(0,b.height-dp(2)),dp(18))
         halo.pos=(cx-radius-dp(6),cy-radius-dp(6));halo.size=(2*(radius+dp(6)),)*2
         planet.pos=(cx-dp(44),cy-dp(44));planet.size=(dp(88),dp(88))
-        ring.circle=(cx,cy,radius+dp(5));orbit.circle=(cx,cy,radius+dp(11));warning.circle=(cx,cy,radius+dp(11),25,155)
+        ring.circle=(cx,cy,radius+dp(5));orbit.circle=(cx,cy,radius+dp(11));warning.circle=(cx,cy,radius+dp(11))
         text_x=b.x+dp(110);text_width=max(dp(40),b.width-dp(121))
         status_label.pos=(text_x,b.y+dp(81));status_label.size=(text_width,dp(24))
         race_label.pos=(text_x,b.y+dp(56));race_label.size=(text_width,dp(23))

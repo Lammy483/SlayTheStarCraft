@@ -1,3 +1,12 @@
+## v1.1.0 r21 — Consumables, mission risk, shop and Heroes of the Storm safety
+
+- Reclassify Sonic Disrupter and Psi Screen (Psi Disrupter upgrades) under Defensive Structures & Detectors, alongside the Psi Disrupter itself.
+- Rename visible Potions labels, shop headings, slot messages, and in-game UI notifications to Consumables. Preserve stable internal IDs and the SC2Bank keys for compatibility with existing saves.
+- Display the uploaded Effect Description column verbatim for all 19 consumable types, excluding Development notes. The randomized unit offer substitutes the rolled quantity and plural unit name into the original description template.
+- Move Exit Shop into the popup header's top-right corner, with Show Cards immediately to its left; eliminate the shop footer.
+- Draw a full red High Risk circle around each high-risk planet and make the High Risk text red.
+- Heroes of the Storm hostile heroes must spawn >=20 range from player/allied structures. Until 4 minutes of mission time, patrol targets and sampled straight-line routes maintain the same clearance. The original 4-minute timed-defense attack behavior remains unchanged.
+
 ## v1.1.0 r20 — Planet routes and Spear Pylon progression
 
 - Draw race-tinted mission-card backgrounds in the chart background canvas, route curves above those cards, and child planet images above the curves. Connectors now terminate ~12dp inside each planet for a visually angled emerge/enter effect.

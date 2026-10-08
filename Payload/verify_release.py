@@ -468,7 +468,7 @@ def verify_v10215_changes(payload_dir: Path) -> None:
         "g_aprgNextImmortalZerglingTargetTime = now + 60.0",
         "APRG_OrderAttackMove(g_aprgImmortalZergling",
         "APRG_TickTestPotionUI",
-        "TEST POTION  |  +1000 MINERALS",
+        "TEST CONSUMABLE  |  +1000 MINERALS",
         "minerals + 1000",
         "TestMineralPotionRunToken",
         "StringWord(EventChatMessage(false), 20)",
