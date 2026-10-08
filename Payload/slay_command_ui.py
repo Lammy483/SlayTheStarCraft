@@ -614,19 +614,36 @@ def decorate_node(manager,b):
                 'Protoss':(.105,.096,.067,.50)}
     fill=race_fills.get(race,(.10,.12,.14,.50))
     race_color=race_colors.get(race,(.85,.90,.96,1))
-    title=label('[b]'+tr(display_name)+'[/b]',font_size=dp(21),halign='left',valign='middle',size_hint=(None,None))
-    race_label=label(race,font_size=dp(17),color=race_color,halign='left',valign='middle',size_hint=(None,None))
-    status_label=label(caption+(' · High Risk' if danger else ''),font_size=dp(16),color=accent,halign='left',valign='middle',size_hint=(None,None))
-    # Measure the *entire* text before imposing card geometry; no clipping of
-    # swapped-race variants or very long mission names.
-    for widget in (title,race_label,status_label):
-        widget.text_size=(None,None)
-        widget.texture_update()
-    b.size=(max(dp(294),dp(117)+max(widget.texture_size[0] for widget in (title,race_label,status_label))),dp(NODE_CARD_HEIGHT))
+    # These must be standalone Labels: the generic label() helper binds
+    # text_size to *both* dimensions, clipping glyphs when card sizes change.
+    title=Label(text='[b]'+tr(display_name)+'[/b]',markup=True,font_size=dp(21),
+                color=(.83,.93,1,1),halign='left',valign='middle',size_hint=(None,None))
+    race_label=Label(text=tr(race),markup=True,font_size=dp(17),color=race_color,
+                     halign='left',valign='middle',size_hint=(None,None))
+    status_label=Label(text=tr(caption+(' · High Risk' if danger else '')),markup=True,
+                       font_size=dp(16),color=accent,halign='left',valign='middle',size_hint=(None,None))
+    # Measure unwrapped titles, then allow up to two complete lines for long
+    # names. Never shorten the text or crop its leading words.
+    title.text_size=(None,None);title.texture_update()
+    race_label.text_size=(None,None);race_label.texture_update()
+    status_label.text_size=(None,None);status_label.texture_update()
+    text_width=max(dp(175),min(dp(520),title.texture_size[0]+dp(8)),
+                   race_label.texture_size[0]+dp(8),status_label.texture_size[0]+dp(8))
+    for _ in range(4):
+        title.text_size=(text_width,None);title.texture_update()
+        if title.texture_size[1]<=dp(47):break
+        text_width=min(dp(590),text_width+dp(36))
+        if text_width>=dp(590) and title.texture_size[1]>dp(47):
+            title.font_size=max(dp(17),title.font_size-dp(2))
+    title.text_size=(text_width,None)
+    b.size=(max(dp(294),dp(121)+text_width),dp(NODE_CARD_HEIGHT))
     for widget in (title,race_label,status_label):b.add_widget(widget)
+    # Card rectangles are painted by draw_edges on the chart's background
+    # layer. Its connections therefore sit over the rectangle, but behind the
+    # planets and captions in the buttons' own canvases.
     with b.canvas.before:
-        Color(*fill);nameplate=RoundedRectangle(pos=(0,0),size=(0,0),radius=[dp(18)]*4)
-        Color(*race_color[:3],.095);card_edge=Line(rounded_rectangle=(0,0,0,0,dp(18)),width=dp(1))
+        Color(*fill[:3],0);nameplate=RoundedRectangle(pos=(0,0),size=(0,0),radius=[dp(18)]*4)
+        Color(*race_color[:3],0);card_edge=Line(rounded_rectangle=(0,0,0,0,dp(18)),width=dp(1))
         Color(.05,.18,.28,.45);halo=Ellipse(pos=(0,0),size=(0,0))
         Color(1,1,1,.42 if status=='abandoned' else 1)
         planet=Rectangle(texture=texture(planet_source(name)) or fallback_planet(name),pos=(0,0),size=(0,0))
@@ -644,7 +661,7 @@ def decorate_node(manager,b):
         text_x=b.x+dp(110);text_width=max(dp(40),b.width-dp(121))
         status_label.pos=(text_x,b.y+dp(81));status_label.size=(text_width,dp(24))
         race_label.pos=(text_x,b.y+dp(56));race_label.size=(text_width,dp(23))
-        title.pos=(text_x,b.y+dp(13));title.size=(text_width,dp(40))
+        title.pos=(text_x,b.y+dp(8));title.size=(text_width,dp(47))
         if status=='completed':
             marker.points=[cx-7,cy-2,cx-1,cy-8,cx+10,cy+7];marker_cross.points=[]
         elif status=='abandoned':
@@ -885,31 +902,46 @@ def draw_edges(manager,*_):
     chart=getattr(manager,'slay_chart',None)
     if chart is None or chart.parent is None:return
     old=getattr(manager,'slay_chart_lines',None)
-    if old:chart.canvas.after.remove(old)
+    if old:chart.canvas.before.remove(old)
     group=InstructionGroup();by_id={int(b.mission_id):b for b in manager.mission_buttons};traversed=slay.traversed_edge_pairs(manager.ctx);count=0
+    # First paint race-tinted rectangles, then routes on the SAME chart layer.
+    # Kivy draws the child mission buttons (and their planet graphics) later,
+    # masking the final part of each line behind the planet itself.
+    race_fills={'Terran':(.068,.091,.113,.50),'Zerg':(.091,.069,.109,.50),
+                'Protoss':(.105,.096,.067,.50)}
+    race_edges={'Terran':(.52,.75,1,.095),'Zerg':(.85,.59,.98,.095),
+                'Protoss':(1,.83,.42,.095)}
+    for mission_id,b in by_id.items():
+        data=slay.node(manager.ctx,mission_id) or {}
+        race=str(data.get('race') or '').strip().title()
+        group.add(Color(*race_fills.get(race,(.10,.12,.14,.50))))
+        group.add(RoundedRectangle(pos=b.pos,size=b.size,radius=[dp(18)]*4))
+        group.add(Color(*race_edges.get(race,(.85,.90,.96,.095))))
+        group.add(Line(rounded_rectangle=(b.x+dp(1),b.y+dp(1),max(0,b.width-dp(2)),
+                                          max(0,b.height-dp(2)),dp(18)),width=dp(1)))
     for src,dst in slay.edge_pairs(manager.ctx):
         a=by_id.get(src);b=by_id.get(dst)
         if not a or not b:continue
-        # Connections continue slightly into both cards. Chart canvas.after
-        # deliberately draws the curves above the rounded backgrounds rather
-        # than hiding the last section beneath the card.
-        sx,sy=a.x+dp(NODE_PLANET_X),a.y+dp(NODE_CARD_HEIGHT-12)
-        dx,dy=b.x+dp(NODE_PLANET_X),b.y+dp(12)
+        # End 10-12dp *inside* each planet silhouette. The planets render after
+        # this canvas group and cover the endpoints; only emerging angled stems
+        # remain visible, instead of a line across the face of the planet.
+        sx,sy=a.x+dp(NODE_PLANET_X),a.y+dp(NODE_PLANET_CENTER_Y+27)
+        dx,dy=b.x+dp(NODE_PLANET_X),b.y+dp(NODE_PLANET_CENTER_Y-27)
         bend=max(dp(15),(dy-sy)*.52)
-        bezier=[sx,sy,sx,sy+bend,dx,dy-bend,dx,dy]
+        sway=(dx-sx)*.18
         selected=(src,dst) in traversed
         color=(.30,.90,.59) if selected else (.24,.58,.79)
         points=[]
         for i in range(33):
             t=i/32;u=1-t
-            points.append((u*u*u*sx+3*u*u*t*sx+3*u*t*t*dx+t*t*t*dx,
+            points.append((u*u*u*sx+3*u*u*t*(sx+sway)+3*u*t*t*(dx-sway)+t*t*t*dx,
                            u*u*u*sy+3*u*u*t*(sy+bend)+3*u*t*t*(dy-bend)+t*t*t*dy))
         group.add(Color(*color,.12));group.add(stroke_mesh(points,dp(6)))
         group.add(Color(*color,.95 if selected else .6));group.add(stroke_mesh(points,dp(2.5)))
         # No triangular arrowhead: the connection curve is the route indicator.
-        # The foreground layer lets it continue visibly onto the race-tinted card.
+        # Routes are in front of the background cards, but behind planet images.
         count+=1
-    chart.canvas.after.add(group);manager.slay_chart_lines=group;manager.slay_chart_edge_count=count
+    chart.canvas.before.add(group);manager.slay_chart_lines=group;manager.slay_chart_edge_count=count
 
 
 def install(module):

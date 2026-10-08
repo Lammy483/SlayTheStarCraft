@@ -32,10 +32,10 @@ class R17RegressionTests(unittest.TestCase):
         self.assertIn('NODE_PLANET_CENTER_Y=58', UI)
         self.assertIn('ROUTE_FLOOR_SPACING=178', UI)
         self.assertIn('text_x=b.x+dp(110)', UI)
-        self.assertIn('title.pos=(text_x,b.y+dp(13))', UI)
+        self.assertIn('title.pos=(text_x,b.y+dp(8))', UI)
         self.assertIn('status_label.pos=(text_x,b.y+dp(81))', UI)
         self.assertIn('race_label.pos=(text_x,b.y+dp(56))', UI)
-        self.assertIn('max(widget.texture_size[0] for widget in (title,race_label,status_label))', UI)
+        self.assertIn('title.text_size=(text_width,None)' , UI)
         self.assertIn('b.x+dp(NODE_PLANET_X)', UI)
 
     def test_sale_background_instead_of_green_outline(self):

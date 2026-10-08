@@ -854,6 +854,9 @@ MERCENARY_BASE_UNIT_EQUIVALENTS: dict[str, set[str]] = {
 
 
 
+# The Spear's initial Deploy Pylon tier is granted for free on unlock.
+SPEAR_BASE_PYLON_ITEM = "Progressive Proxy Pylon (Spear of Adun)"
+
 SPEAR_FALLBACK_ITEMS = {
 
     "Chrono Surge (Spear of Adun)", "Progressive Proxy Pylon (Spear of Adun)",
@@ -2072,6 +2075,7 @@ def _fresh_state_from_config(ctx: Any) -> dict[str, Any]:
     purchases = dict(fresh.get("purchases", {}))
     if bool(cfg.get("start_with_spear", False)):
         purchases[SPEAR_UNLOCK] = 1
+        purchases[SPEAR_BASE_PYLON_ITEM] = max(1,purchases.get(SPEAR_BASE_PYLON_ITEM,0))
     if bool(cfg.get("start_with_kerrigan", False)):
         purchases[KERRIGAN_UNLOCK] = 1
     fresh["purchases"] = purchases
@@ -2268,6 +2272,8 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
 
                 purchases[str(name)] = count_i
 
+    if purchases.get(SPEAR_UNLOCK,0)>0:
+        purchases[SPEAR_BASE_PYLON_ITEM] = max(1,purchases.get(SPEAR_BASE_PYLON_ITEM,0))
     state["purchases"] = purchases
 
     raw_inventory_snapshot = value.get("inventory_received_snapshot", [])
@@ -7422,7 +7428,16 @@ def boon_display_name(item_name: str) -> str:
 
 
 
+SHOP_DESCRIPTION_OVERRIDES = {
+    SPEAR_BASE_PYLON_ITEM: "Your pylon now comes with a squad of reinforcements",
+    **{name: "Allows the next tier of armor and weapon upgrades to be purchased during a mission."
+       for name in RACE_WEAPON_ARMOR_UPGRADE_ITEMS},
+}
+
+
 def shop_entry_description(item_name: str) -> str:
+    if item_name in SHOP_DESCRIPTION_OVERRIDES:
+        return SHOP_DESCRIPTION_OVERRIDES[item_name]
     if item_name in POTION_CATALOG:
         return str(POTION_CATALOG[item_name]["description"])
 
@@ -10073,6 +10088,8 @@ def purchase(
     purchases=dict(s.get("purchases",{}))
 
     purchases[item_name]=int(purchases.get(item_name,0))+1
+    if item_name == SPEAR_UNLOCK:
+        purchases[SPEAR_BASE_PYLON_ITEM] = max(1,int(purchases.get(SPEAR_BASE_PYLON_ITEM,0)))
 
     s["purchases"]=purchases
 
@@ -10112,8 +10129,9 @@ def purchase(
 
     _persist_state(ctx)
 
-    if item_name in _item_table():
+    if item_name in _item_table() or item_name == SPEAR_UNLOCK:
 
+        # The Spear unlock also grants the first real AP Deploy Pylon item.
         _request_live_item_refresh(ctx)
 
     return True,f"Purchased {shop_entry_display_name(item_name)} for {price} credits."

@@ -42,7 +42,7 @@ class R15MapShopTests(unittest.TestCase):
     def test_mission_labels_in_horizontal_rounded_cards(self):
         self.assertIn('nameplate=RoundedRectangle(', UI)
         self.assertIn('text_x=b.x+dp(110)', UI)
-        self.assertIn('title.pos=(text_x,b.y+dp(13))', UI)
+        self.assertIn('title.pos=(text_x,b.y+dp(8))', UI)
         self.assertIn('race_label.pos=(text_x,b.y+dp(56))', UI)
 
     def test_sale_label_and_green_background_in_default_rows(self):

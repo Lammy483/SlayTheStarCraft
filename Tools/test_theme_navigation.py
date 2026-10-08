@@ -68,7 +68,7 @@ class ThemeNavigationTests(unittest.TestCase):
 
     def test_mission_race_label_is_only_race(self):
         source=(ROOT/'Payload/slay_command_ui.py').read_text(encoding='utf-8')
-        self.assertIn("race_label=label(race,",source)
+        self.assertIn("race_label=Label(text=tr(race),",source)
         self.assertNotIn("race_label=label('Playing as '+race,",source)
 
 if __name__=='__main__':

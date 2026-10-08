@@ -66,7 +66,7 @@ class R14Tests(unittest.TestCase):
         self.assertIn('key_panel=BoxLayout(',self.chart)
         self.assertIn('strip.add_widget(key_panel)',self.chart)
         self.assertIn('NODE_PLANET_X',self.chart)
-        self.assertIn('NODE_CARD_HEIGHT-12',self.chart)
+        self.assertIn('NODE_PLANET_CENTER_Y+27',self.chart)
         self.assertIn('ROUTE_FLOOR_SPACING=178',self.chart)
         self.assertNotIn('panel(strip,color=',self.chart)
 
@@ -91,7 +91,7 @@ class R14Tests(unittest.TestCase):
         with (P/'SPEAR_OF_ADUN_SHOP_CATALOG.csv').open(encoding='utf-8',newline='') as f:
             rows=list(csv.DictReader(f))
         row=next(row for row in rows if row['Item Title']=='Unlock Spear of Adun')
-        self.assertEqual(row['Description'],'The Spear of Adun is available on all missions but starts with no abilities.')
+        self.assertEqual(row['Description'],'The Spear of Adun is available on all missions and starts with "Deploy Pylon".')
         self.assertIn("return PROGRESSION_DESCRIPTIONS.get(item_name, \"\")",self.runtime)
         self.assertIn('def shop_icon_texture(item, source=',self.chart)
 

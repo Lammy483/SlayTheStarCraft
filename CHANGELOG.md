@@ -1,3 +1,11 @@
+## v1.1.0 r20 — Planet routes and Spear Pylon progression
+
+- Draw race-tinted mission-card backgrounds in the chart background canvas, route curves above those cards, and child planet images above the curves. Connectors now terminate ~12dp inside each planet for a visually angled emerge/enter effect.
+- Use independently measured, two-line-capable mission titles so long names are not truncated at the beginning or by fixed texture heights.
+- Spear of Adun purchase and start-with-Spear now include one real first-tier Progressive Proxy Pylon item, including migration of existing saved Spear owners; the next paid tier grants the reinforcement squad. Refresh the live AP item stream after the Spear unlock.
+- Update Spear unlock/pylon descriptions and the three combined progressive race weapon/armor shop descriptions.
+- No changes to the APRogue Galaxy gameplay file.
+
 ## v1.1.0 r19 — Launcher settings hotfix and 50% translucent planet cards
 
 - Fix r18 themed-launcher regression that hid the game options: the launcher now inserts Available Races above the form, but the theme still unpacked the seven root widgets in their old order, treating the race row as the form. Detect the four-column GridLayout by widget type so changes to widget order cannot silently remove the full settings controls.
