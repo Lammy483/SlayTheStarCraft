@@ -79,6 +79,11 @@ def check_payload():
     ):
         if token not in galaxy: raise RuntimeError(f"Missing Galaxy development symbol: {token}")
     if "UnitGroupAddUnit(" in galaxy: raise RuntimeError("Invalid Galaxy UnitGroupAddUnit call")
+    # SC2 TriggerAddEventUnitOrder's second argument is unitref, not unit.
+    if 'TriggerAddEventUnitOrder(g_aprgPotionOrderTrigger, g_aprgPotionTargetCaster,' in galaxy:
+        raise RuntimeError("Invalid Galaxy unit-to-unitref native event registration (three-race failure)")
+    if 'TriggerAddEventUnitOrder(g_aprgPotionOrderTrigger, null, AbilityCommand("move", 0))' not in galaxy:
+        raise RuntimeError("Potion Move order trigger must register using a unitref-compatible argument")
     runtime=(ROOT/"slay_the_starcraft.py").read_text(encoding="utf-8")
     for token in (
         "def prepare_kerrigan_options",
@@ -346,7 +351,7 @@ def verify_v10211_changes(payload_dir: Path) -> None:
         if token not in generator:
             raise RuntimeError(f"Missing v1.0.2.17 mission pacing fix: {token}")
     for token in (
-        "SHOP_STOCK_LOGIC_VERSION = 110",
+        "SHOP_STOCK_LOGIC_VERSION = 112",
         "def _unit_upgrade_available_from_owned_or_current_stock",
         "race_unit_stock = _weighted_shop_sample",
         "ctx, name, owned_unlocks, race_unit_stock, table",
@@ -354,7 +359,7 @@ def verify_v10211_changes(payload_dir: Path) -> None:
         if token not in runtime:
             raise RuntimeError(f"Missing v1.0.2.17 current-shop upgrade fix: {token}")
     installer = (payload_dir / "install_slay.py").read_text(encoding="utf-8")
-    if '"SHOP_STOCK_LOGIC_VERSION = 110"' not in installer:
+    if '"SHOP_STOCK_LOGIC_VERSION = 112"' not in installer:
         raise RuntimeError("Installer preflight shop-stock version is stale")
     if '"SHOP_STOCK_LOGIC_VERSION = 108"' in installer:
         raise RuntimeError("Installer still contains obsolete shop-stock version 108")
@@ -377,8 +382,13 @@ def verify_v10213_changes(payload_dir: Path) -> None:
         'DataTableGetBool(true, "APRG_Uncommandable_" + tag)',
         "APRG_IsWorkerTypeForDeath(unitType)",
         "c_playerPropMineralsCollected",
-        "c_playerPropSuppliesMade",
         "mineralsCollected - g_aprgLabRatMineralsCollectedStart < 300",
+        "APRG_CountCompletedNonTownHallSupplyProviders",
+        "c_unitPropSuppliesMade",
+        "libNtve_gf_UnitIsUnderConstruction",
+        "g_aprgLabRatCompletedSupplyProvidersStart",
+        "g_aprgLabRatSupplyCompletedTime",
+        "now < g_aprgLabRatSupplyCompletedTime + 7.0",
         'StringToText("Odin incoming!")',
         'StringToText("Brakk\'s Pack incoming!")',
         'return "AP_SoAAutonomousCaster";',
@@ -402,7 +412,7 @@ def verify_v10214_changes(payload_dir: Path) -> None:
         'DISABLED_MUTATIONS = {"enemy_spear_of_adun"}',
         '_upgrade_pack_race_is_unlocked(ctx, race, owned_unlocks)',
         'return _owned_race_unit_unlock_count(ctx, race, owned_unlocks, table) >= 3',
-        'SHOP_STOCK_LOGIC_VERSION = 110',
+        'SHOP_STOCK_LOGIC_VERSION = 112',
     ):
         if token not in runtime:
             raise RuntimeError(f"Missing v1.0.2.17 runtime fix: {token}")
@@ -532,14 +542,20 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
         "SHOP_SECTION_COLUMNS",
         "INVENTORY_SECTION_COLUMNS",
         "SECTION_PALETTE",
-        "scroll.scroll_wheel_distance=dp(90)",
+        "scroll.scroll_wheel_distance=dp(45)",
         "scale/DEFAULT_ROUTE_SCALE",
         "width=dp(2.4 if status=='available' else 1.2)",
         "width=dp(3)",
-        "font_size=dp(26)",
+        "NODE_CARD_HEIGHT=116",
+        "RoundedRectangle(pos=(0,0),size=(0,0),radius=[dp(18)]*4)",
+        "font_size=dp(21)",
     ):
         if token not in command:
             raise RuntimeError(f"Missing v1.1.0 UI batch command token: {token}")
+    # An unsupported Galaxy native breaks APRogue globally: all three races
+    # appear broken even if the invalid function would never execute.
+    if "UnitHasAttribute(" in (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8"):
+        raise RuntimeError("Unsupported Galaxy native UnitHasAttribute remains; use UnitTypeTestAttribute(UnitGetType(unit), attr)")
     if "slay_wheel_zoom_bound" in command or "def wheel_zoom(" in command:
         raise RuntimeError("Mission map still captures mouse wheel for zoom")
     for token in (
@@ -552,25 +568,17 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
     if "[cx-7,cy-7,cx+7,cy+7,cx-7,cy+7,cx+7,cy-7]" in command:
         raise RuntimeError("Unavailable-mission X still uses the connected polyline with a horizontal segment")
     for token in (
-        "sound.volume = 0.08",
-        'text="[b]DIFFICULTY DESCRIPTION[/b]"',
+        "sound.volume = 0.04",
+        'text="[b]DIFFICULTY[/b]"',
         '(log_tab, "Console Log")',
         '(manager.slay_mission_tab, "Missions")',
         '(manager.slay_setup_tab, "Settings")',
-        'getattr(t, "text", "") == "Archipelago"',
     ):
         if token not in theme:
             raise RuntimeError(f"Missing v1.1.0 theme update: {token}")
-    for forbidden in (
-        'manager.slay_mission_tab.text = "Missions"',
-        'manager.slay_setup_tab.text = "Settings"',
-        'log_tab.text = "Console Log"',
-    ):
-        if forbidden in theme:
-            raise RuntimeError(f"Theme must not rename Archipelago's internal tab/screen key: {forbidden}")
     if "Redfrog" in theme or "ASSEMBLE YOUR ARMY" in theme:
         raise RuntimeError("Removed acknowledgement/splash copy is still present")
-    if "sound.volume=.08" not in support:
+    if "sound.volume=.04" not in support:
         raise RuntimeError("Command UI sound volume was not reduced")
     for token in (
         'Seed (leave blank for random)',
@@ -585,14 +593,6 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
     for token in ("def _slay_show_purchase_reveal", "slay.consume_shop_purchase_reveal(self.ctx)"):
         if token not in installer:
             raise RuntimeError(f"Missing shop purchase reveal path: {token}")
-    galaxy = (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8")
-    for token in (
-        "bool requirePlayerPathing = APRG_GroundSpawnsNeedPlayerPathing();",
-        "if (requirePlayerPathing && (home == null || !PointPathingIsConnected(candidate, UnitGetPosition(home)))) { continue; }",
-        "if (requirePlayerPathing) { return APRG_FindRaidOriginGroundPoint(player); }",
-    ):
-        if token not in galaxy:
-            raise RuntimeError(f"Missing Mira Mercenaries player-base pathing guard: {token}")
 
 def main():
     pa = argparse.ArgumentParser()

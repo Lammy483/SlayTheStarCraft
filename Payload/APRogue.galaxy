@@ -344,6 +344,46 @@ bank g_aprgTestPotionBank = null;
 bool g_aprgTestPotionBankLoaded = false;
 bool g_aprgTestPotionConsumed = false;
 
+// v1.1.0 potion slots.  Serial numbers are local to the run; the run token
+// names each BankSave acknowledgement, allowing the client to reclaim slots.
+int[2] g_aprgPotionType;
+int[2] g_aprgPotionSerial;
+bool[2] g_aprgPotionUsed;
+int[2] g_aprgPotionButton;
+int g_aprgPotionDialog = 0;
+trigger g_aprgPotionClickTrigger = null;
+trigger g_aprgPotionCancelTrigger = null;
+trigger g_aprgPotionDamageTrigger = null;
+int g_aprgPotionPendingSlot = -1;
+fixed g_aprgPotionArmedAt = 0.0;
+unitgroup g_aprgPotionCorruptTargets;
+unitgroup g_aprgPotionMatrixTargets;
+bool g_aprgPotionDamageBusy = false;
+fixed g_aprgPotionDecloakUntil = -1.0;
+fixed g_aprgPotionStealthUntil = -1.0;
+fixed g_aprgPotionStimUntil = -1.0;
+fixed g_aprgPotionStimDrainAt = -1.0;
+// Leviathan uses its original boon ability cooldowns, not a scripted duplicate spawn timer.
+unit g_aprgPotionTargetCaster = null;
+unitgroup g_aprgPotionTargetCasterGroup;
+trigger g_aprgPotionOrderTrigger = null;
+point g_aprgPotionDropPoint = null;
+int g_aprgPotionDropsLeft = 0;
+fixed g_aprgPotionNextDropTime = -1.0;
+int g_aprgPotionMercMask = 0;
+// Two independent nonblocking batches of up to 500 units. Running the work
+// inside the existing 0.1s fast tick distributes heavy spawns over 2 seconds.
+int[2] g_aprgPotionQueueKind;
+int[2] g_aprgPotionQueueTotal;
+int[2] g_aprgPotionQueueDone;
+fixed[2] g_aprgPotionQueueStarted;
+point[2] g_aprgPotionQueuePoint;
+unitgroup g_aprgPotionAutoUnits;
+unitgroup g_aprgPotionAutoSpellcasters;
+int g_aprgPotionAutoCursor = 0;
+fixed g_aprgPotionAutoNextRetarget = 0.0;
+
+
 // Immortal Zergling mutation state.
 unit g_aprgImmortalZergling = null;
 bool g_aprgImmortalZerglingSpawned = false;
@@ -500,7 +540,8 @@ fixed g_aprgNextBanelingStreamRetargetTime = 20.0;
 fixed g_aprgActivationTime = 0.0;
 bool g_aprgMacroBaseReady = false;
 int g_aprgLabRatMineralsCollectedStart = -1;
-int g_aprgLabRatSuppliesMadeStart = -1;
+int g_aprgLabRatCompletedSupplyProvidersStart = -1;
+fixed g_aprgLabRatSupplyCompletedTime = -1.0;
 bool g_aprgPickyBaselineSet = false;
 bool g_aprgRisingGasApplied = false;
 int g_aprgArmsRaceStacks = 0;
@@ -1662,36 +1703,81 @@ unitgroup APRG_PlayerWorkers(int player) {
     );
 }
 
+int APRG_CountCompletedNonTownHallSupplyProviders(int player) {
+    unitgroup owned;
+    int i;
+    int count = 0;
+    unit u;
+    string unitType;
+    owned = UnitGroup(
+        null,
+        player,
+        RegionPlayableMap(),
+        UnitFilter(
+            0,
+            0,
+            (1 << c_targetFilterMissile),
+            (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))
+        ),
+        0
+    );
+    for (i = UnitGroupCount(owned, c_unitCountAlive); i > 0; i -= 1) {
+        u = UnitGroupUnitFromEnd(owned, i);
+        if (u == null || !UnitIsAlive(u)) { continue; }
+        unitType = UnitGetType(u);
+        if (APRG_IsTownHallType(unitType)) { continue; }
+        if (UnitTypeGetProperty(unitType, c_unitPropSuppliesMade) <= 0.0) { continue; }
+        if (libNtve_gf_UnitIsUnderConstruction(u)) { continue; }
+        count += 1;
+    }
+    return count;
+}
+
 void APRG_UpdateMacroBaseReady(int player) {
     unitgroup workers;
     unitgroup structures;
     int mineralsCollected;
-    int suppliesMade;
+    int completedSupplyProviders;
+    fixed now;
     if (g_aprgMacroBaseReady && g_aprgMacroPlayer == player) {
         return;
     }
 
-    // Lab Rat begins inside a deliberately tiny gated-off play area.  Treating
-    // that initial worker/structure pair as a full macro base lets Slay spawn
-    // hostile effects inside the zoomed-in opening.  Wait for the mission's
-    // expansion milestone instead: 300 newly mined minerals plus a newly made
-    // supply source/unit.
+    // Lab Rat begins inside a deliberately tiny gated-off play area.  Do not
+    // unlock Slay spawn placement merely because a supply provider has started
+    // construction.  Require a NEW, fully completed non-town-hall supply
+    // provider, then leave seven additional seconds for the opening area to
+    // finish expanding before macro-base effects may choose spawn positions.
     if ((g_aprgMissionFlags & APRG_MISSION_FLAG_LAB_RAT_OPENING) != 0) {
         mineralsCollected = PlayerGetPropertyInt(player, c_playerPropMineralsCollected);
-        suppliesMade = PlayerGetPropertyInt(player, c_playerPropSuppliesMade);
+        completedSupplyProviders = APRG_CountCompletedNonTownHallSupplyProviders(player);
+        now = GameGetMissionTime();
         if (g_aprgLabRatMineralsCollectedStart < 0) {
             g_aprgLabRatMineralsCollectedStart = mineralsCollected;
-            g_aprgLabRatSuppliesMadeStart = suppliesMade;
+            g_aprgLabRatCompletedSupplyProvidersStart = completedSupplyProviders;
+            g_aprgLabRatSupplyCompletedTime = -1.0;
             g_aprgMacroReadyTicks = 0;
             return;
         }
+        if (completedSupplyProviders <= g_aprgLabRatCompletedSupplyProvidersStart) {
+            g_aprgLabRatSupplyCompletedTime = -1.0;
+            g_aprgMacroReadyTicks = 0;
+            return;
+        }
+        if (g_aprgLabRatSupplyCompletedTime < 0.0) {
+            g_aprgLabRatSupplyCompletedTime = now;
+        }
         if (
             mineralsCollected - g_aprgLabRatMineralsCollectedStart < 300 ||
-            suppliesMade <= g_aprgLabRatSuppliesMadeStart
+            now < g_aprgLabRatSupplyCompletedTime + 7.0
         ) {
             g_aprgMacroReadyTicks = 0;
             return;
         }
+        // The seven-second Lab Rat gate already supplies the stability delay.
+        // Prime the shared two-tick gate so the normal worker/structure sanity
+        // check can mark the base ready immediately on this update.
+        g_aprgMacroReadyTicks = 1;
     }
 
     workers = APRG_PlayerWorkers(player);
@@ -12500,16 +12586,13 @@ bool APRG_MiraPointNearAlliedBase(point candidate, int player) {
 point APRG_FindMiraCampPoint(int player) {
     int attempt;
     point candidate;
-    unit home = APRG_FindPlayerHomeStructure(player);
     unit nearestPlayerStructure;
     unit nearestEnemy;
-    bool requirePlayerPathing = APRG_GroundSpawnsNeedPlayerPathing();
     unitgroup enemies = APRG_EnemyAllUnits(player);
 
     for (attempt = 0; attempt < APRG_MAX_POINT_ATTEMPTS; attempt += 1) {
         candidate = RegionRandomPoint(RegionPlayableMap());
         if (candidate == null || !PointPathingPassable(candidate)) { continue; }
-        if (requirePlayerPathing && (home == null || !PointPathingIsConnected(candidate, UnitGetPosition(home)))) { continue; }
         nearestPlayerStructure = APRG_NearestPlayerStructure(candidate, player);
         if (nearestPlayerStructure != null && DistanceBetweenPoints(candidate, UnitGetPosition(nearestPlayerStructure)) < 24.0) { continue; }
         if (APRG_MiraPointNearAlliedBase(candidate, player)) { continue; }
@@ -12517,7 +12600,6 @@ point APRG_FindMiraCampPoint(int player) {
         if (nearestEnemy != null && DistanceBetweenPoints(candidate, UnitGetPosition(nearestEnemy)) < 18.0) { continue; }
         return candidate;
     }
-    if (requirePlayerPathing) { return APRG_FindRaidOriginGroundPoint(player); }
     return APRG_FindStaticPatrolGroundPoint(player);
 }
 
@@ -16187,6 +16269,12 @@ bool APRG_Config_Func(bool testConds, bool runActions) {
     g_aprgMissionFlags = StringToInt(StringWord(EventChatMessage(false), 18));
     g_aprgMercenaryUpgradePacked2 = StringToInt(StringWord(EventChatMessage(false), 19));
     g_aprgTestPotionRunToken = StringToInt(StringWord(EventChatMessage(false), 20));
+    g_aprgPotionType[0] = StringToInt(StringWord(EventChatMessage(false), 21));
+    g_aprgPotionSerial[0] = StringToInt(StringWord(EventChatMessage(false), 22));
+    g_aprgPotionType[1] = StringToInt(StringWord(EventChatMessage(false), 23));
+    g_aprgPotionSerial[1] = StringToInt(StringWord(EventChatMessage(false), 24));
+    g_aprgPotionMercMask = StringToInt(StringWord(EventChatMessage(false), 25));
+
     g_aprgGodModeCatalogApplied = false;
     if (g_aprgAutoRepairStacks < 0) { g_aprgAutoRepairStacks = 0; }
     if (g_aprgDeadlyWeaponsStacks < 0) { g_aprgDeadlyWeaponsStacks = 0; }
@@ -16215,7 +16303,8 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgActivationTime = now + 2.0;
     g_aprgMacroBaseReady = false;
     g_aprgLabRatMineralsCollectedStart = -1;
-    g_aprgLabRatSuppliesMadeStart = -1;
+    g_aprgLabRatCompletedSupplyProvidersStart = -1;
+    g_aprgLabRatSupplyCompletedTime = -1.0;
     g_aprgMacroReadyTicks = 0;
     g_aprgMacroPlayer = -1;
     g_aprgMacroReadyTime = -1.0;
@@ -16267,6 +16356,41 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgTestPotionBank = null;
     g_aprgTestPotionBankLoaded = false;
     g_aprgTestPotionConsumed = false;
+    g_aprgPotionDialog = 0;
+    g_aprgPotionButton[0] = 0;
+    g_aprgPotionButton[1] = 0;
+    g_aprgPotionClickTrigger = null;
+    g_aprgPotionCancelTrigger = null;
+    g_aprgPotionDamageTrigger = null;
+    g_aprgPotionPendingSlot = -1;
+    g_aprgPotionUsed[0] = false;
+    g_aprgPotionUsed[1] = false;
+    g_aprgPotionCorruptTargets = UnitGroupEmpty();
+    g_aprgPotionMatrixTargets = UnitGroupEmpty();
+    g_aprgPotionDamageBusy = false;
+    g_aprgPotionDecloakUntil = -1.0;
+    g_aprgPotionStealthUntil = -1.0;
+    g_aprgPotionStimUntil = -1.0;
+    g_aprgPotionStimDrainAt = -1.0;
+    g_aprgPotionTargetCaster = null;
+    g_aprgPotionTargetCasterGroup = UnitGroupEmpty();
+    g_aprgPotionOrderTrigger = null;
+    g_aprgPotionDropPoint = null;
+    g_aprgPotionDropsLeft = 0;
+    g_aprgPotionNextDropTime = -1.0;
+    g_aprgPotionQueueKind[0] = 0;
+    g_aprgPotionQueueKind[1] = 0;
+    g_aprgPotionQueueTotal[0] = 0;
+    g_aprgPotionQueueTotal[1] = 0;
+    g_aprgPotionQueueDone[0] = 0;
+    g_aprgPotionQueueDone[1] = 0;
+    g_aprgPotionQueueStarted[0] = 0.0;
+    g_aprgPotionQueueStarted[1] = 0.0;
+    g_aprgPotionAutoUnits = UnitGroupEmpty();
+    g_aprgPotionAutoSpellcasters = UnitGroupEmpty();
+    g_aprgPotionAutoCursor = 0;
+    g_aprgPotionAutoNextRetarget = 0.0;
+
     g_aprgZergContractStructureResolved = false;
     g_aprgShopKerrigan = null;
     g_aprgShopKerriganType = "";
@@ -17162,6 +17286,7 @@ void APRG_TickInvasionFleet(int player, fixed now) {
 }
 
 void APRG_TickBaseLeviathanBurst(int player, fixed now);
+void APRG_TickPotionSpawnQueues(int player, fixed now);
 
 bool APRG_FastBoonTick_Func(bool testConds, bool runActions) {
     int player;
@@ -17183,6 +17308,7 @@ bool APRG_FastBoonTick_Func(bool testConds, bool runActions) {
     ) { APRG_ProcessAllyWarpQueue(player, now); }
     if (APRG_HasExtension3(APRG_EXT3_MUT_PURIFIER) || APRG_HasExtension2(APRG_EXT2_MUT_NEXUS_SHIELD)) { APRG_ProcessPurifierHostileWarpQueue(player, now); }
     APRG_TickInvasionFleet(player, now);
+    APRG_TickPotionSpawnQueues(player, now);
     if (g_aprgZombieSpawnCount > 0) { APRG_ProcessZombieSpawnQueue(player); }
 
     if (g_aprgFastPhase == 0) { APRG_TickContractStructures(player); }
@@ -18608,6 +18734,696 @@ void APRG_TickTestPotionUI(int player) {
     TriggerAddEventDialogControl(g_aprgTestPotionTrigger, player, g_aprgTestPotionButton, c_triggerControlEventTypeClick);
 }
 
+// POTIONS ---------------------------------------------------------------------
+// The UI uses native Galaxy mouse events. Left click selects a world point (or
+// nearest unit in the world), right click cancels without consuming a potion.
+// An actual command-card targeting cursor would require catalog abilities on
+// a separate selected caster, so do not call this a command-card ability.
+string APRG_PotionName(int kind) {
+    if (kind == 1) { return "Mineral Reserves"; }
+    if (kind == 2) { return "Gas Reserves"; }
+    if (kind == 3) { return "Odin in a Bottle"; }
+    if (kind == 4) { return "Leviathan in a Bottle"; }
+    if (kind == 5) { return "Hyperion in a Bottle"; }
+    if (kind == 6) { return "Drop Pod Wave"; }
+    if (kind == 7) { return "Mass EMP"; }
+    if (kind == 8) { return "Tactical Nuke"; }
+    if (kind == 9) { return "Tosh's Miners"; }
+    if (kind == 10) { return "Stealth Protocol"; }
+    if (kind == 11) { return "Mass Stimpack"; }
+    if (kind == 12) { return "Spear of Adun Recharge"; }
+    if (kind == 13) { return "Second Kerrigan"; }
+    if (kind == 14) { return "Mercenary Favor"; }
+    if (kind == 15) { return "Guardian Matrix"; }
+    if (kind == 16) { return "Corruption Spores"; }
+    if (kind == 17) { return "Mass Marines"; }
+    if (kind == 18) { return "Mass Spellcasters"; }
+    if (kind == 1901) { return "Spawn 40 Marines"; }
+    if (kind == 1902) { return "Spawn 16 Marauders"; }
+    if (kind == 1903) { return "Spawn 20 Reapers"; }
+    if (kind == 1904) { return "Spawn 20 Hellions"; }
+    if (kind == 1905) { return "Spawn 7 Siege Tanks"; }
+    if (kind == 1906) { return "Spawn 8 Vikings"; }
+    if (kind == 1907) { return "Spawn 8 Banshees"; }
+    if (kind == 1908) { return "Spawn 4 Thors"; }
+    if (kind == 1909) { return "Spawn 20 Roaches"; }
+    if (kind == 1910) { return "Spawn 13 Hydralisks"; }
+    if (kind == 1911) { return "Spawn 10 Mutalisks"; }
+    if (kind == 1912) { return "Spawn 4 Ultralisks"; }
+    if (kind == 1913) { return "Spawn 20 Zealots"; }
+    if (kind == 1914) { return "Spawn 11 Stalkers"; }
+    if (kind == 1915) { return "Spawn 5 Immortals"; }
+    if (kind == 1916) { return "Spawn 5 Void Rays"; }
+    if (kind == 1917) { return "Spawn 4 Colossi"; }
+    if (kind == 1918) { return "Spawn 10 High Templar"; }
+    return "Empty";
+}
+
+bool APRG_PotionNeedsTarget(int kind) {
+    return kind == 3 || kind == 4 || kind == 5 || kind == 6 || kind == 8 || kind == 9 || kind == 15 || kind == 16 || (kind >= 1901 && kind <= 1918);
+}
+
+void APRG_PotionReadBank(int player) {
+    int i;
+    string serialKey;
+    APRG_LoadTestPotionState(player);
+    for (i = 0; i < 2; i += 1) {
+        if (g_aprgPotionUsed[i] || g_aprgPotionType[i] <= 0 || g_aprgPotionSerial[i] <= 0) { continue; }
+        serialKey = "Serial" + IntToString(g_aprgPotionSerial[i]);
+        if (g_aprgTestPotionBank != null && BankKeyExists(g_aprgTestPotionBank, "PotionUses", serialKey)
+            && BankValueGetAsInt(g_aprgTestPotionBank, "PotionUses", serialKey) == g_aprgTestPotionRunToken) {
+            g_aprgPotionUsed[i] = true;
+        }
+    }
+}
+
+void APRG_PotionRefreshButtons(int player) {
+    int i;
+    string labelText;
+    playergroup players = PlayerGroupSingle(player);
+    for (i = 0; i < 2; i += 1) {
+        if (g_aprgPotionButton[i] == 0) { continue; }
+        // Hide empty or consumed slots entirely, instead of showing disabled
+        // placeholders that obscure the top of the mission HUD.
+        if (g_aprgPotionUsed[i] || g_aprgPotionType[i] <= 0) {
+            DialogControlSetVisible(g_aprgPotionButton[i], players, false);
+            continue;
+        }
+        DialogControlSetVisible(g_aprgPotionButton[i], players, true);
+        labelText = APRG_PotionName(g_aprgPotionType[i]);
+        if (g_aprgPotionPendingSlot == i) { labelText = labelText + "  [TARGETING]"; }
+        DialogControlSetPropertyAsText(g_aprgPotionButton[i], c_triggerControlPropertyText, players, StringToText(labelText));
+        DialogControlSetPropertyAsText(g_aprgPotionButton[i], c_triggerControlPropertyTooltip, players,
+            StringToText("One-time consumable. Targeted potions use the native StarCraft II cursor; right-click cancels without spending."));
+        DialogControlSetEnabled(g_aprgPotionButton[i], players, !g_aprgPotionUsed[i] && g_aprgPotionType[i] > 0);
+    }
+    if (g_aprgPotionDialog != 0) {
+        DialogSetVisible(g_aprgPotionDialog, players,
+            (!g_aprgPotionUsed[0] && g_aprgPotionType[0] > 0) ||
+            (!g_aprgPotionUsed[1] && g_aprgPotionType[1] > 0));
+    }
+}
+
+void APRG_PotionConsume(int player, int slot) {
+    string serialKey;
+    if (slot < 0 || slot >= 2 || g_aprgPotionUsed[slot]) { return; }
+    g_aprgPotionUsed[slot] = true;
+    serialKey = "Serial" + IntToString(g_aprgPotionSerial[slot]);
+    if (g_aprgTestPotionBank != null && g_aprgPotionSerial[slot] > 0 && g_aprgTestPotionRunToken > 0) {
+        BankValueSetFromInt(g_aprgTestPotionBank, "PotionUses", serialKey, g_aprgTestPotionRunToken);
+        BankSave(g_aprgTestPotionBank);
+    }
+    g_aprgPotionPendingSlot = -1;
+    APRG_PotionRefreshButtons(player);
+}
+
+// Favor uses the owned-mercenary mask communicated by the Python client. This
+// does not touch production abilities, stored charges, or ability cooldowns.
+string APRG_PotionMercType(int index) {
+    if (index == 0) { return "WarPigs"; }
+    if (index == 1) { return "DevilDogs"; }
+    if (index == 2) { return "HammerSecurities"; }
+    if (index == 3) { return "SpartanCompany"; }
+    if (index == 4) { return "SiegeBreakers"; }
+    if (index == 5) { return "HelsAngels"; }
+    if (index == 6) { return "DuskWings"; }
+    if (index == 7) { return "JacksonsRevenge"; }
+    if (index == 8) { return "SkibisAngels"; }
+    if (index == 9) { return "DeathHeads"; }
+    if (index == 10) { return "WingedNightmares"; }
+    if (index == 11) { return "MidnightRiders"; }
+    if (index == 12) { return "Brynhild"; }
+    if (index == 13) { return "Jotun"; }
+    if (index == 14) { return "DevouringOnes"; }
+    if (index == 15) { return "HunterKillers"; }
+    if (index == 16) { return "Torrasque"; }
+    if (index == 17) { return "CausticHorrors"; }
+    if (index == 18) { return "Yggdrasil"; }
+    if (index == 19) { return "InfestedSiegeBreakers"; }
+    if (index == 20) { return "InfestedDuskWings"; }
+    return "";
+}
+
+void APRG_PotionRechargeSpear(int player) {
+    unit caster;
+    int i;
+    int cost;
+    string abilityType;
+    string link;
+    caster = APRG_FindSpearCaster(player);
+    if (caster == null) { caster = APRG_FindSpearAutonomousCaster(player); }
+    if (caster == null) { return; }
+    UnitSetPropertyFixed(caster, c_unitPropEnergy, UnitGetPropertyFixed(caster, c_unitPropEnergyMax, c_unitPropCurrent));
+    for (i = 1; i <= MinI(64, UnitAbilityCount(caster)); i += 1) {
+        abilityType = UnitAbilityGet(caster, i);
+        if (abilityType == "" || !CatalogEntryIsValid(c_gameCatalogAbil, abilityType)) { continue; }
+        for (cost = 0; cost < 4; cost += 1) {
+            link = CatalogFieldValueGet(c_gameCatalogAbil, abilityType, "Cost[" + IntToString(cost) + "].Cooldown.Link", player);
+            if (link == "") { continue; }
+            UnitModifyCooldown(caster, link, 0.0, c_cooldownOperationSet);
+            libNtve_gf_PlayerRemoveCooldown(player, link);
+        }
+    }
+}
+
+// Wire variants 1901..1918 are one specific named shop roll; never reroll
+// at use-time. These links are vanilla player unit identifiers, resolved through
+// the same safe player-unit factory used by other Slay mechanics.
+string APRG_PotionRandomUnitType(int kind) {
+    if (kind == 1901) { return "Marine"; }
+    if (kind == 1902) { return "Marauder"; }
+    if (kind == 1903) { return "Reaper"; }
+    if (kind == 1904) { return "Hellion"; }
+    if (kind == 1905) { return "SiegeTank"; }
+    if (kind == 1906) { return "VikingFighter"; }
+    if (kind == 1907) { return "Banshee"; }
+    if (kind == 1908) { return "Thor"; }
+    if (kind == 1909) { return "Roach"; }
+    if (kind == 1910) { return "Hydralisk"; }
+    if (kind == 1911) { return "Mutalisk"; }
+    if (kind == 1912) { return "Ultralisk"; }
+    if (kind == 1913) { return "Zealot"; }
+    if (kind == 1914) { return "Stalker"; }
+    if (kind == 1915) { return "Immortal"; }
+    if (kind == 1916) { return "VoidRay"; }
+    if (kind == 1917) { return "Colossus"; }
+    if (kind == 1918) { return "HighTemplar"; }
+    return "";
+}
+
+int APRG_PotionRandomUnitQuantity(int kind) {
+    if (kind == 1901) { return 40; }
+    if (kind == 1902) { return 16; }
+    if (kind == 1903) { return 20; }
+    if (kind == 1904) { return 20; }
+    if (kind == 1905) { return 7; }
+    if (kind == 1906) { return 8; }
+    if (kind == 1907) { return 8; }
+    if (kind == 1908) { return 4; }
+    if (kind == 1909) { return 20; }
+    if (kind == 1910) { return 13; }
+    if (kind == 1911) { return 10; }
+    if (kind == 1912) { return 4; }
+    if (kind == 1913) { return 20; }
+    if (kind == 1914) { return 11; }
+    if (kind == 1915) { return 5; }
+    if (kind == 1916) { return 5; }
+    if (kind == 1917) { return 4; }
+    if (kind == 1918) { return 10; }
+    return 0;
+}
+
+// Follow the Specialists blessing's exact campaign-compatibility spellcasters,
+// additionally supporting Brood Queen and Medic. These are combat-capable
+// allies driven by the standard Slay spellcaster ability AI.
+string APRG_PotionSpellcasterType(int roll) {
+    if (roll == 0) { return "Ghost"; }
+    if (roll == 1) { return "Raven"; }
+    if (roll == 2) { return "ScienceVessel"; }
+    if (roll == 3) { return "Infestor"; }
+    if (roll == 4) { return "DefilerMP"; }
+    if (roll == 5) { return "Spectre"; }
+    if (roll == 6) { return "Viper"; }
+    if (roll == 7) { return "HighTemplar"; }
+    if (roll == 8) { return "Sentry"; }
+    if (roll == 9) { return "Oracle"; }
+    if (roll == 10) { return "BroodQueen"; }
+    if (roll == 11) { return "Medic"; }
+    if (roll == 12) { return "HighTemplarShakuras"; }
+    if (roll == 13) { return "HighTemplarTaldarim"; }
+    return "";
+}
+
+bool APRG_PotionStartSpawnQueue(int kind, int quantity, point p, fixed now) {
+    int i;
+    if (quantity < 1 || p == null) { return false; }
+    for (i = 0; i < 2; i += 1) {
+        if (g_aprgPotionQueueKind[i] != 0) { continue; }
+        g_aprgPotionQueueKind[i] = kind;
+        g_aprgPotionQueueTotal[i] = quantity;
+        g_aprgPotionQueueDone[i] = 0;
+        g_aprgPotionQueueStarted[i] = now;
+        g_aprgPotionQueuePoint[i] = p;
+        return true;
+    }
+    return false;
+}
+
+// Called by APRG_FastBoonTick_Func every 0.1 game seconds. The 20-step
+// distribution avoids creating up to 500 units on the dialog click frame.
+void APRG_TickPotionSpawnQueues(int player, fixed now) {
+    int slot;
+    int kind;
+    int expected;
+    int count;
+    int i;
+    int n;
+    int active;
+    unitgroup created;
+    unit spawned;
+    unit target;
+    string unitType;
+    point p;
+    for (slot = 0; slot < 2; slot += 1) {
+        kind = g_aprgPotionQueueKind[slot];
+        if (kind == 0) { continue; }
+        // Bounded max 25 spawns per tick at the largest 500-Marine wave.
+        expected = MinI(g_aprgPotionQueueTotal[slot],
+            (MaxI(1, FixedToInt((now - g_aprgPotionQueueStarted[slot]) * 10.0) + 1)
+            * g_aprgPotionQueueTotal[slot] + 19) / 20);
+        count = MinI(25, expected - g_aprgPotionQueueDone[slot]);
+        for (i = 0; i < count; i += 1) {
+            unitType = "Marine";
+            if (kind == 18) {
+                unitType = APRG_PotionSpellcasterType(RandomInt(0, 13));
+                if (!CatalogEntryIsValid(c_gameCatalogUnit, unitType)) { unitType = "HighTemplar"; }
+            }
+            else if (kind >= 1901) { unitType = APRG_PotionRandomUnitType(kind); }
+            if (unitType == "") { continue; }
+            // AP variants sometimes resolve to placeholders on older campaigns;
+            // the common player factory applies the known safe substitution rules.
+            p = PointWithOffsetPolar(g_aprgPotionQueuePoint[slot], RandomFixed(2.0, 12.0), libNtve_gf_RandomAngle());
+            if (!RegionContainsPoint(RegionPlayableMap(), p)) { p = g_aprgPotionQueuePoint[slot]; }
+            // Mass waves start inside the player's accessible macro base. Avoid
+            // depositing ground spellcasters/Marines across cliffs or impassable
+            // terrain while spreading units around the 12-radius arrival area.
+            if ((kind == 17 || kind == 18) && !PointPathingPassable(p)) {
+                p = g_aprgPotionQueuePoint[slot];
+            }
+            created = APRG_CreatePlayerUnitsAtPoint(1, unitType, player, p, libNtve_gf_RandomAngle());
+            spawned = UnitGroupUnitFromEnd(created, 1);
+            if (spawned == null || !UnitIsAlive(spawned)) { continue; }
+            APRG_StripVoidEntityBehavior(spawned);
+            UnitSetState(spawned, c_unitStateUsingSupply, false);
+            if (kind == 17 || kind == 18) { APRG_MakeGroupUncommandable(created); }
+            UnitGroupAdd(g_aprgPotionAutoUnits, spawned);
+            if (kind == 18) { UnitGroupAdd(g_aprgPotionAutoSpellcasters, spawned); }
+            target = APRG_NearestPathableEnemyStructure(spawned, player);
+            if (target == null) { target = APRG_NearestEligibleEnemyMobileUnit(UnitGetPosition(spawned), player); }
+            if (target != null) { APRG_OrderAttackMove(spawned, UnitGetPosition(target)); }
+        }
+        // Advance even if some unit links are invalid, to avoid an infinite
+        // queue when a campaign mod does not contain a particular unit.
+        g_aprgPotionQueueDone[slot] += count;
+        if (g_aprgPotionQueueDone[slot] >= g_aprgPotionQueueTotal[slot]) { g_aprgPotionQueueKind[slot] = 0; }
+    }
+    // Retarget idle units and run the same cooldown-safe friendly spellcasting AI
+    // used by existing boons. Cap per-tick work to avoid scanning huge armies.
+    active = UnitGroupCount(g_aprgPotionAutoUnits, c_unitCountAlive);
+    if (active <= 0) { g_aprgPotionAutoCursor = 0; return; }
+    for (n = 0; n < 6 && n < active; n += 1) {
+        i = ((g_aprgPotionAutoCursor + n) % active) + 1;
+        spawned = UnitGroupUnitFromEnd(g_aprgPotionAutoUnits, i);
+        if (spawned == null || !UnitIsAlive(spawned)) { continue; }
+        if (UnitGroupHasUnit(g_aprgPotionAutoSpellcasters, spawned)) {
+            APRG_TryFriendlyAutonomousAbility(spawned, player);
+        }
+        if (UnitOrderCount(spawned) > 0) { continue; }
+        target = APRG_NearestPathableEnemyStructure(spawned, player);
+        if (target == null) { target = APRG_NearestEligibleEnemyMobileUnit(UnitGetPosition(spawned), player); }
+        if (target != null) { APRG_OrderAttackMove(spawned, UnitGetPosition(target)); }
+    }
+    g_aprgPotionAutoCursor = (g_aprgPotionAutoCursor + n) % active;
+}
+
+bool APRG_PotionActivate(int player, int kind, point location, unit target) {
+    int i;
+    int mercSpawned = 0;
+    int resourcePerUnit;
+    unit u;
+    unitgroup group;
+    unitgroup created;
+    unit home;
+    unit spearPrimary;
+    unit spearAutonomous;
+    point p;
+    string unitType;
+    fixed shieldMax;
+    if (kind == 1 || kind == 2) {
+        if (kind == 1) { PlayerModifyPropertyInt(player, c_playerPropMinerals, c_playerPropOperAdd, 1000); }
+        else { PlayerModifyPropertyInt(player, c_playerPropVespene, c_playerPropOperAdd, 1000); }
+    }
+    else if (kind == 3 || kind == 4 || kind == 5) {
+        if (location == null) { return false; }
+        unitType = "Odin";
+        // Reuse the exact boon unit selection. It is known to work in campaign
+        // missions; these heroes must be player-owned and player-commandable.
+        if (kind == 4) { unitType = APRG_LeviathanBoonType(); }
+        if (kind == 5) { unitType = APRG_HyperionBoonType(); }
+        if (unitType == "" || !CatalogEntryIsValid(c_gameCatalogUnit, unitType)) { return false; }
+        // Do not pass heroes through generic AP unit-type substitution: the
+        // boon uses the *exact* native Leviathan / Hyperion unit type.
+        created = UnitCreate(1, unitType, c_unitCreateIgnorePlacement, player, location, 0.0);
+        u = UnitGroupUnitFromEnd(created, 1);
+        if (u == null || !UnitIsAlive(u)) { return false; }
+        APRG_StripVoidEntityBehavior(u);
+        if (kind == 4) {
+            // Same 60-second native Mutalisk/Brood Lord ability cooldowns as the
+            // Leviathan boon. No duplicate periodic scripted unit spawns.
+            APRG_NormalizeLeviathanBoon(u, player);
+        }
+        if (kind == 5) {
+            // Same resistance, durability, Yamato cost/cooldown and regeneration
+            // normalization as the Hyperion boon, not a separate weaker filter.
+            APRG_NormalizeHyperionBoon(u, player);
+        }
+    }
+    else if (kind == 6) {
+        if (location == null) { return false; }
+        g_aprgPotionDropPoint = location;
+        g_aprgPotionDropsLeft = 10;
+        g_aprgPotionNextDropTime = GameGetMissionTime();
+    }
+    else if (kind == 7) {
+        g_aprgPotionDecloakUntil = GameGetMissionTime() + 30.0;
+        spearPrimary = APRG_FindSpearCaster(player);
+        spearAutonomous = APRG_FindSpearAutonomousCaster(player);
+        group = UnitGroup(null, c_playerAny, RegionPlayableMap(),
+            UnitFilter(0, 0, (1 << c_targetFilterMissile), (1 << (c_targetFilterDead - 32))), 0);
+        for (i = UnitGroupCount(group, c_unitCountAlive); i > 0; i -= 1) {
+            u = UnitGroupUnitFromEnd(group, i);
+            if (u == null || !UnitIsAlive(u) || u == spearPrimary || u == spearAutonomous) { continue; }
+            UnitSetPropertyFixed(u, c_unitPropShields, 0.0);
+            UnitSetPropertyFixed(u, c_unitPropEnergy, 0.0);
+            if (!UnitHasBehavior(u, "APRoguePotionDecloak")) {
+                UnitBehaviorAdd(u, "APRoguePotionDecloak", u, 1);
+                UnitBehaviorSetDuration(u, "APRoguePotionDecloak", 30.0);
+            }
+        }
+    }
+    else if (kind == 8) {
+        if (location == null || !CatalogEntryIsValid(c_gameCatalogEffect, "NukeDamage")) { return false; }
+        PlayerCreateEffectPoint(player, "NukeDamage", location);
+    }
+    else if (kind == 9) {
+        if (location == null || !CatalogEntryIsValid(c_gameCatalogUnit, "CommandCenterFlying")) { return false; }
+        created = UnitCreate(1, "CommandCenterFlying", c_unitCreateIgnorePlacement, player, location, 0.0);
+        u = UnitGroupUnitFromEnd(created, 1);
+        if (u == null) { return false; }
+        // A flying command center does not have a transport cargo ability in
+        // all campaigns. Deploy the five workers beside it instead of losing
+        // the potion or invoking an unsupported cargo order.
+        APRG_CreatePlayerUnitsAtPoint(5, "SCV", player, location, 0.0);
+    }
+    else if (kind == 10) { g_aprgPotionStealthUntil = GameGetMissionTime() + 60.0; }
+    else if (kind == 11) { g_aprgPotionStimUntil = GameGetMissionTime() + 60.0; g_aprgPotionStimDrainAt = GameGetMissionTime() + 1.0; }
+    else if (kind == 12) {
+        if (!APRG_HasProgression(APRG_PROGRESSION_SPEAR)) { return false; }
+        if (APRG_FindSpearCaster(player) == null && APRG_FindSpearAutonomousCaster(player) == null) { return false; }
+        APRG_PotionRechargeSpear(player);
+    }
+    else if (kind == 13) {
+        if (!APRG_HasProgression(APRG_PROGRESSION_KERRIGAN)) { return false; }
+        unitType = APRG_FallbackKerriganType();
+        if (unitType == "") { return false; }
+        home = APRG_FindPlayerHomeStructure(player);
+        if (home == null) { return false; }
+        p = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
+        if (p == null) { return false; }
+        created = APRG_CreatePlayerUnitsAtPoint(1, unitType, player, p, 0.0);
+        if (UnitGroupCount(created, c_unitCountAlive) < 1) { return false; }
+    }
+    else if (kind == 14) {
+        if (g_aprgPotionMercMask == 0) { return false; }
+        home = APRG_FindPlayerHomeStructure(player);
+        if (home == null) { return false; }
+        p = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
+        if (p == null) { return false; }
+        for (i = 0; i < 21; i += 1) {
+            if ((g_aprgPotionMercMask & (1 << i)) == 0) { continue; }
+            unitType = APRG_PotionMercType(i);
+            if (unitType != "") { unitType = APRG_PlayerSpawnCatalogTypeForPlayer(unitType, player); }
+            if (unitType != "" && CatalogEntryIsValid(c_gameCatalogUnit, unitType)) {
+                created = APRG_CreatePlayerUnitsAtPoint(1, unitType, player, p, 0.0);
+                mercSpawned += UnitGroupCount(created, c_unitCountAlive);
+            }
+        }
+        if (mercSpawned == 0) { return false; } // Do not spend a potion on an invalid merc catalog.
+    }
+    else if (kind == 15) {
+        if (target == null || UnitGetOwner(target) != player || !UnitIsAlive(target)) { return false; }
+        shieldMax = UnitGetPropertyFixed(target, c_unitPropShieldsMax, c_unitPropCurrent);
+        DataTableSetFixed(true, "APRG_PotionMatrixShieldMax_" + IntToString(UnitGetTag(target)), shieldMax);
+        UnitSetPropertyFixed(target, c_unitPropShieldsMax, shieldMax + 2000.0);
+        UnitSetPropertyFixed(target, c_unitPropShields,
+            UnitGetPropertyFixed(target, c_unitPropShields, c_unitPropCurrent) + 2000.0);
+        UnitGroupAdd(g_aprgPotionMatrixTargets, target);
+    }
+    else if (kind == 16) {
+        if (target == null || !UnitIsAlive(target)) { return false; }
+        UnitGroupAdd(g_aprgPotionCorruptTargets, target);
+    }
+    else if (kind == 17 || kind == 18) {
+        home = APRG_FindPlayerHomeStructure(player);
+        if (home == null) { return false; }
+        p = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
+        if (p == null) { return false; }
+        i = PlayerGetPropertyInt(player, c_playerPropMinerals);
+        if (kind == 18) { i = PlayerGetPropertyInt(player, c_playerPropVespene); }
+        i = MinI(5000, MaxI(0, i));
+        if (kind == 17 && i < 10) { return false; }
+        if (kind == 18 && i < 20) { return false; }
+        resourcePerUnit = 10;
+        if (kind == 18) { resourcePerUnit = 20; }
+        if (!APRG_PotionStartSpawnQueue(kind, i / resourcePerUnit, p, GameGetMissionTime())) { return false; }
+        if (kind == 17) { PlayerModifyPropertyInt(player, c_playerPropMinerals, c_playerPropOperSetTo, PlayerGetPropertyInt(player, c_playerPropMinerals) - i); }
+        else { PlayerModifyPropertyInt(player, c_playerPropVespene, c_playerPropOperSetTo, PlayerGetPropertyInt(player, c_playerPropVespene) - i); }
+    }
+    else if (kind >= 1901 && kind <= 1918) {
+        if (location == null) { return false; }
+        unitType = APRG_PotionRandomUnitType(kind);
+        if (unitType == "" || !CatalogEntryIsValid(c_gameCatalogUnit, unitType)) { return false; }
+        if (!APRG_PotionStartSpawnQueue(kind, APRG_PotionRandomUnitQuantity(kind), location, GameGetMissionTime())) { return false; }
+    }
+    else { return false; }
+    return true;
+}
+
+bool APRG_PotionDamage_Func(bool testConds, bool runActions) {
+    unit victim;
+    fixed amount;
+    if (!runActions || !g_aprgStarted || g_aprgPotionDamageBusy || g_aprgPotionCorruptTargets == null) { return true; }
+    victim = EventUnit();
+    if (victim == null || !UnitGroupHasUnit(g_aprgPotionCorruptTargets, victim)) { return true; }
+    amount = EventUnitDamageAmount();
+    if (amount <= 0.0) { return true; }
+    g_aprgPotionDamageBusy = true;
+    APRG_DealDirectDamage(victim, amount);
+    g_aprgPotionDamageBusy = false;
+    return true;
+}
+
+// A private potion-targeting actor gives the player the SC2 *native* ability
+// targeting cursor without changing selected armies or their command cards.
+// Move is a built-in point-or-unit command in all campaign dependencies.
+// The order event is intercepted before the dummy walks; actual potion effects
+// still run through APRG_PotionActivate and spend only on success.
+bool APRG_PotionEnsureNativeCaster(int player) {
+    unitgroup spawned;
+    if (g_aprgPotionTargetCaster != null && UnitIsAlive(g_aprgPotionTargetCaster)) { return true; }
+    if (!CatalogEntryIsValid(c_gameCatalogUnit, "APRoguePotionTargetCaster")) { return false; }
+    spawned = UnitCreate(1, "APRoguePotionTargetCaster", c_unitCreateIgnorePlacement, player, Point(0.0, 0.0), 0.0);
+    g_aprgPotionTargetCaster = UnitGroupUnitFromEnd(spawned, 1);
+    if (g_aprgPotionTargetCaster == null) { return false; }
+    // This unit must never count as an army, defend a base or participate in AI.
+    UnitSetState(g_aprgPotionTargetCaster, c_unitStateInvulnerable, true);
+    UnitSetState(g_aprgPotionTargetCaster, c_unitStateTargetable, false);
+    g_aprgPotionTargetCasterGroup = UnitGroupEmpty();
+    UnitGroupAdd(g_aprgPotionTargetCasterGroup, g_aprgPotionTargetCaster);
+    if (g_aprgPotionOrderTrigger == null) {
+        g_aprgPotionOrderTrigger = TriggerCreate("APRG_PotionNativeOrder_Func");
+        // Galaxy's TriggerAddEventUnitOrder expects a unitref, NOT a unit.
+        // Passing the unit variable directly can fail compilation of the whole
+        // APRogue library (the three-race critical error). Register all Move
+        // orders, then filter EventUnit() to our exact caster in the callback.
+        TriggerAddEventUnitOrder(g_aprgPotionOrderTrigger, null, AbilityCommand("move", 0));
+    }
+    return true;
+}
+
+bool APRG_PotionArmNativeTarget(int player) {
+    if (!APRG_PotionEnsureNativeCaster(player)) { return false; }
+    UISetTargetingOrder(PlayerGroupSingle(player), g_aprgPotionTargetCasterGroup,
+        OrderTargetingPoint(AbilityCommand("move", 0), RegionGetCenter(RegionPlayableMap())), false);
+    return true;
+}
+
+void APRG_PotionEndNativeTarget(int player) {
+    UISetTargetingOrder(PlayerGroupSingle(player), g_aprgPotionTargetCasterGroup, null, false);
+    if (g_aprgPotionTargetCaster != null && UnitIsAlive(g_aprgPotionTargetCaster)) {
+        UnitIssueOrder(g_aprgPotionTargetCaster, Order(AbilityCommand("stop", 0)), c_orderQueueReplace);
+    }
+}
+
+bool APRG_PotionNativeOrder_Func(bool testConds, bool runActions) {
+    order issued;
+    point pos;
+    unit target;
+    int player;
+    int slot;
+    int kind;
+    if (!runActions || g_aprgPotionPendingSlot < 0 || EventUnit() != g_aprgPotionTargetCaster) { return true; }
+    player = APRG_GetPrimaryPlayer();
+    slot = g_aprgPotionPendingSlot;
+    if (slot < 0 || slot >= 2 || g_aprgPotionUsed[slot]) {
+        g_aprgPotionPendingSlot = -1;
+        APRG_PotionEndNativeTarget(player);
+        return true;
+    }
+    kind = g_aprgPotionType[slot];
+    issued = EventUnitOrder();
+    target = OrderGetTargetUnit(issued);
+    pos = OrderGetTargetPosition(issued);
+    if (pos == null || !RegionContainsPoint(RegionPlayableMap(), pos)) {
+        APRG_PotionArmNativeTarget(player);
+        return true;
+    }
+    // This is true SC2 unit targeting: do not guess the nearest unit in a
+    // three-radius circle. Wrong-side and empty-ground clicks don't spend it.
+    if ((kind == 15 || kind == 16) && (target == null || !UnitIsAlive(target) ||
+            (kind == 15 && UnitGetOwner(target) != player))) {
+        APRG_PotionArmNativeTarget(player);
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+            StringToText("[Slay] Select a valid unit. Potion not consumed."));
+        return true;
+    }
+    if (APRG_PotionActivate(player, kind, pos, target)) {
+        APRG_PotionConsume(player, slot);
+        APRG_PotionEndNativeTarget(player);
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+            StringToText("[Slay] Used " + APRG_PotionName(kind)));
+    } else {
+        APRG_PotionArmNativeTarget(player);
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+            StringToText("[Slay] Invalid target. Potion not consumed."));
+    }
+    return true;
+}
+
+bool APRG_PotionClick_Func(bool testConds, bool runActions) {
+    int player;
+    int slot;
+    int kind;
+    if (!runActions) { return true; }
+    player = APRG_GetPrimaryPlayer();
+    slot = -1;
+    if (EventDialogControl() == g_aprgPotionButton[0]) { slot = 0; }
+    if (EventDialogControl() == g_aprgPotionButton[1]) { slot = 1; }
+    if (slot < 0 || g_aprgPotionUsed[slot] || g_aprgPotionType[slot] <= 0) { return true; }
+    kind = g_aprgPotionType[slot];
+    if (APRG_PotionNeedsTarget(kind)) {
+        // Native targeting is only armed when a caster is available; a missing
+        // mod catalog must never leave the UI stuck or spend the potion.
+        if (!APRG_PotionArmNativeTarget(player)) {
+            UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+                StringToText("[Slay] Native potion targeting unavailable. Potion not consumed."));
+            return true;
+        }
+        g_aprgPotionPendingSlot = slot;
+        g_aprgPotionArmedAt = GameGetMissionTime();
+        APRG_PotionRefreshButtons(player);
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaDirective,
+            StringToText("[Slay] Choose a native SC2 target for " + APRG_PotionName(kind) + ". Right-click to cancel."));
+    }
+    else if (APRG_PotionActivate(player, kind, null, null)) {
+        if (g_aprgPotionPendingSlot >= 0) { APRG_PotionEndNativeTarget(player); }
+        APRG_PotionConsume(player, slot);
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText("[Slay] Used " + APRG_PotionName(kind)));
+    }
+    return true;
+}
+
+bool APRG_PotionCancel_Func(bool testConds, bool runActions) {
+    if (!runActions || g_aprgPotionPendingSlot < 0) { return true; }
+    g_aprgPotionPendingSlot = -1;
+    APRG_PotionEndNativeTarget(APRG_GetPrimaryPlayer());
+    APRG_PotionRefreshButtons(APRG_GetPrimaryPlayer());
+    return true;
+}
+
+void APRG_TickPotionEffects(int player, fixed now) {
+    int i;
+    unit u;
+    unitgroup units;
+    point p;
+    string key;
+    // Native Warfield pods land over ~2 sec, one new pod every 0.2 sec.
+    if (g_aprgPotionDropsLeft > 0 && now >= g_aprgPotionNextDropTime) {
+        p = PointWithOffsetPolar(g_aprgPotionDropPoint, RandomFixed(0.0, 9.0), libNtve_gf_RandomAngle());
+        if (!RegionContainsPoint(RegionPlayableMap(), p)) { p = g_aprgPotionDropPoint; }
+        if (!APRG_QueueRealDropPod(APRG_DROP_KIND_WARFIELD, player, p, null)) { APRG_ResolveWarfieldDrop(player, p); }
+        g_aprgPotionDropsLeft -= 1;
+        g_aprgPotionNextDropTime = now + 0.2;
+    }
+    if (g_aprgPotionDecloakUntil > now || g_aprgPotionStealthUntil > now || g_aprgPotionStimUntil > now) {
+        units = UnitGroup(null, c_playerAny, RegionPlayableMap(),
+            UnitFilter(0, 0, (1 << c_targetFilterMissile), (1 << (c_targetFilterDead - 32))), 0);
+        for (i = UnitGroupCount(units, c_unitCountAlive); i > 0; i -= 1) {
+            u = UnitGroupUnitFromEnd(units, i);
+            if (u == null || !UnitIsAlive(u)) { continue; }
+            if (g_aprgPotionDecloakUntil > now && u != APRG_FindSpearCaster(player) && u != APRG_FindSpearAutonomousCaster(player) && !UnitHasBehavior(u, "APRoguePotionDecloak")) {
+                UnitBehaviorAdd(u, "APRoguePotionDecloak", u, 1);
+                UnitBehaviorSetDuration(u, "APRoguePotionDecloak", g_aprgPotionDecloakUntil - now);
+            }
+            if (UnitGetOwner(u) != player) { continue; }
+            if (g_aprgPotionStealthUntil > now && !UnitHasBehavior(u, "APRoguePotionStealth")) {
+                UnitBehaviorAdd(u, "APRoguePotionStealth", u, 1);
+                UnitBehaviorSetDuration(u, "APRoguePotionStealth", g_aprgPotionStealthUntil - now);
+            }
+            if (g_aprgPotionStimUntil > now && !UnitTypeTestAttribute(UnitGetType(u), c_unitAttributeStructure) && !UnitHasBehavior(u, "APRoguePotionStim")) {
+                UnitBehaviorAdd(u, "APRoguePotionStim", u, 1);
+                UnitBehaviorSetDuration(u, "APRoguePotionStim", g_aprgPotionStimUntil - now);
+            }
+            if (g_aprgPotionStimUntil > now && now >= g_aprgPotionStimDrainAt && !UnitTypeTestAttribute(UnitGetType(u), c_unitAttributeStructure)) {
+                if (UnitGetPropertyFixed(u, c_unitPropLife, c_unitPropCurrent) <= 1.0) { UnitKill(u); }
+                else { UnitSetPropertyFixed(u, c_unitPropLife,
+                    UnitGetPropertyFixed(u, c_unitPropLife, c_unitPropCurrent) - 1.0); }
+            }
+        }
+        if (g_aprgPotionStimUntil > now && now >= g_aprgPotionStimDrainAt) { g_aprgPotionStimDrainAt = now + 1.0; }
+    }
+    if (g_aprgPotionMatrixTargets != null) {
+        for (i = UnitGroupCount(g_aprgPotionMatrixTargets, c_unitCountAll); i > 0; i -= 1) {
+            u = UnitGroupUnitFromEnd(g_aprgPotionMatrixTargets, i);
+            if (u == null || !UnitIsAlive(u)) { UnitGroupRemove(g_aprgPotionMatrixTargets, u); continue; }
+            if (UnitGetPropertyFixed(u, c_unitPropShields, c_unitPropCurrent) > 0.0) { continue; }
+            key = "APRG_PotionMatrixShieldMax_" + IntToString(UnitGetTag(u));
+            UnitSetPropertyFixed(u, c_unitPropShieldsMax, DataTableGetFixed(true, key));
+            UnitGroupRemove(g_aprgPotionMatrixTargets, u);
+        }
+    }
+}
+
+void APRG_TickPotions(int player, fixed now) {
+    int i;
+    playergroup players;
+    if (player <= 0 || g_aprgTestPotionRunToken <= 0) { return; }
+    APRG_PotionReadBank(player);
+    if (g_aprgPotionDialog == 0) {
+        players = PlayerGroupSingle(player);
+        g_aprgPotionDialog = DialogCreate(550, 76, c_anchorTopRight, -16, 8, false);
+        DialogSetTransparency(g_aprgPotionDialog, 25.0);
+        for (i = 0; i < 2; i += 1) {
+            g_aprgPotionButton[i] = DialogControlCreate(g_aprgPotionDialog, c_triggerControlTypeButton);
+            DialogControlSetSize(g_aprgPotionButton[i], players, 260, 56);
+            DialogControlSetPosition(g_aprgPotionButton[i], players, c_anchorCenter, (i * 270) - 135, 0);
+        }
+        DialogSetVisible(g_aprgPotionDialog, players, true);
+        APRG_PotionRefreshButtons(player);
+        g_aprgPotionClickTrigger = TriggerCreate("APRG_PotionClick_Func");
+        for (i = 0; i < 2; i += 1) {
+            TriggerAddEventDialogControl(g_aprgPotionClickTrigger, player, g_aprgPotionButton[i], c_triggerControlEventTypeClick);
+        }
+        // No raw left-click trigger: only a native unit-issued-order event
+        // can spend targeted potions. This avoids approximate unit selection.
+        g_aprgPotionCancelTrigger = TriggerCreate("APRG_PotionCancel_Func");
+        TriggerAddEventMouseClicked(g_aprgPotionCancelTrigger, player, c_mouseButtonRight, true);
+        g_aprgPotionDamageTrigger = TriggerCreate("APRG_PotionDamage_Func");
+        TriggerAddEventUnitDamaged(g_aprgPotionDamageTrigger, null, c_unitDamageTypeAny, c_unitDamageEither, null);
+    }
+    APRG_TickPotionEffects(player, now);
+}
+
 void APRG_TickAllInEliminationVictory(int player) {
     unitgroup structures;
     if ((g_aprgMissionFlags & APRG_MISSION_FLAG_ALL_IN_ELIMINATION) == 0 || g_aprgAllInVictoryTriggered) { return; }
@@ -18662,7 +19478,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
         APRG_ActivateEffects(player);
     }
     APRG_UpdateMacroBaseReady(player);
-    APRG_TickTestPotionUI(player);
+    APRG_TickPotions(player, now);
     if ((g_aprgMissionFlags & APRG_MISSION_FLAG_IMMORTAL_ZERGLING) != 0) { APRG_TickImmortalZergling(player, now); }
     APRG_HideScvJumpJetsCommandCard(player);
     APRG_EnsureProtossResearchStructures(player);

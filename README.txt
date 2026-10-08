@@ -4,6 +4,8 @@ Slay the StarCraft is a single-player StarCraft II roguelike built on the
 Archipelago StarCraft II framework.
 
 V1.1.0 DEVELOPMENT
+- r14: Starting credits default to 600; mission victory floor is 150 (Lab Rat can still go 100 lower); mutation severity mean is raised +1 before frequency scaling. Existing runs are unchanged.
+- r14: The setup and shop layout, mission arrow routing/key layout, quieter sounds, and resource/progression icons have been refined. The Terran Factory and Zerg Hive remain temporary icon stand-ins for the Mercenary Compound and Predator Nest.
 
 - The English StarCraft-style theme now covers setup, mission route, shop, and inventory while preserving current v1.1.0 gameplay/settings.
 - Shop and inventory default to the compact four-column list view using the original category placement/colors; card view remains available.

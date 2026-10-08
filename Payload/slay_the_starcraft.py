@@ -113,6 +113,8 @@ _AP_ITEM_DOCS = _load_ap_item_docs()
 
 
 def shop_entry_icon(item_name: str) -> str:
+    if item_name in POTION_CATALOG:
+        return "btn-tech-terran-stimpack.png"  # common potion icon; UI fallback is safe
 
 
 
@@ -1105,6 +1107,8 @@ DEFAULT_STATE: dict[str, Any] = {
     "shop_cycle": -1,
 
     "shop_stock": [],
+    "potion_inventory": [],
+    "potion_serial": 0,
 
     "shop_stock_logic_version": 0,
 
@@ -1172,6 +1176,173 @@ DEFAULT_STATE: dict[str, Any] = {
 
 
 
+# Potion inventory and eligibility are independent of the Archipelago item pool.
+# IDs are a stable wire format shared with APRogue.galaxy: do not reorder.
+POTION_PREFIX = "slay_potion::"
+POTION_DEFINITIONS = (
+    ("Mineral Reserves", 1, "Gain 1000 minerals.", "instant"),
+    ("Gas Reserves", 1, "Gain 1000 vespene gas.", "instant"),
+    ("Odin in a Bottle", 2, "Spawn the Odin at the selected location.", "point"),
+    ("Leviathan in a Bottle", 3, "Spawn the Wings of Liberty Leviathan at the selected location, with Mutalisk and Brood Lord spawns every 60 seconds.", "point"),
+    ("Hyperion in a Bottle", 4, "Spawn the Wings of Liberty Hyperion without Legendary Resistance at the selected location.", "point"),
+    ("Drop Pod Wave", 2, "Deploy ten Warfield-style uncontrollable Terran drop pods over two seconds around the selected area.", "point"),
+    ("Mass EMP", 1, "Set current shields and energy of all units to 0 and decloak for 30 seconds. Does not drain Spear of Adun energy.", "instant"),
+    ("Tactical Nuke", 1, "Instantly detonate a tactical nuke at the selected location.", "point"),
+    ("Tosh's Miners", 1, "Deploy a flying Command Center carrying five SCVs at the selected location.", "point"),
+    ("Stealth Protocol", 2, "Cloak all of your units and structures for 60 seconds.", "instant"),
+    ("Mass Stimpack", 2, "All your units gain 50% movement and attack speed for 60 seconds, losing 1 HP per second.", "instant"),
+    ("Spear of Adun Recharge", 2, "Refill the Spear of Adun energy and reset all Spear cooldowns.", "instant"),
+    ("Second Kerrigan", 2, "Spawn a second Kerrigan who will not respawn on death.", "instant"),
+    ("Mercenary Favor", 2, "Call down every available unlocked Merc Compound and Predator Nest mercenary without costing charges or resetting cooldowns.", "instant"),
+    ("Guardian Matrix", 1, "Give the selected friendly unit 2000 temporary shields, removed when depleted.", "friendly"),
+    ("Corruption Spores", 1, "The selected unit or structure takes double damage until it dies.", "unit"),
+    ("Mass Marines", 1, "Lose up to 5000 minerals. Spawn one autonomous, uncommandable Marine at your base for every 10 minerals spent, spread over two seconds.", "instant"),
+    ("Mass Spellcasters", 1, "Lose up to 5000 vespene gas. Spawn one autonomous spellcaster at your base for every 20 gas spent, spread over two seconds.", "instant"),
+    ("Spawn [amount] [unit]", 1, "Spawn a randomized combat unit squad worth 2000 combined minerals and gas at a chosen point. The specific unit and amount appear when offered.", "point"),
+)
+POTION_CATALOG = {
+    POTION_PREFIX + str(index): dict(index=index, name=name, severity=severity,
+        rarity=severity,  # Older inventory/tests still use the rarity alias.
+        price=severity * 125, description=description, target=target)
+    for index, (name, severity, description, target) in enumerate(POTION_DEFINITIONS, 1)
+}
+# These are native campaign combat units with conventional unmodified build costs.
+# Fix the roll when a shop is generated, not when a potion is consumed.
+# (display singular, display plural, native SC2 catalog ID, mineral cost, gas cost)
+POTION_RANDOM_UNITS = (
+    ("Marine", "Marines", "Marine", 50, 0),
+    ("Marauder", "Marauders", "Marauder", 100, 25),
+    ("Reaper", "Reapers", "Reaper", 50, 50),
+    ("Hellion", "Hellions", "Hellion", 100, 0),
+    ("Siege Tank", "Siege Tanks", "SiegeTank", 150, 125),
+    ("Viking", "Vikings", "VikingFighter", 150, 75),
+    ("Banshee", "Banshees", "Banshee", 150, 100),
+    ("Thor", "Thors", "Thor", 300, 200),
+    ("Roach", "Roaches", "Roach", 75, 25),
+    ("Hydralisk", "Hydralisks", "Hydralisk", 100, 50),
+    ("Mutalisk", "Mutalisks", "Mutalisk", 100, 100),
+    ("Ultralisk", "Ultralisks", "Ultralisk", 300, 200),
+    ("Zealot", "Zealots", "Zealot", 100, 0),
+    ("Stalker", "Stalkers", "Stalker", 125, 50),
+    ("Immortal", "Immortals", "Immortal", 275, 100),
+    ("Void Ray", "Void Rays", "VoidRay", 250, 150),
+    ("Colossus", "Colossi", "Colossus", 300, 200),
+    ("High Templar", "High Templar", "HighTemplar", 50, 150),
+)
+POTION_VARIANT_PREFIX = POTION_PREFIX + "19::"
+# Store each random roll as an immutable variant ID. Type 1901..1918 is the
+# serialized Galaxy wire value, while the canonical type 19 remains a shop roll.
+POTION_CATALOG.update({
+    POTION_VARIANT_PREFIX + str(i): dict(
+        index=1900+i, name=f"Spawn {2000 // (mineral + gas)} {plural}",
+        severity=1, rarity=1, price=125,
+        description=f"Spawn {2000 // (mineral + gas)} {plural} at a chosen location. They automatically attack enemy positions.",
+        target="point", unit=unit_type, amount=2000 // (mineral + gas))
+    for i, (_singular, plural, unit_type, mineral, gas) in enumerate(POTION_RANDOM_UNITS, 1)
+})
+POTION_CAPACITY = 2
+
+
+POTION_MERC_NAMES = (
+    "War Pigs", "Devil Dogs", "Hammer Securities", "Spartan Company",
+    "Siege Breakers", "Hel's Angels", "Dusk Wings", "Jackson's Revenge",
+    "Skibi's Angels", "Death Heads", "Winged Nightmares", "Midnight Riders",
+    "Brynhilds", "Jotun", "Devouring Ones", "Hunter Killers",
+    "Wise Old Torrasque", "Caustic Horrors", "Yggdrasil",
+    "Infested Siege Breakers", "Infested Dusk Wings",
+)
+
+
+def potion_mercenary_mask(ctx: Any) -> int:
+    return sum(1 << i for i, name in enumerate(POTION_MERC_NAMES)
+               if _progression_owned(ctx, name))
+
+
+def _potion_unlock_eligible(ctx: Any, name: str) -> bool:
+    info = POTION_CATALOG.get(name)
+    if info is None:
+        return False
+    if info["index"] == 12:
+        return _progression_owned(ctx, SPEAR_UNLOCK)
+    if info["index"] == 13:
+        return _progression_owned(ctx, KERRIGAN_UNLOCK)
+    if info["index"] == 14:
+        try:
+            return potion_mercenary_mask(ctx).bit_count() >= 3
+        except Exception:
+            return False
+    return True
+
+
+_POTION_BANK_USE_CACHE: dict[int, tuple[float, set[int]]] = {}
+
+
+def _potion_bank_uses(ctx: Any) -> set[int]:
+    """SC2 BankSave is the authoritative acknowledgement of use. Never write banks from Python.
+
+    Read only our signed-by-game bank XML; the serial key is namespaced by the run
+    token, so old runs cannot consume the new run's purchases. Missing banks mean
+    no confirmed consumption, NOT an empty/full reset.
+    """
+    import os
+    import time
+    import xml.etree.ElementTree as ET
+    token = test_potion_run_token(ctx)
+    cached = _POTION_BANK_USE_CACHE.get(token)
+    now = time.monotonic()
+    # The Kivy shop queries inventory for many rows. Avoid repeatedly scanning
+    # the StarCraft II Documents directory, while polling recent consumption.
+    if cached is not None and now - cached[0] < 0.75:
+        return set(cached[1])
+    roots = [Path.home() / "Documents" / "StarCraft II"]
+    for env in ("USERPROFILE", "OneDrive", "OneDriveConsumer"):
+        base = os.environ.get(env, "")
+        if base:
+            roots.append(Path(base) / "Documents" / "StarCraft II")
+    used: set[int] = set()
+    seen: set[Path] = set()
+    for root in roots:
+        if not root.is_dir():
+            continue
+        try:
+            candidates = root.rglob("SlayTheStarCraftPotions.SC2Bank")
+            for bank_path in candidates:
+                if bank_path in seen:
+                    continue
+                seen.add(bank_path)
+                try:
+                    tree = ET.parse(bank_path)
+                    for key in tree.findall(".//Section[@name='PotionUses']/Key"):
+                        serial = str(key.attrib.get("name", ""))
+                        value = key.find("Value")
+                        if serial.startswith("Serial") and value is not None and int(value.attrib.get("int", "0")) == token:
+                            used.add(int(serial[6:]))
+                except (OSError, ValueError, ET.ParseError):
+                    continue
+        except OSError:
+            pass
+    _POTION_BANK_USE_CACHE[token] = (now, set(used))
+    return used
+
+
+def potion_inventory(ctx: Any) -> list[dict[str, int | str]]:
+    if not enabled(ctx) or not state_ready(ctx):
+        return []
+    saved = state(ctx).get("potion_inventory", [])
+    consumed = _potion_bank_uses(ctx)
+    return [dict(row) for row in saved if isinstance(row, dict)
+            and str(row.get("id", "")) in POTION_CATALOG
+            and int(row.get("serial", 0)) > 0 and int(row.get("serial", 0)) not in consumed][:POTION_CAPACITY]
+
+
+def potion_handshake_slots(ctx: Any) -> tuple[int, int, int, int]:
+    slots = potion_inventory(ctx)
+    values: list[int] = []
+    for i in range(POTION_CAPACITY):
+        row = slots[i] if i < len(slots) else {}
+        values.extend((int(POTION_CATALOG.get(str(row.get("id", "")), {}).get("index", 0)), int(row.get("serial", 0))))
+    return tuple(values)  # type: ignore[return-value]
+
 SHOP_CATEGORY_ORDER = (
 
     "Terran Units", "Terran Upgrades",
@@ -1182,13 +1353,13 @@ SHOP_CATEGORY_ORDER = (
 
     "Defensive Structures & Detectors", "General Upgrades",
 
-    "Mercenary Contracts", "Mercenaries", "Kerrigan", "Spear of Adun", "Boons",
+    "Mercenary Contracts", "Mercenaries", "Kerrigan", "Spear of Adun", "Boons", "Potions",
 
 )
 
 SHOP_ITEMS_PER_CATEGORY = 2
 
-SHOP_STOCK_LOGIC_VERSION = 110
+SHOP_STOCK_LOGIC_VERSION = 112
 
 SHOP_SALE_COUNT = 4
 
@@ -1686,7 +1857,7 @@ def _legacy_node_credit(node: Mapping[str, Any]) -> int:
 
     )
 
-    reward = max(250, old_reward - (100 * layer_number))
+    reward = max(150, old_reward - (100 * layer_number))
 
     mission_name = str(node.get("mission_name", node.get("name", ""))).strip().casefold()
 
@@ -2153,6 +2324,15 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
 
 
 
+    raw_potions = value.get("potion_inventory", [])
+    if isinstance(raw_potions, list):
+        state["potion_inventory"] = [dict(row) for row in raw_potions
+            if isinstance(row, Mapping) and str(row.get("id", "")) in POTION_CATALOG
+            and str(row.get("serial", "0")).isdigit()][:POTION_CAPACITY]
+    try:
+        state["potion_serial"] = max(0, int(value.get("potion_serial", 0)))
+    except (TypeError, ValueError):
+        state["potion_serial"] = 0
     raw_stock = value.get("shop_stock", [])
 
     if isinstance(raw_stock, Sequence) and not isinstance(raw_stock, (str, bytes)):
@@ -2511,7 +2691,7 @@ def _expected_opening_credit_average(config: Mapping[str, Any]) -> float:
 
         multiplier = 1.0
 
-    return float(base) * multiplier
+    return float(base + 150.0 * mf) * multiplier
 
 
 
@@ -2560,7 +2740,7 @@ def _runtime_effect_means(layer: int, choice_layers: int, final: bool) -> tuple[
     frac = 1.0 if final else (0.0 if choice_layers <= 0 else layer / max(1, choice_layers))
     if total_missions == _DEFAULT_CAMPAIGN_LENGTH:
         return (
-            _curve_value(_EXPECTED_MUTATION_SEVERITY_PROFILE, frac),
+            _curve_value(_EXPECTED_MUTATION_SEVERITY_PROFILE, frac) + 1.0,
             _curve_value(_EXPECTED_BLESSING_SEVERITY_PROFILE, frac),
         )
     mut_mean = float(mission_number + 2) + (2.0 if final else 0.0)
@@ -2569,7 +2749,7 @@ def _runtime_effect_means(layer: int, choice_layers: int, final: bool) -> tuple[
         bless_mean = 1.0
     else:
         bless_mean = 7.0 - (6.0 * ((mission_number - 1) / max(1, third_last - 1)))
-    return mut_mean, bless_mean
+    return mut_mean + 1.0, bless_mean
 
 
 def _fallback_expected_danger_score(config: Mapping[str, Any], data: Mapping[str, Any]) -> int:
@@ -6987,6 +7167,9 @@ def _item_race_key(item_name: str, data: Any | None = None) -> str:
 
 def shop_category_for_item(item_name: str, ctx: Any | None = None, owned_unlocks: set[str] | None = None) -> str:
 
+    if item_name in POTION_CATALOG:
+        return "Potions"
+
     if item_name.startswith(BOON_PREFIX):
 
         return "Boons"
@@ -7240,12 +7423,17 @@ def boon_display_name(item_name: str) -> str:
 
 
 def shop_entry_description(item_name: str) -> str:
+    if item_name in POTION_CATALOG:
+        return str(POTION_CATALOG[item_name]["description"])
 
 
 
 
 
 
+
+    if item_name in {TERRAN_CONTRACTS, ZERG_CONTRACTS, SPEAR_UNLOCK}:
+        return PROGRESSION_DESCRIPTIONS.get(item_name, "")
 
     if not item_name.startswith(BOON_PREFIX):
 
@@ -7396,6 +7584,8 @@ def shop_entry_description(item_name: str) -> str:
 
 
 def shop_entry_display_name(item_name: str) -> str:
+    if item_name in POTION_CATALOG:
+        return str(POTION_CATALOG[item_name]["name"])
 
     if item_name in PROGRESSION_DISPLAY_NAMES:
 
@@ -7948,7 +8138,28 @@ def _roll_shop_stock(
     result.extend(chosen)
 
     result.append(guaranteed_reroll)
-
+    # Exactly two independently rolled potion offers per shop cycle / reroll.
+    # Do not remove offers when inventory is full: present disabled purchase buttons.
+    potions = [p for p in POTION_CATALOG if not p.startswith(POTION_VARIANT_PREFIX) and _potion_unlock_eligible(ctx, p)]
+    rng.shuffle(potions)
+    # A random-spawn potion's generated title must be locked to the shop roll.
+    # Roll a variant before storing stock, so rerolls can change the offered unit.
+    chosen_potions = []
+    for potion_id in (p for p in potions if p not in avoid_items):
+        if len(chosen_potions) >= 2:
+            break
+        if potion_id == POTION_PREFIX + "19":
+            potion_id = POTION_VARIANT_PREFIX + str(rng.randint(1, len(POTION_RANDOM_UNITS)))
+        chosen_potions.append(potion_id)
+    if len(chosen_potions) < 2:
+        for potion_id in potions:
+            if len(chosen_potions) >= 2:
+                break
+            if potion_id == POTION_PREFIX + "19":
+                potion_id = POTION_VARIANT_PREFIX + str(rng.randint(1, len(POTION_RANDOM_UNITS)))
+            if potion_id not in chosen_potions:
+                chosen_potions.append(potion_id)
+    result.extend(chosen_potions)
     return list(dict.fromkeys(result))
 
 
@@ -8037,7 +8248,7 @@ def preview_shop_sales(ctx: Any, stock: Sequence[str], *, reroll_nonce: int) -> 
 
         return []
 
-    eligible = [str(name) for name in stock if can_buy_shop_item(ctx, str(name))]
+    eligible = [str(name) for name in stock if name not in POTION_CATALOG and can_buy_shop_item(ctx, str(name))]
 
     seed_material = f"{ctx.slay_config.get('run_seed',0)}:shop-sale:{victory_count(ctx)}:{int(reroll_nonce)}".encode("utf-8")
 
@@ -8328,6 +8539,8 @@ def _price_for_item_before_track_discount(item_name: str, ctx: Any | None = None
 
 
 def _price_for_item_before_sale(item_name: str, ctx: Any | None = None) -> int:
+    if item_name in POTION_CATALOG:
+        return int(POTION_CATALOG[item_name]["price"])
 
     base = int(_price_for_item_before_track_discount(item_name, ctx))
 
@@ -8371,6 +8584,8 @@ def price_for_item(
 
 ) -> int:
 
+    if item_name in POTION_CATALOG:
+        return int(POTION_CATALOG[item_name]["price"])  # fixed rarity price, not sale/stack-adjusted
     base = _price_for_item_before_sale(item_name, ctx)
 
     if ctx is not None and enabled(ctx) and state_ready(ctx):
@@ -8422,6 +8637,8 @@ def purchased_count(ctx: Any, item_name: str) -> int:
 def can_buy_shop_item(ctx: Any, item_name: str) -> bool:
 
     if not enabled(ctx) or not state_ready(ctx): return False
+    if item_name in POTION_CATALOG:
+        return len(potion_inventory(ctx)) < POTION_CAPACITY and _potion_unlock_eligible(ctx, item_name)
 
     if item_name in {TERRAN_CONTRACTS, ZERG_CONTRACTS, KERRIGAN_UNLOCK, SPEAR_UNLOCK}:
 
@@ -8602,7 +8819,10 @@ def shop_render_states(
 
         kind, _ = _parse_boon(item_name)
 
-        if kind or _is_progression_item(item_name):
+        # Potions are native Slay shop entries, not Archipelago items. They
+        # have no AP item-table code, so the generic branch below always
+        # marked them unavailable even with two empty inventory slots.
+        if item_name in POTION_CATALOG or kind or _is_progression_item(item_name):
 
             can_buy = can_buy_shop_item(ctx, item_name)
 
@@ -8634,7 +8854,7 @@ def shop_render_states(
 
                     can_buy = raw_actual + shop_copies < cap
 
-        if can_buy and not kind and not _is_progression_item(item_name):
+        if can_buy and item_name not in POTION_CATALOG and not kind and not _is_progression_item(item_name):
 
             data = table.get(item_name)
 
@@ -9828,6 +10048,19 @@ def purchase(
     price=price_for_item(item_name,ctx)
 
     if credits(ctx)<price: return False,f"Need {price} credits; only {credits(ctx)} available."
+
+    if item_name in POTION_CATALOG:
+        slots = potion_inventory(ctx)
+        if len(slots) >= POTION_CAPACITY:
+            return False, "Both potion slots are full (2/2). Use a potion before buying another."
+        s = state(ctx)
+        serial = max(int(s.get("potion_serial", 0)),
+                     *(int(row.get("serial", 0)) for row in s.get("potion_inventory", []) if isinstance(row, dict)), 0) + 1
+        s["potion_serial"] = serial
+        s["potion_inventory"] = slots + [{"id": item_name, "serial": serial}]
+        s["spent"] = int(s.get("spent", 0)) + price
+        _persist_state(ctx)
+        return True, f"Purchased {POTION_CATALOG[item_name]['name']} for {price} credits ({len(slots)+1}/2 potion slots)."
 
     if item_name.startswith(BOON_PREFIX):
 
@@ -11058,6 +11291,7 @@ def ui_signature(ctx: Any) -> tuple[Any, ...]:
         int(s.get("shop_cycle", -1)),
 
         tuple(s.get("shop_stock", [])),
+        tuple((row["id"], row["serial"]) for row in potion_inventory(ctx)),
 
         tuple(s.get("permanent_blessings", [])),
 

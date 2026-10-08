@@ -56,7 +56,7 @@ def preload_sounds(*_args) -> None:
             source = ASSETS / "sounds" / filename
             sound = SoundLoader.load(str(source)) if source.is_file() else None
             if sound:
-                sound.volume = 0.08
+                sound.volume = 0.04
             _SOUNDS[kind] = sound
         except Exception:
             _SOUNDS[kind] = None
@@ -275,17 +275,7 @@ def _style_setup(manager, container) -> None:
     body = BoxLayout(spacing=dp(18))
     settings = BoxLayout(orientation="vertical", padding=dp(20), spacing=dp(12), size_hint_x=0.68)
     panel(settings)
-    settings.add_widget(
-        Label(
-            text="[b]ADVENTURE CONFIGURATION[/b]",
-            markup=True,
-            color=BLUE,
-            font_size=dp(21),
-            size_hint_y=None,
-            height=dp(32),
-            halign="left",
-        )
-    )
+    # No redundant Adventure Configuration heading; settings start with the form.
 
     # Keep the current v1.1.0 launcher controls and callbacks. We only restyle
     # and reposition them, including the new playable-race row.
@@ -314,7 +304,7 @@ def _style_setup(manager, container) -> None:
 
     def show_contributors(*_args):
         entries = (
-            ("Lammy", "Original author · Mod design, development, balance and bug fixes."),
+            ("Lammy", "Original author · Game Design, development, balance and bug fixes."),
             ("Wangfeng", "Chinese localization and the StarCraft-style launcher, route, shop and inventory presentation."),
             ("SC2 Archipelago Team", "Provided the base campaign randomizer, race-swapped missions, units and upgrades."),
         )
@@ -344,7 +334,7 @@ def _style_setup(manager, container) -> None:
     guide.add_widget(credits_button)
     guide.add_widget(
         Label(
-            text="[b]DIFFICULTY DESCRIPTION[/b]",
+            text="[b]DIFFICULTY[/b]",
             markup=True,
             color=BLUE,
             font_size=dp(21),
@@ -389,11 +379,15 @@ def _install_navigation(manager) -> None:
         return
     nav = BoxLayout(size_hint_y=None, height=dp(54), spacing=dp(8), padding=[dp(24), dp(6)])
     panel(nav, color=(0.025, 0.065, 0.105, 1), border=False)
-    # Keep the underlying Archipelago tab text unchanged. MDScreenManagerBase
-    # uses tab.text as the screen key, so renaming the actual tab objects breaks
-    # both manual navigation and the launcher's automatic post-generation switch.
-    # The custom themed buttons below provide the user-facing names/order instead.
-    log_tab = next((t for t in manager.tabs.children if getattr(t, "text", "") == "Archipelago"), None)
+    log_tab = next((t for t in manager.tabs.children if getattr(t, "text", "") in {"Archipelago", "Console Log"}), None)
+    # IMPORTANT: MDNavigationItemBase.text is the screen's canonical key in
+    # Archipelago kvui.MDScreenManagerBase.switch_screens(). That method uses
+    # new_tab.text to look up both local_screen_names and the MDScreen name.
+    # Renaming the original tab to "Missions" / "Settings" / "Console Log"
+    # without also renaming its MDScreen breaks EVERY themed navigation button,
+    # including the automatic switch after generating/loading a run.
+    # Keep those original internal tab names unchanged. Only the themed button
+    # captions below are changed for display.
     tabs = []
     if log_tab:
         tabs.append((log_tab, "Console Log"))

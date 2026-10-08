@@ -7,7 +7,7 @@ import traceback
 from kivy.clock import Clock
 from kivy.metrics import dp
 from kivy.core.image import Image as CoreImage
-from kivy.graphics import Color, Rectangle, Line, Ellipse, Mesh
+from kivy.graphics import Color, Rectangle, RoundedRectangle, Line, Ellipse, Mesh
 from kivy.graphics.instructions import InstructionGroup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
@@ -27,17 +27,20 @@ ICON_MAP=json.loads(Path(__file__).with_name('slay_ui_icons.json').read_text(enc
 TEXTURES=OrderedDict()
 CYAN=(.28,.78,1,1)
 SECTIONS=('Terran Units','Terran Upgrades','Zerg Units','Zerg Upgrades','Protoss Units','Protoss Upgrades',
-          'Defensive Structures & Detectors','General Upgrades','Mercenary Contracts','Mercenaries','Kerrigan','Spear of Adun','Boons','Blessings','Mutations')
+          'Defensive Structures & Detectors','General Upgrades','Mercenary Contracts','Mercenaries','Kerrigan','Spear of Adun','Boons','Potions','Blessings','Mutations')
 STATUS={'available':('Available',CYAN),'selected':('Current Mission',(.3,1,.64,1)),'completed':('Completed',(.3,.85,.52,1)),
         'future':('Locked',(.3,.47,.61,1)),'abandoned':('Unavailable',(.48,.38,.43,1)),'loading':('Loading',(.52,.63,.7,1))}
 
 DEFAULT_ROUTE_SCALE=.60
-NODE_PLANET_CENTER_Y=128
+NODE_PLANET_CENTER_Y=58
+ROUTE_FLOOR_SPACING=178
+NODE_CARD_HEIGHT=116
+NODE_PLANET_X=57
 SHOP_SECTION_COLUMNS={
     'Terran Units':0,'Terran Upgrades':0,'Defensive Structures & Detectors':0,
     'Zerg Units':1,'Zerg Upgrades':1,'General Upgrades':1,
     'Protoss Units':2,'Protoss Upgrades':2,'Boons':2,
-    'Mercenary Contracts':3,'Mercenaries':3,'Kerrigan':3,'Spear of Adun':3,
+    'Mercenary Contracts':3,'Mercenaries':3,'Kerrigan':3,'Spear of Adun':3,'Potions':3,
 }
 INVENTORY_SECTION_COLUMNS=dict(SHOP_SECTION_COLUMNS,**{'Blessings':2,'Mutations':2})
 SECTION_PALETTE={
@@ -47,7 +50,7 @@ SECTION_PALETTE={
     'General Upgrades':(.184,.184,.184,1),
     'Protoss Units':(.199,.190,.158,1),'Protoss Upgrades':(.211,.201,.170,1),
     'Mercenary Contracts':(.145,.175,.215,1),'Mercenaries':(.160,.190,.168,1),
-    'Kerrigan':(.198,.164,.181,1),'Spear of Adun':(.225,.195,.120,1),
+    'Kerrigan':(.198,.164,.181,1),'Spear of Adun':(.225,.195,.120,1),'Potions':(.125,.205,.215,1),
     'Boons':(.215,.145,.150,1),'Blessings':(.180,.155,.205,1),'Mutations':(.205,.150,.160,1),
 }
 
@@ -94,6 +97,9 @@ def race_icon(category):
     return ASSETS/f'ui_battlenet_glue_campaign_floatingraceicon_{race}.png'
 
 def local_icon(item,source='',category=''):
+    # No misleading Immortal portrait for the Spear of Adun ship unlock.
+    if str(item).endswith('spear_unlock') or str(item) == 'Unlock Spear of Adun':
+        return ''
     # Every card uses a local, semantic SC2 command-button asset.
     mapped=ICON_MAP.get(str(item))
     if mapped and (ASSETS/'icons'/mapped).is_file():return str(ASSETS/'icons'/mapped)
@@ -101,6 +107,14 @@ def local_icon(item,source='',category=''):
         candidate=ASSETS/'icons'/Path(source).name
         if candidate.name.startswith('btn-') and candidate.is_file():return str(candidate)
     return ''
+
+
+def shop_icon_texture(item, source='', category=''):
+    # No suitable icon for the Spear ship unlock; leave it blank rather than
+    # showing an unrelated Immortal portrait.
+    if str(item).endswith('spear_unlock') or str(item) == 'Unlock Spear of Adun':
+        return None
+    return texture(local_icon(item, source, category))
 
 
 def technology_grid(ctx,unit):
@@ -204,8 +218,14 @@ class RelicCard(BoxLayout):
         super().__init__(orientation='vertical',spacing=dp(6),padding=dp(13),**kwargs)
         self.entry=entry;self.category=category
         self.select_entry=select
-        accent=(.4,.72,1,1) if not entry.get('sale') else (.4,.95,.61,1)
+        accent=(.4,.72,1,1)
         frame(self,accent)
+        # SALE cards share the soft green fill of list rows, without a green frame.
+        if shop and entry.get('sale'):
+            with self.canvas.before:
+                Color(.12,.24,.14,.48);sale_background=RoundedRectangle(pos=self.pos,size=self.size,radius=[dp(9)]*4)
+            self.bind(pos=lambda w,v:setattr(sale_background,'pos',v),
+                      size=lambda w,v:setattr(sale_background,'size',v))
         with self.canvas.before:
             Color(.14,.48,.7,.13);dial=Mesh(vertices=[],indices=[],mode='triangle_strip')
             Color(.25,.58,.85,.16);dial2=Line(circle=(0,0,1,30,310),width=dp(1))
@@ -217,9 +237,15 @@ class RelicCard(BoxLayout):
             header.pos=(self.x+dp(7),self.top-dp(64));header.size=(self.width-dp(14),dp(56))
         self.bind(pos=instrument,size=instrument);instrument()
         head=BoxLayout(size_hint_y=None,height=dp(47),spacing=dp(8))
-        icon=Image(texture=texture(local_icon(entry['id'],entry.get('icon',''),category)),size_hint_x=None,width=dp(44))
-        head.add_widget(icon)
-        head.add_widget(label('[b]'+entry['name']+'[/b]',halign='left',valign='middle',font_size=dp(15)))
+        icon=Image(texture=shop_icon_texture(entry['id'],entry.get('icon',''),category),size_hint_x=None,width=dp(44))
+        # A missing portrait is genuinely absent (not a white default-image tile).
+        # The Spear of Adun unlock deliberately has no icon.
+        if icon.texture is not None:
+            head.add_widget(icon)
+        card_title = '[b]'+entry['name']+'[/b]'
+        if shop and entry.get('sale'):
+            card_title += '  [color=7CFF9B][b]SALE[/b][/color]'
+        head.add_widget(label(card_title,halign='left',valign='middle',font_size=dp(15)))
         self.add_widget(head)
         desc=tr(entry.get('description',''))
         # Full text remains available in the right-side inspector on selection.
@@ -250,10 +276,15 @@ class RelicCard(BoxLayout):
 class RelicRow(BoxLayout):
     def __init__(self,entry,category,select,shop=False,purchase=None,compact=False,**kwargs):
         super().__init__(orientation='horizontal',spacing=dp(5 if compact else 12),padding=dp(4 if compact else 10),**kwargs)
-        panel(self,color=SECTION_PALETTE.get(category,(.025,.065,.105,1)))
-        self.add_widget(Image(texture=texture(local_icon(entry['id'],entry.get('icon',''),category)),size_hint_x=None,width=dp(42 if compact else 48)))
+        panel(self,color=(.13,.23,.16,1) if shop and entry.get('sale') else SECTION_PALETTE.get(category,(.025,.065,.105,1)))
+        portrait = shop_icon_texture(entry['id'], entry.get('icon',''), category)
+        if portrait is not None:
+            self.add_widget(Image(texture=portrait,size_hint_x=None,width=dp(42 if compact else 48)))
         text=BoxLayout(orientation='vertical',spacing=dp(4))
-        title=label('[b]'+entry['name']+'[/b]',halign='left',valign='top',auto_height=True,size_hint_y=None,height=dp(23 if compact else 26),font_size=dp(14 if compact else 15))
+        row_title='[b]'+entry['name']+'[/b]'
+        if shop and entry.get('sale'):
+            row_title+='  [color=7CFF9B][b]SALE[/b][/color]'
+        title=label(row_title,halign='left',valign='top',auto_height=True,size_hint_y=None,height=dp(23 if compact else 26),font_size=dp(14 if compact else 15))
         title.bind(texture_size=lambda w,s:setattr(w,'height',max(dp(23 if compact else 26),s[1])))
         text.add_widget(title)
         description=label(entry.get('description',''),halign='left',valign='top',auto_height=True,size_hint_y=None)
@@ -275,10 +306,9 @@ class RelicRow(BoxLayout):
             if entry.get('ap_count'):origins.append(f"Supplies {entry['ap_count']}")
             if entry.get('shop_count'):origins.append(f"Purchased {entry['shop_count']}")
             actions.add_widget(label(' · '.join(origins) or 'Acquired',size_hint_y=None,height=dp(24),font_size=dp(12)))
-        if entry.get('canonical_name'):
-            from slay_ui_support import related_tech
-            if related_tech(__import__('kivy.app',fromlist=['App']).App.get_running_app().ctx,entry['canonical_name']):
-                actions.add_widget(control('Technology',lambda *_:unit_technology_popup(entry),size_hint_y=None,height=dp(28),font_size=dp(12)))
+        # No secondary Technology buttons on units, structures, detectors, or
+        # other shop rows. The detail inspector can still display relevant
+        # upgrades without consuming vertical room in every list entry.
         self.add_widget(actions)
 
 class CardConsole:
@@ -289,11 +319,17 @@ class CardConsole:
         self.view_key='slay_shop_view_mode' if shop else 'slay_inventory_view_mode'
         self.view_mode=getattr(manager,self.view_key,'list')
         self.page_size=16 if self.view_mode=='list' else 8
-        self.popup=Popup(title='Slay the StarCraft Shop' if shop else 'Slay the StarCraft Inventory',size_hint=(.98,.94),separator_color=CYAN,
-                         background='')
-        root=BoxLayout(orientation='vertical',spacing=dp(8),padding=dp(8));panel(root,border=False)
-        top=BoxLayout(size_hint_y=None,height=dp(46),spacing=dp(8))
-        top.add_widget(label('[b]Supply Depot[/b]' if shop else '[b]Supply Inventory[/b]',font_size=dp(24),halign='left'))
+        # Stock Popup's default nine-slice modal frame and empty background
+        # produced a wide light rim around the otherwise dark Slay shop.
+        # The custom title row below owns the heading; omit the Kivy title bar.
+        self.popup=Popup(title='', size_hint=(.998,.998),
+                         background=str(ASSETS/'shop_popup_background.png'),
+                         background_color=(1,1,1,1), border=(0,0,0,0),
+                         separator_height=0, title_size=0)
+        root=BoxLayout(orientation='vertical',spacing=dp(3),padding=[dp(2),0,dp(2),dp(1)]);panel(root,border=False)
+        top=BoxLayout(size_hint_y=None,height=dp(34),spacing=dp(8))
+        top.add_widget(BoxLayout(size_hint_x=None,width=dp(17)))
+        top.add_widget(label('[b]Shop[/b]' if shop else '[b]Supply Inventory[/b]',font_size=dp(23),halign='left'))
         self.credit=label('',halign='right');top.add_widget(self.credit)
         self.view_button=control('',lambda *_:self.toggle_view(),size_hint_x=None,width=dp(145))
         top.add_widget(self.view_button)
@@ -331,7 +367,7 @@ class CardConsole:
         body.add_widget(inspect);self.inspector=inspect;root.add_widget(body)
         footer=BoxLayout(size_hint_y=None,height=dp(36),spacing=dp(8))
         footer.add_widget(label('' if shop else 'View acquired supplies, units, upgrades and permanent effects',halign='left',font_size=dp(13)))
-        footer.add_widget(control('Return to Route',self.popup.dismiss,size_hint_x=None,width=dp(170)));root.add_widget(footer)
+        footer.add_widget(control('Exit Shop' if shop else 'Close Inventory',self.popup.dismiss,size_hint_x=None,width=dp(170)));root.add_widget(footer)
         self.popup.content=root;self.popup.slay_scroll=self.scroll;self.popup.slay_purchase_buttons={}
         self.popup.slay_credit_label=self.credit;self.popup.slay_console=self
         self.popup.bind(size=self.resize)
@@ -352,6 +388,10 @@ class CardConsole:
         self.pages.height=0 if overview else dp(37)
         self.pages.opacity=0 if overview else 1
         self.pages.disabled=overview
+        # List overview already has category headings in each column.
+        # Hide the redundant "All Categories" strip and reclaim its height.
+        self.heading.height=0 if overview and self.shop else dp(29)
+        self.heading.opacity=0 if overview and self.shop else 1
         # The list overview mirrors the original four-column shop/inventory layout.
         # Keep four columns even during the Popup's tiny pre-open geometry pass; otherwise
         # the first render permanently creates too few column holders until view toggling.
@@ -375,7 +415,10 @@ class CardConsole:
         self.page+=delta;self.render()
 
     def inspect(self,entry):
-        self.inspect_icon.texture=texture(local_icon(entry['id'],entry.get('icon',''),self.category))
+        self.inspect_icon.texture=shop_icon_texture(entry['id'],entry.get('icon',''),self.category)
+        has_icon = self.inspect_icon.texture is not None
+        self.inspect_icon.height=dp(112) if has_icon else 0
+        self.inspect_icon.opacity=1 if has_icon else 0
         self.inspect_title.text=entry['name']
         self.inspect_text.text=entry.get('description','') or 'This relic is active.'
         self.tech_panel.clear_widgets()
@@ -416,7 +459,7 @@ class CardConsole:
     def render_overview(self):
         for name,entry in self.entries.items():texture(local_icon(name,entry.get('icon','')))
         self.grid.clear_widgets();self.popup.slay_purchase_buttons={};self.card_widgets={}
-        self.heading.text='All Categories' if LANGUAGE=='zhCN' else 'All Categories'
+        self.heading.text='' if self.shop else 'All Categories'
         columns=[];holders=[]
         for _ in range(self.grid.cols):
             holder=FloatLayout(size_hint_y=None,height=dp(1))
@@ -435,7 +478,12 @@ class CardConsole:
             group=BoxLayout(orientation='vertical',size_hint_y=None,padding=dp(4),spacing=dp(3))
             group.bind(minimum_height=group.setter('height'))
             panel(group,color=SECTION_PALETTE.get(category,(.18,.18,.18,1)))
-            group.add_widget(label('[b]'+tr(category)+'[/b]',size_hint_y=None,height=dp(26),font_size=dp(13)))
+            heading = '[b]'+tr(category)+'[/b]'
+            if category == 'Potions':
+                from worlds.sc2 import slay_the_starcraft as slay
+                count = len(slay.potion_inventory(self.manager.ctx))
+                heading += f'     [color=82DFF5]Potion slots: {count}/2[/color]'
+            group.add_widget(label(heading,size_hint_y=None,height=dp(26),font_size=dp(13)))
             for name in names:
                 entry=self.entries[name]
                 row=RelicRow(entry,category,self.inspect,self.shop,lambda item:self.manager._slay_buy(item,self.popup),compact=True,size_hint_y=None,height=dp(88))
@@ -539,50 +587,74 @@ def planet_source(name):
     return ASSETS/'planets/planet_trev.png'
 
 def decorate_node(manager,b):
+    """Planet on the left; unobstructed, naturally sized text on the right.
+
+    Keep one MissionButton for the entire clickable card. The native mission
+    click/tooltip behavior therefore remains unchanged.
+    """
     from worlds.sc2 import slay_the_starcraft as slay
     from worlds.sc2.mission_tables import lookup_id_to_mission
-    old_update = getattr(b, '_slay_node_update', None)
+    old_update=getattr(b,'_slay_node_update',None)
     if old_update:b.unbind(pos=old_update,size=old_update)
     b.clear_widgets()
     b.slay_sound='command'
     data=slay.node(manager.ctx,int(b.mission_id)) or {}
-    name=str(data.get('mission_name') or lookup_id_to_mission[int(b.mission_id)].mission_name)
+    native=lookup_id_to_mission[int(b.mission_id)]
+    name=str(data.get('mission_name') or native.mission_name)
+    race=str(data.get('race') or native.race.get_title()).strip().title()
+    display_name=re.sub(r' \((?:Terran|Zerg|Protoss)\)$','',name)
     status=str(data.get('_display_status') or slay.node_status(manager.ctx,int(b.mission_id)))
     caption,accent=STATUS.get(status,STATUS['future'])
     danger=slay.mission_is_difficulty_outlier(manager.ctx,int(b.mission_id))
     b.text='';b.background_normal='';b.background_down='';b.background_color=(0,0,0,0)
     b.canvas.before.clear();b.canvas.after.clear()
-    title=label('[b]'+tr(name)+'[/b]',font_size=dp(26),halign='center',valign='top',size_hint=(None,None))
-    b.add_widget(title)
-    status_label=label(caption+(' · High Risk' if danger else ''),font_size=dp(19),color=accent,halign='center',size_hint=(None,None))
-    b.add_widget(status_label)
+    race_colors={'Terran':(.52,.75,1,1),'Zerg':(.85,.59,.98,1),'Protoss':(1,.83,.42,1)}
+    # The tinted fill is intentionally subdued, not a saturated race-color slab.
+    race_fills={'Terran':(.068,.091,.113,.90),'Zerg':(.091,.069,.109,.90),
+                'Protoss':(.105,.096,.067,.90)}
+    fill=race_fills.get(race,(.10,.12,.14,.93))
+    race_color=race_colors.get(race,(.85,.90,.96,1))
+    title=label('[b]'+tr(display_name)+'[/b]',font_size=dp(21),halign='left',valign='middle',size_hint=(None,None))
+    race_label=label(race,font_size=dp(17),color=race_color,halign='left',valign='middle',size_hint=(None,None))
+    status_label=label(caption+(' · High Risk' if danger else ''),font_size=dp(16),color=accent,halign='left',valign='middle',size_hint=(None,None))
+    # Measure the *entire* text before imposing card geometry; no clipping of
+    # swapped-race variants or very long mission names.
+    for widget in (title,race_label,status_label):
+        widget.text_size=(None,None)
+        widget.texture_update()
+    b.size=(max(dp(294),dp(117)+max(widget.texture_size[0] for widget in (title,race_label,status_label))),dp(NODE_CARD_HEIGHT))
+    for widget in (title,race_label,status_label):b.add_widget(widget)
     with b.canvas.before:
-        Color(.014,.041,.067,.98);nameplate=Rectangle(pos=(0,0),size=(0,0))
-        Color(.05,.18,.28,.55);halo=Ellipse(pos=(0,0),size=(0,0))
-        Color(1,1,1,.42 if status=='abandoned' else 1);planet=Rectangle(texture=texture(planet_source(name)) or fallback_planet(name),pos=(0,0),size=(0,0))
+        Color(*fill);nameplate=RoundedRectangle(pos=(0,0),size=(0,0),radius=[dp(18)]*4)
+        Color(*race_color[:3],.19);card_edge=Line(rounded_rectangle=(0,0,0,0,dp(18)),width=dp(1))
+        Color(.05,.18,.28,.45);halo=Ellipse(pos=(0,0),size=(0,0))
+        Color(1,1,1,.42 if status=='abandoned' else 1)
+        planet=Rectangle(texture=texture(planet_source(name)) or fallback_planet(name),pos=(0,0),size=(0,0))
         Color(*accent);ring=Line(circle=(0,0,1),width=dp(2.4 if status=='available' else 1.2))
         Color(.25,.6,.8,.28);orbit=Line(circle=(0,0,1),width=dp(.7))
         Color(.95,.29,.24,1 if danger else 0);warning=Line(circle=(0,0,1,25,155),width=dp(3))
         Color(*accent);marker=Line(points=[],width=dp(2));marker_cross=Line(points=[],width=dp(2))
     def update(*_):
-        cx=b.center_x;cy=b.y+dp(NODE_PLANET_CENTER_Y);radius=dp(39)
+        cx=b.x+dp(NODE_PLANET_X);cy=b.y+dp(NODE_PLANET_CENTER_Y);radius=dp(39)
+        nameplate.pos=(b.x,b.y);nameplate.size=b.size
+        card_edge.rounded_rectangle=(b.x+dp(1),b.y+dp(1),max(0,b.width-dp(2)),max(0,b.height-dp(2)),dp(18))
         halo.pos=(cx-radius-dp(6),cy-radius-dp(6));halo.size=(2*(radius+dp(6)),)*2
         planet.pos=(cx-dp(44),cy-dp(44));planet.size=(dp(88),dp(88))
         ring.circle=(cx,cy,radius+dp(5));orbit.circle=(cx,cy,radius+dp(11));warning.circle=(cx,cy,radius+dp(11),25,155)
-        title.pos=(b.x,b.y+dp(2));title.size=(b.width,dp(48))
-        status_label.pos=(b.x,b.y+dp(51));status_label.size=(b.width,dp(24))
-        nameplate.pos=(b.x+dp(6),b.y+dp(2));nameplate.size=(b.width-dp(12),dp(74))
+        text_x=b.x+dp(110);text_width=max(dp(40),b.width-dp(121))
+        status_label.pos=(text_x,b.y+dp(81));status_label.size=(text_width,dp(24))
+        race_label.pos=(text_x,b.y+dp(56));race_label.size=(text_width,dp(23))
+        title.pos=(text_x,b.y+dp(13));title.size=(text_width,dp(40))
         if status=='completed':
             marker.points=[cx-7,cy-2,cx-1,cy-8,cx+10,cy+7];marker_cross.points=[]
         elif status=='abandoned':
             marker.points=[cx-14,cy-14,cx+14,cy+14];marker_cross.points=[cx-14,cy+14,cx+14,cy-14]
-        else:
-            marker.points=[];marker_cross.points=[]
+        else:marker.points=[];marker_cross.points=[]
     b._slay_node_update=update
     b.bind(pos=update,size=update);update()
     b.slay_planet_source=str(planet_source(name));b.slay_node_caption=title
-    if getattr(b,'_tooltip',None) is not None:
-        b._tooltip.md_bg_color=(.014,.041,.067,.98)
+    b.slay_node_race_caption=race_label
+    if getattr(b,'_tooltip',None) is not None:b._tooltip.md_bg_color=(.014,.041,.067,.98)
 
 def build_chart(manager):
     from worlds.sc2 import slay_the_starcraft as slay
@@ -635,20 +707,33 @@ def build_chart(manager):
     rows=defaultdict(list)
     for b in buttons:rows[int((slay.node(manager.ctx,int(b.mission_id)) or {}).get('layer',0))].append(b)
     layers=sorted(rows);max_width=max(map(len,rows.values()))
-    chart=FloatLayout(size_hint=(None,None),size=(dp(max(950,max_width*228+160)),dp((len(layers))*205+125)))
+    chart=FloatLayout(size_hint=(None,None),size=(dp(max(1100,max_width*362+175)),dp((len(layers))*ROUTE_FLOOR_SPACING+120)))
     for b in buttons:
         if b.parent:b.parent.remove_widget(b)
-        b.size_hint=(None,None);b.size=(dp(205),dp(190));decorate_node(manager,b);chart.add_widget(b)
+        b.size_hint=(None,None);b.size=(dp(294),dp(NODE_CARD_HEIGHT));decorate_node(manager,b);chart.add_widget(b)
+    # Preserve lane spacing after widening title/nameplate widgets. Different
+    # floors can have different name lengths, so use the densest floor.
+    chart_min_width=max(dp(1100),max(
+        (sum(b.width for b in row)+dp(44)*max(0,len(row)-1)+dp(240))
+        for row in rows.values()
+    ))
+    chart.width=max(chart.width,chart_min_width)
     chart.rows=rows;chart.layers=layers
-    legend_text='[b]Sector Route[/b]    [color=64CAFF]◉ Available[/color]    [color=65DB8A]◉ Completed[/color]    [color=EF6E61]◉ High Risk[/color]'
-    if manager.ctx.data_out_of_date:legend_text+='\n[color=FFAA66]Map or mod data is out of date. Run /download_data to update.[/color]'
+    legend_text='[color=64CAFF]◉ Available[/color]\n[color=65DB8A]◉ Completed[/color]\n[color=EF6E61]◉ High Risk[/color]'
     legend=getattr(manager,'slay_fixed_legend',None)
     if legend is None:
-        strip=BoxLayout(size_hint_y=None,height=dp(76),padding=[dp(28),dp(6)])
-        panel(strip,color=(.018,.048,.075,.96),border=False)
+        strip=BoxLayout(size_hint_y=None,height=dp(104),padding=[dp(18),dp(4)],spacing=dp(8))
+        # Only the left key has a background; the zoom controls float directly
+        # above the star field instead of sitting inside a full-width band.
+        key_panel=BoxLayout(size_hint_x=None,width=dp(170),padding=[dp(12),dp(4)])
+        panel(key_panel,color=(.018,.048,.075,.96),border=False)
         legend=label(legend_text,font_size=dp(15),halign='left',valign='middle')
         legend.bind(size=lambda widget,value:setattr(widget,'text_size',value))
-        strip.add_widget(legend)
+        key_panel.add_widget(legend)
+        strip.add_widget(key_panel)
+        warning=label('[color=FFAA66]Map or mod data is out of date. Run /download_data to update.[/color]' if manager.ctx.data_out_of_date else '',font_size=dp(13),halign='left',valign='middle')
+        strip.add_widget(warning)
+        manager.slay_data_warning_label=warning
         controls=BoxLayout(size_hint_x=None,width=dp(390),spacing=dp(8))
         def change_zoom(factor=None,fit=False):
             manager.slay_zoom_fit=fit
@@ -668,10 +753,30 @@ def build_chart(manager):
         controls.add_widget(control('Fit All Floors',lambda *_:change_zoom(fit=True),size_hint_x=None,width=dp(104)))
         manager.slay_zoom_slider=slider;manager.slay_zoom_percent=percent
         strip.add_widget(controls)
-        manager.slay_mission_tab.content.add_widget(strip,index=1)
+        # IMPORTANT: the old strip was added as a sibling above the map in the
+        # vertical campaign_root BoxLayout. Although visually transparent, it
+        # consumed 104dp of viewport height and exposed a differently tinted
+        # background band. Instead overlay the key/zoom controls on the chart
+        # without reducing the area available to CampaignScroll.
+        campaign_root=manager.slay_mission_tab.content
+        shell=manager.slay_mission_shell
+        shell_index=campaign_root.children.index(shell)
+        campaign_root.remove_widget(shell)
+        overlay=FloatLayout(size_hint=(1,1))
+        shell.size_hint=(1,1)
+        shell.pos_hint={'x':0,'y':0}
+        overlay.add_widget(shell)
+        strip.size_hint=(1,None)
+        strip.pos_hint={'top':1}
+        overlay.add_widget(strip)
+        campaign_root.add_widget(overlay,index=shell_index)
+        manager.slay_chart_overlay=overlay
         manager.slay_fixed_legend=legend
         panel(manager.slay_mission_shell,'ui_screens_zeratul_prologue_starfield_generic_diff.png',color=(.85,.90,1,1),border=False)
     legend.text=legend_text
+    warning=getattr(manager,'slay_data_warning_label',None)
+    if warning is not None:
+        warning.text=('[color=FFAA66]Map or mod data is out of date. Run /download_data to update.[/color]' if manager.ctx.data_out_of_date else '')
     manager.campaign_panel.clear_widgets();manager.campaign_panel.cols=1
     scene=FloatLayout(size_hint=(None,None))
     scaled=Scatter(size_hint=(None,None),size=chart.size,do_translation=False,do_rotation=False,do_scale=False,auto_bring_to_front=False)
@@ -687,7 +792,7 @@ def build_chart(manager):
     scroll.scroll_type=['content'];scroll.bar_width=0
     scroll.scroll_x=.5;scroll.scroll_y=0
     # Leave mouse-wheel events to ScrollView so the wheel scrolls vertically.
-    scroll.scroll_wheel_distance=dp(90)
+    scroll.scroll_wheel_distance=dp(45)
     manager.campaign_panel.size_hint_x=None
     manager.slay_chart=chart;manager.slay_chart_buttons=tuple(buttons)
     manager.slay_chart_lines=None
@@ -699,7 +804,7 @@ def build_chart(manager):
         preferred={mid:.12+.76*(value-low)/span for mid,value in topology.items()}
     floor_labels = {}
     def layout(*_):
-        chart.width=max(manager.campaign_scroll_panel.width,dp((3 if False else max_width)*228+160))
+        chart.width=max(manager.campaign_scroll_panel.width,chart_min_width)
         scale=min(manager.campaign_scroll_panel.width/chart.width,manager.campaign_scroll_panel.height/chart.height) if getattr(manager,'slay_zoom_fit',False) else getattr(manager,'slay_zoom',DEFAULT_ROUTE_SCALE)
         scene.size=(max(chart.width*scale,scroll.width),max(chart.height*scale,scroll.height))
         scaled.size=chart.size;scaled.scale=scale
@@ -713,7 +818,7 @@ def build_chart(manager):
         manager.slay_zoom_percent.text=f'{scale/DEFAULT_ROUTE_SCALE:.0%}'
         manager.slay_sync_zoom=False
         scroll.scroll_x=.5
-        positions=resolve_route_positions(graph_data,chart.width,preferred)
+        positions=resolve_route_positions(graph_data,chart.width,preferred,{int(b.mission_id):b.width for b in buttons})
         for b in buttons:
             cx,y=positions[int(b.mission_id)]
             b.pos=(cx-b.width/2,y)
@@ -734,30 +839,45 @@ def build_chart(manager):
 
 
 
-def resolve_route_positions(nodes,width,preferred=None):
-    """Keep original branch positions; separate only colliding labels. Pure display math."""
-    preferred=preferred or {};rows=defaultdict(list)
+def resolve_route_positions(nodes,width,preferred=None,node_widths=None):
+    """Keep original branch positions; separate widened labels without overlaps."""
+    preferred=preferred or {};node_widths=node_widths or {};rows=defaultdict(list)
     for mid,data in nodes.items():rows[int(data.get('layer',0))].append(mid)
     lanes=[float(data.get('lane',0)) for data in nodes.values()];lo=min(lanes,default=0);span=max(1,max(lanes,default=1)-lo)
-    out={};margin=dp(120);gap=dp(228)
+    out={};margin=dp(120)
+    def radius(mid):return float(node_widths.get(mid,dp(306)))/2
     for index,layer in enumerate(sorted(rows)):
         targets={}
         for mid in rows[layer]:
             data=nodes[mid];fraction=preferred.get(mid,.12+.76*(float(data.get('lane',0))-lo)/span)
-            # Stable small offsets give each branch its own shape on every reopen/resize.
             offset=((int(mid)*37+layer*19)%61-30)*dp(1)
-            targets[mid]=max(margin,min(width-margin,float(fraction)*width+offset))
+            left=margin+max(0,radius(mid)-dp(153))
+            targets[mid]=max(left,min(width-left,float(fraction)*width+offset))
         ordered=sorted(rows[layer],key=lambda mid:(targets[mid],float(nodes[mid].get('lane',0)),mid))
         xs=[targets[mid] for mid in ordered]
-        for i in range(1,len(xs)):xs[i]=max(xs[i],xs[i-1]+gap)
-        if xs and xs[-1]>width-margin:
-            xs[-1]=width-margin
-            for i in range(len(xs)-2,-1,-1):xs[i]=min(xs[i],xs[i+1]-gap)
-        if xs and xs[0]<margin:
-            delta=margin-xs[0];xs=[x+delta for x in xs]
+        for i in range(1,len(xs)):
+            gap=radius(ordered[i-1])+radius(ordered[i])+dp(40)
+            xs[i]=max(xs[i],xs[i-1]+gap)
+        if xs and xs[-1]+radius(ordered[-1])>width-dp(18):
+            xs[-1]=width-dp(18)-radius(ordered[-1])
+            for i in range(len(xs)-2,-1,-1):
+                gap=radius(ordered[i])+radius(ordered[i+1])+dp(40)
+                xs[i]=min(xs[i],xs[i+1]-gap)
+        if xs and xs[0]-radius(ordered[0])<dp(18):
+            # Compact from the left rather than translating the whole row:
+            # a translation could send the last widened title off the chart.
+            xs[0]=dp(18)+radius(ordered[0])
+            for i in range(1,len(xs)):
+                gap=radius(ordered[i-1])+radius(ordered[i])+dp(40)
+                xs[i]=max(xs[i],xs[i-1]+gap)
+        if xs and xs[-1]+radius(ordered[-1])>width-dp(18):
+            xs[-1]=width-dp(18)-radius(ordered[-1])
+            for i in range(len(xs)-2,-1,-1):
+                gap=radius(ordered[i])+radius(ordered[i+1])+dp(40)
+                xs[i]=min(xs[i],xs[i+1]-gap)
         for mid,x in zip(ordered,xs):
-            vertical=((int(mid)*23+layer*11)%29-14)*dp(1)
-            out[mid]=(x,dp(30+index*205)+vertical)
+            vertical=((int(mid)*23+layer*11)%19-9)*dp(1)
+            out[mid]=(x,dp(30+index*ROUTE_FLOOR_SPACING)+vertical)
     return out
 
 def draw_edges(manager,*_):
@@ -765,12 +885,16 @@ def draw_edges(manager,*_):
     chart=getattr(manager,'slay_chart',None)
     if chart is None or chart.parent is None:return
     old=getattr(manager,'slay_chart_lines',None)
-    if old:chart.canvas.before.remove(old)
+    if old:chart.canvas.after.remove(old)
     group=InstructionGroup();by_id={int(b.mission_id):b for b in manager.mission_buttons};traversed=slay.traversed_edge_pairs(manager.ctx);count=0
     for src,dst in slay.edge_pairs(manager.ctx):
         a=by_id.get(src);b=by_id.get(dst)
         if not a or not b:continue
-        sx,sy=a.center_x,a.y+dp(NODE_PLANET_CENTER_Y+51);dx,dy=b.center_x,b.y-dp(6)
+        # Connections continue slightly into both cards. Chart canvas.after
+        # deliberately draws the curves above the rounded backgrounds rather
+        # than hiding the last section beneath the card.
+        sx,sy=a.x+dp(NODE_PLANET_X),a.y+dp(NODE_CARD_HEIGHT-12)
+        dx,dy=b.x+dp(NODE_PLANET_X),b.y+dp(12)
         bend=max(dp(15),(dy-sy)*.52)
         bezier=[sx,sy,sx,sy+bend,dx,dy-bend,dx,dy]
         selected=(src,dst) in traversed
@@ -782,9 +906,10 @@ def draw_edges(manager,*_):
                            u*u*u*sy+3*u*u*t*(sy+bend)+3*u*t*t*(dy-bend)+t*t*t*dy))
         group.add(Color(*color,.12));group.add(stroke_mesh(points,dp(6)))
         group.add(Color(*color,.95 if selected else .6));group.add(stroke_mesh(points,dp(2.5)))
-        group.add(Line(points=[dx-3,dy-6,dx,dy,dx+3,dy-6],width=dp(1)))
+        # No triangular arrowhead: the connection curve is the route indicator.
+        # The foreground layer lets it continue visibly onto the race-tinted card.
         count+=1
-    chart.canvas.before.add(group);manager.slay_chart_lines=group;manager.slay_chart_edge_count=count
+    chart.canvas.after.add(group);manager.slay_chart_lines=group;manager.slay_chart_edge_count=count
 
 
 def install(module):

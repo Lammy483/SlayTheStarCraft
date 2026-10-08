@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="us-ascii"?>
 <Catalog>
+  <!-- Native potion cursor is attached to an isolated dummy unit. Move order
+       carries precise engine-resolved ground/unit targets; the Galaxy order
+       event runs potion logic before the unit can travel. -->
+  <CUnit id="APRoguePotionTargetCaster" parent="Marine">
+    <Food value="0.0"/>
+    <Radius value="0.1"/>
+    <Sight value="0.0"/>
+  </CUnit>
+
   <CEffectTeleport id="APRogueBlinkEffect">
     <WhichUnit Value="Caster"/>
     <ClearQueuedOrders value="0"/>
@@ -362,4 +371,19 @@
     <MotionPhases index="0" Acceleration="4" MaxSpeed="2"/>
   </CMoverMissile>
 
+  <CBehaviorBuff id="APRoguePotionStealth">
+    <InfoFlags index="Hidden" value="1"/>
+    <MaxCount value="1"/>
+    <Modification><StateFlags index="Cloak" value="1"/></Modification>
+  </CBehaviorBuff>
+  <CBehaviorBuff id="APRoguePotionStim">
+    <InfoFlags index="Hidden" value="1"/>
+    <MaxCount value="1"/>
+    <Modification AdditiveMoveSpeedFactor="0.5" AdditiveAttackSpeedFactor="0.5"/>
+  </CBehaviorBuff>
+  <CBehaviorBuff id="APRoguePotionDecloak">
+    <InfoFlags index="Hidden" value="1"/>
+    <MaxCount value="1"/>
+    <Modification><StateFlags index="SuppressCloak" value="1"/></Modification>
+  </CBehaviorBuff>
 </Catalog>

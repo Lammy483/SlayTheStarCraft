@@ -1054,6 +1054,8 @@ def patch_client(text: str) -> str:
         '            mercenary_upgrade_packed2 = slay.mercenary_upgrade_packed2(self.ctx)\n'
 
         '            test_potion_run_token = slay.test_potion_run_token(self.ctx)\n'
+        '            potion_slot0_id, potion_slot0_serial, potion_slot1_id, potion_slot1_serial = slay.potion_handshake_slots(self.ctx)\n'
+        '            potion_merc_mask = slay.potion_mercenary_mask(self.ctx)\n'
 
         '            spear_cooldown_reduction_stacks = slay.spear_cooldown_reduction_stacks(self.ctx)\n'
 
@@ -1073,11 +1075,11 @@ def patch_client(text: str) -> str:
 
         '            slay.announce_mission_effects(self.ctx, self.mission_id)\n'
 
-        '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}")\n'
+        '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}")\n'
 
     )
 
-    current_send = '?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}'
+    current_send = '?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}'
 
     previous_send_with_merc2 = '?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2}'
 
@@ -1289,7 +1291,7 @@ def patch_client(text: str) -> str:
 
                     f'            await self.chat_send(f"{send_fmt}")\n',
 
-                    '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}")\n',
+                    '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}")\n',
 
                     1,
 
@@ -1457,6 +1459,18 @@ def patch_client(text: str) -> str:
         if merc2_line in text:
             text = text.replace(merc2_line, merc2_line + potion_assignment_line, 1)
 
+    potion_slots_line = '            potion_slot0_id, potion_slot0_serial, potion_slot1_id, potion_slot1_serial = slay.potion_handshake_slots(self.ctx)\n'
+    if potion_slots_line not in text:
+        potion_marker = '            test_potion_run_token = slay.test_potion_run_token(self.ctx)\n'
+        if potion_marker in text:
+            text = text.replace(potion_marker, potion_marker + potion_slots_line, 1)
+        else:
+            raise RuntimeError("Cannot find potion handshake setup in SC2 client")
+
+    potion_merc_line = '            potion_merc_mask = slay.potion_mercenary_mask(self.ctx)\n'
+    if potion_merc_line not in text:
+        text = text.replace(potion_slots_line, potion_slots_line + potion_merc_line, 1)
+
     if previous_send_with_merc2 in text and current_send not in text:
         text = text.replace(previous_send_with_merc2, current_send, 1)
 
@@ -1488,7 +1502,7 @@ def patch_client(text: str) -> str:
 
         else:
 
-            send_line = '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}")\n'
+            send_line = '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}")\n'
 
             if send_line not in text:
 
@@ -2468,6 +2482,7 @@ def patch_gui(text: str) -> str:
             int(state.get("spent", 0)),
             slay.credits(self.ctx),
             tuple(state.get("shop_stock", ())),
+            tuple((entry["id"], entry["serial"]) for entry in slay.potion_inventory(self.ctx)),
             tuple(state.get("shop_sale_items", ())),
             tuple(sorted(state.get("shop_cycle_purchases", {}).items())),
             tuple(sorted(state.get("purchases", {}).items())),
@@ -3466,7 +3481,7 @@ def validate_client(text: str) -> None:
 
         "slay.effect_masks_for_mission(self.ctx, self.mission_id)",
 
-        "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}",
+        "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}",
 
         "slay.test_potion_run_token(self.ctx)", "slay.progression_flags(self.ctx)", "slay.spear_energy_regen_stacks(self.ctx)", "slay.mercenary_upgrade_packed(self.ctx)", "slay.spear_cooldown_reduction_stacks(self.ctx)", "slay.kerrigan_upgrade_flags(self.ctx)",
 
@@ -4812,7 +4827,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
     post_checks = {
 
-        client: ["mission_launch_summary", "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}", "slay.progression_flags", "slay.spear_energy_regen_stacks", "slay.mercenary_upgrade_packed", "slay.spear_cooldown_reduction_stacks", "slay.kerrigan_upgrade_flags", "slay.apply_kerrigan_options", "slay.apply_purchased_kerrigan_tech(self.ctx, zerg_items)", "def _cmd_addtest", "def _cmd_cleartest", "def _cmd_canceltest", "def _cmd_victory", "def _cmd_boon", "def _cmd_credits", "def _cmd_godmode", "slay.queue_test_effect", "slay.queue_test_clear", "slay.queue_auto_victory", "slay.grant_test_boon", "slay.grant_test_credits", "slay.queue_godmode", "slay.godmode_for_mission", "slay.mission_layer_for_mission", "slay.mission_flags_for_mission", "slay.test_potion_run_token", "slay.consume_auto_victory_skip", "slay.rewrite_print_json_for_effective_rewards(self, args)", "slay.prepare_dependency_variant(ctx, mission_id)"],
+        client: ["mission_launch_summary", "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}", "slay.progression_flags", "slay.spear_energy_regen_stacks", "slay.mercenary_upgrade_packed", "slay.spear_cooldown_reduction_stacks", "slay.kerrigan_upgrade_flags", "slay.apply_kerrigan_options", "slay.apply_purchased_kerrigan_tech(self.ctx, zerg_items)", "def _cmd_addtest", "def _cmd_cleartest", "def _cmd_canceltest", "def _cmd_victory", "def _cmd_boon", "def _cmd_credits", "def _cmd_godmode", "slay.queue_test_effect", "slay.queue_test_clear", "slay.queue_auto_victory", "slay.grant_test_boon", "slay.grant_test_credits", "slay.queue_godmode", "slay.godmode_for_mission", "slay.mission_layer_for_mission", "slay.mission_flags_for_mission", "slay.test_potion_run_token", "slay.consume_auto_victory_skip", "slay.rewrite_print_json_for_effective_rewards(self, args)", "slay.prepare_dependency_variant(ctx, mission_id)"],
 
         trigger_doc_info: ["ArchipelagoCore.SC2Mod", "ArchipelagoTradeSystem.SC2Mod", "ArchipelagoPatches.SC2Mod"],
 
@@ -4826,7 +4841,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         gui: ["size_hint_x=0.80", "size_hint_x=0.10", "SLAY_MISSION_GAP = 36", "button.to_window(x, y, initial=True)", "width=1.8", "source_t = min(", "slay_edge_geometry_trigger"],
 
-        runtime_target: [ "DANGER_OUTLIER_MARGIN = 250", "DANGER_CREDIT_BONUS = 100", "_mission_is_difficulty_outlier_in_nodes", "SPEAR_COOLDOWN_REDUCTION", "SPEAR_PRICE_DISCOUNT", "KERRIGAN_PRICE_DISCOUNT", "KERRIGAN_RECKLESS_POWER", "KERRIGAN_RECKLESS_SPEED", "spear_cooldown_reduction_stacks", "kerrigan_upgrade_flags", "Kerrigan available", "warfields_reinforcements", "energy_overload", "heroes_of_the_storm", "too_many_wraiths", "not_enough_energy", "void_thrashers", "viking_raids", "nuclear_annihilation", "darkness", "adrenaline", "picky_eaters", "explosive_armor", "instant_workers", "arms_race", "rising_gas_prices", "juggernaut", "assembly_line", "elite_soldiers", "squishy", "forced_variety", "occasional_thor_mutation", "enemy_regeneration", "blinding_light", "specialists", "fortifications", "baneling_stream", "tychus", "zagaras_aid", "logistics", "occasional_thor_blessing", "occasional_ultralisk_blessing", "occasional_colossus_blessing", "unexpected_evolution", "another_gorgon_blessing", "another_gorgon_mutation", "burrowed_zerglings", "sniper_thor", "horde_mode", "tower_defense", "cloaked_nightmare", "rapid_repair", "blink_blessing", "power_overwhelming", "drakken_laser_drill_blessing", "jetpacks", "stealth_tunnels", "lurker_defense", "combat_workers", "rapid_evolution_mutation", "no_deaths_allowed", "glass_cannons", "victory_is_temporary", "odin", "nuclear_workers", "bounty_kills", "tactical_binoculars", "building_overcharge", "ghost_reporting", "taldarim_reinforcements", "double_time", "shrinkage", "mineral_thieves", "active_enemies", "reflective_armor", "buddy_system", "torrasque", "nexus_shield", "gargantuan_enemies", "raynors_raiders", "boon_defender", "boon_fire_power", "boon_roachling_mines", "boon_broodling_evolution", "boon_adamantium_blades", "boon_enhanced_control", "boon_banshee_swarm", "boon_enlarged_banelings", "permanent_boons", "shop_expansion", "shop_cycle_purchases", "effective_bought", "route_horizontal_positions", "route_layout_x_fractions", "remember_route_layout_x_fractions", "_is_deprecated_item", "SHOP_STOCK_LOGIC_VERSION = 110", "MISSION_FLAG_LAB_RAT_OPENING = 8192", "MISSION_FLAG_IMMORTAL_ZERGLING = 16384", "def test_potion_run_token", "immortal_zergling", "_stock_after_progression_unlock", "DEFENSIVE_STRUCTURE_ITEMS", "shop_sections", "BOON_PREFIX", "sync_duplicate_item_replacements", "FIVE_X_GENERIC_UPGRADE_ITEMS", "STACKABLE_GENERAL_UPGRADE_ITEMS", "_effective_actual_item_count", "'purifier': (4, 512)", "_same_shop_50_percent_price", "_is_general_upgrade_item", "announce_mission_effects", "test_mission_overrides", "_test_override_for_mission", "RACE_GLOBAL_UPGRADE_ITEMS", "TERRAN_CONTRACTS", "ZERG_CONTRACTS", "KERRIGAN_UNLOCK", "SPEAR_UNLOCK", "SPEAR_ENERGY_REGEN", "progression_flags", "spear_energy_regen_stacks", "mercenary_upgrade_packed", "MERCENARY_CUSTOM_UPGRADE_ITEMS", "MERCENARY_SHOP_PRICE_OVERRIDES", "apply_kerrigan_options", "apply_purchased_kerrigan_tech", "Terran Upgrades", "Mercenary Contracts", "Spear of Adun", "boon_corrosive_claws", "boon_unlimited_power", "boon_unstable_colossi", "boon_hyrda_storms", "boon_mobile_siege", "spear_of_adun_blessing", "dehakas_pack", "zombie_apocalypse", "resource_swap", "boon_missile_defense", "boon_chaos_blessings", "maskE=", "maskF=", "autoRepairStacks=", "50% chance", "allied infested terran"],
+        runtime_target: [ "DANGER_OUTLIER_MARGIN = 250", "DANGER_CREDIT_BONUS = 100", "_mission_is_difficulty_outlier_in_nodes", "SPEAR_COOLDOWN_REDUCTION", "SPEAR_PRICE_DISCOUNT", "KERRIGAN_PRICE_DISCOUNT", "KERRIGAN_RECKLESS_POWER", "KERRIGAN_RECKLESS_SPEED", "spear_cooldown_reduction_stacks", "kerrigan_upgrade_flags", "Kerrigan available", "warfields_reinforcements", "energy_overload", "heroes_of_the_storm", "too_many_wraiths", "not_enough_energy", "void_thrashers", "viking_raids", "nuclear_annihilation", "darkness", "adrenaline", "picky_eaters", "explosive_armor", "instant_workers", "arms_race", "rising_gas_prices", "juggernaut", "assembly_line", "elite_soldiers", "squishy", "forced_variety", "occasional_thor_mutation", "enemy_regeneration", "blinding_light", "specialists", "fortifications", "baneling_stream", "tychus", "zagaras_aid", "logistics", "occasional_thor_blessing", "occasional_ultralisk_blessing", "occasional_colossus_blessing", "unexpected_evolution", "another_gorgon_blessing", "another_gorgon_mutation", "burrowed_zerglings", "sniper_thor", "horde_mode", "tower_defense", "cloaked_nightmare", "rapid_repair", "blink_blessing", "power_overwhelming", "drakken_laser_drill_blessing", "jetpacks", "stealth_tunnels", "lurker_defense", "combat_workers", "rapid_evolution_mutation", "no_deaths_allowed", "glass_cannons", "victory_is_temporary", "odin", "nuclear_workers", "bounty_kills", "tactical_binoculars", "building_overcharge", "ghost_reporting", "taldarim_reinforcements", "double_time", "shrinkage", "mineral_thieves", "active_enemies", "reflective_armor", "buddy_system", "torrasque", "nexus_shield", "gargantuan_enemies", "raynors_raiders", "boon_defender", "boon_fire_power", "boon_roachling_mines", "boon_broodling_evolution", "boon_adamantium_blades", "boon_enhanced_control", "boon_banshee_swarm", "boon_enlarged_banelings", "permanent_boons", "shop_expansion", "shop_cycle_purchases", "effective_bought", "route_horizontal_positions", "route_layout_x_fractions", "remember_route_layout_x_fractions", "_is_deprecated_item", "SHOP_STOCK_LOGIC_VERSION = 112", "MISSION_FLAG_LAB_RAT_OPENING = 8192", "MISSION_FLAG_IMMORTAL_ZERGLING = 16384", "def test_potion_run_token", "immortal_zergling", "_stock_after_progression_unlock", "DEFENSIVE_STRUCTURE_ITEMS", "shop_sections", "BOON_PREFIX", "sync_duplicate_item_replacements", "FIVE_X_GENERIC_UPGRADE_ITEMS", "STACKABLE_GENERAL_UPGRADE_ITEMS", "_effective_actual_item_count", "'purifier': (4, 512)", "_same_shop_50_percent_price", "_is_general_upgrade_item", "announce_mission_effects", "test_mission_overrides", "_test_override_for_mission", "RACE_GLOBAL_UPGRADE_ITEMS", "TERRAN_CONTRACTS", "ZERG_CONTRACTS", "KERRIGAN_UNLOCK", "SPEAR_UNLOCK", "SPEAR_ENERGY_REGEN", "progression_flags", "spear_energy_regen_stacks", "mercenary_upgrade_packed", "MERCENARY_CUSTOM_UPGRADE_ITEMS", "MERCENARY_SHOP_PRICE_OVERRIDES", "apply_kerrigan_options", "apply_purchased_kerrigan_tech", "Terran Upgrades", "Mercenary Contracts", "Spear of Adun", "boon_corrosive_claws", "boon_unlimited_power", "boon_unstable_colossi", "boon_hyrda_storms", "boon_mobile_siege", "spear_of_adun_blessing", "dehakas_pack", "zombie_apocalypse", "resource_swap", "boon_missile_defense", "boon_chaos_blessings", "maskE=", "maskF=", "autoRepairStacks=", "50% chance", "allied infested terran"],
 
         launcher_target: ["PACKAGE_VERSION = \"1.1.0\"", "SLAY_LAUNCHER_MODE", "SLAY_RUN_DIR", "def generate_run", "class ServerProcess", "def install_launcher_tab"],
 

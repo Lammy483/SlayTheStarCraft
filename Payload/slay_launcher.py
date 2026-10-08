@@ -57,7 +57,7 @@ PORTABLE_ROOT_ENV = "SLAY_PORTABLE_ROOT"
 
 RUNS_DIR_NAME = "Runs"
 
-DEFAULT_STARTING_CREDITS = 700
+DEFAULT_STARTING_CREDITS = 600
 
 DEFAULT_DIFFICULTY = "brutal"
 
@@ -915,6 +915,7 @@ def install_launcher_tab(manager: Any) -> None:
 
     from kivy.uix.button import Button
     from kivy.uix.checkbox import CheckBox
+    from kivy.uix.widget import Widget
 
     from kivy.uix.spinner import Spinner, SpinnerOption
 
@@ -1144,7 +1145,12 @@ def install_launcher_tab(manager: Any) -> None:
         form.add_widget(column)
 
     def field_label(text: str) -> Label:
-        label = Label(text=text, halign="left", valign="middle", size_hint_y=None, height=dp(28))
+        # Small second-line notes should wrap within their own field, not clip
+        # into the controls in neighboring columns.
+        noted = "\n" in text
+        label = Label(text=text, halign="left", valign="middle", size_hint_y=None,
+                      font_size=dp(12) if noted else dp(14),
+                      height=dp(46) if noted else dp(28))
         label.bind(size=lambda inst, value: setattr(inst, "text_size", value))
         return label
 
@@ -1152,7 +1158,8 @@ def install_launcher_tab(manager: Any) -> None:
         return TextInput(size_hint_y=None, height=dp(42), **kwargs)
 
     def add_field(column_index: int, label_text: str, control: Any) -> None:
-        field = BoxLayout(orientation="vertical", spacing=dp(4), size_hint_y=None, height=dp(70))
+        field = BoxLayout(orientation="vertical", spacing=dp(4), size_hint_y=None,
+                          height=dp(90) if "\n" in label_text else dp(70))
         field.add_widget(field_label(label_text))
         field.add_widget(control)
         option_columns[column_index].add_widget(field)
@@ -1222,7 +1229,7 @@ def install_launcher_tab(manager: Any) -> None:
     add_field(0, "Game Mode", game_mode_button)
     add_field(0, "Gameplay Difficulty", difficulty_button)
     add_field(0, "Game Speed", game_speed_button)
-    add_field(0, "Campaign Length", campaign_length_input)
+    add_field(0, "Campaign Length\n(Longer campaign lengths makes the game easier)", campaign_length_input)
 
     # Column 2: effect generation and seed.
     add_field(1, "Mutation Frequency Multiplier", mutation_multiplier_input)
@@ -1240,11 +1247,20 @@ def install_launcher_tab(manager: Any) -> None:
     add_field(3, "Start with Kerrigan", start_kerrigan_button)
     root.add_widget(form)
 
-    race_row = BoxLayout(spacing=dp(8), size_hint_y=None, height=dp(36))
-    race_row.add_widget(Label(text="Available Races", size_hint_x=None, width=dp(150)))
+    # Race selection belongs with the other generator settings, not beside
+    # Generate / Load / Reset. Keep the explanatory text adjacent to the choices.
+    race_row = BoxLayout(spacing=dp(6), size_hint_y=None, height=dp(40))
+    race_row.add_widget(Widget(size_hint_x=1))
+    race_labels = BoxLayout(orientation="vertical", spacing=dp(0), size_hint_x=None, width=dp(295))
+    for value, font in (("Available Races", dp(15)),
+                        ("(Removing races makes the game easier)", dp(12))):
+        race_caption = Label(text=value, halign="right", valign="middle", font_size=font)
+        race_caption.bind(size=lambda widget, dimensions: setattr(widget, "text_size", dimensions))
+        race_labels.add_widget(race_caption)
+    race_row.add_widget(race_labels)
     race_checks = {}
     for race in DEFAULT_RACES:
-        choice = BoxLayout(spacing=dp(4))
+        choice = BoxLayout(spacing=dp(2), size_hint_x=None, width=dp(113))
         checkbox = CheckBox(active=True, size_hint_x=None, width=dp(32))
         race_checks[race] = checkbox
         choice.add_widget(checkbox)
@@ -1252,7 +1268,11 @@ def install_launcher_tab(manager: Any) -> None:
         race_label.bind(on_release=lambda _button, check=checkbox: setattr(check, "active", not check.active))
         choice.add_widget(race_label)
         race_row.add_widget(choice)
+    # Insert ABOVE the main settings grid (the race row used to sit between
+    # the bottom of that grid and the run-generation controls).
+    root.remove_widget(form)
     root.add_widget(race_row)
+    root.add_widget(form)
 
 
 
@@ -1375,7 +1395,9 @@ def install_launcher_tab(manager: Any) -> None:
 
             except Exception:
 
-                pass
+                # Do not hide tab routing failures: the user would otherwise
+                # see a generated run but a frozen Settings screen.
+                logger.exception("Could not switch to Missions after run activation")
 
 
 

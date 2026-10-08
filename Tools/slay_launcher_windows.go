@@ -18,7 +18,7 @@ import (
 
 const (
 	version = "1.1.0"
-	runtimeRevision = "nav-mira-r6"
+	runtimeRevision = "lab-rat-r6"
 
 	className  = "SlayTheStarCraftLauncherWindow"
 	windowName = "Slay the StarCraft"

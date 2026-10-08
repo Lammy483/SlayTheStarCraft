@@ -8,8 +8,12 @@ def install(module):
     if getattr(cls,'_slay_endless_ui',False):return
     original=cls.build_mission_table
     original_positions=command.resolve_route_positions
-    def positions(nodes,width,preferred):
-        if not any(n.get('_endless_floor') for n in nodes.values()):return original_positions(nodes,width,preferred)
+    def positions(nodes,width,preferred=None,node_widths=None):
+        # The planet chart now passes measured per-mission widths to prevent long
+        # title labels from overlapping. Keep the Endless adapter's signature in
+        # sync, and forward widths unchanged for ordinary Adventure routes.
+        if not any(n.get('_endless_floor') for n in nodes.values()):
+            return original_positions(nodes,width,preferred,node_widths)
         layers=sorted({int(n['layer']) for n in nodes.values()})
         result={}
         for mid,n in nodes.items():
