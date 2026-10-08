@@ -75,6 +75,14 @@ MAX_CAMPAIGN_LENGTH = 31
 DEFAULT_EXTRA_SHOP_SLOTS = 0
 DEFAULT_START_WITH_SPEAR = False
 DEFAULT_START_WITH_KERRIGAN = False
+DEFAULT_RACES = ("terran", "zerg", "protoss")
+
+
+def normalize_races(races: tuple[str, ...] | list[str]) -> tuple[str, ...]:
+    """Validate before invoking the generator; keep its canonical race order."""
+    if not races or any(race not in DEFAULT_RACES for race in races):
+        raise ValueError("Select at least one of Terran, Zerg, or Protoss.")
+    return tuple(race for race in DEFAULT_RACES if race in races)
 
 DEFAULT_VICTORY_CREDIT_REWARD_MULTIPLIER = 1.00
 
@@ -387,8 +395,11 @@ def generate_run(
     start_with_spear: bool = DEFAULT_START_WITH_SPEAR,
     start_with_kerrigan: bool = DEFAULT_START_WITH_KERRIGAN,
     game_mode: str = "adventure",
+    selected_races: tuple[str, ...] = DEFAULT_RACES,
 
 ) -> tuple[Path, dict[str, Any]]:
+
+    selected_races = normalize_races(selected_races)
 
     if game_mode not in {"adventure", "endless"}:
         raise ValueError("Unsupported game mode")
@@ -469,6 +480,7 @@ def generate_run(
         "--extra-shop-slots", str(int(extra_shop_slots)),
 
     ]
+    command.extend(["--races", *selected_races])
     if start_with_spear:
         command.append("--start-with-spear")
     if start_with_kerrigan:
@@ -605,6 +617,7 @@ def generate_run(
             "extra_shop_slots": int(run_data.get("extra_shop_slots", extra_shop_slots)),
             "start_with_spear": bool(run_data.get("start_with_spear", start_with_spear)),
             "start_with_kerrigan": bool(run_data.get("start_with_kerrigan", start_with_kerrigan)),
+            "races": list(run_data.get("races", selected_races)),
 
             "victory_credit_reward_multiplier": float(run_data.get("victory_credit_reward_multiplier", victory_credit_reward_multiplier)),
 
@@ -901,6 +914,7 @@ def install_launcher_tab(manager: Any) -> None:
     from kivy.uix.boxlayout import BoxLayout
 
     from kivy.uix.button import Button
+    from kivy.uix.checkbox import CheckBox
 
     from kivy.uix.spinner import Spinner, SpinnerOption
 
@@ -1210,6 +1224,20 @@ def install_launcher_tab(manager: Any) -> None:
     add_field(3, "Start with Kerrigan", start_kerrigan_button)
     root.add_widget(form)
 
+    race_row = BoxLayout(spacing=dp(8), size_hint_y=None, height=dp(36))
+    race_row.add_widget(Label(text="Available Races", size_hint_x=None, width=dp(150)))
+    race_checks = {}
+    for race in DEFAULT_RACES:
+        choice = BoxLayout(spacing=dp(4))
+        checkbox = CheckBox(active=True, size_hint_x=None, width=dp(32))
+        race_checks[race] = checkbox
+        choice.add_widget(checkbox)
+        race_label = Button(text=race.title(), background_normal="", background_color=(0, 0, 0, 0))
+        race_label.bind(on_release=lambda _button, check=checkbox: setattr(check, "active", not check.active))
+        choice.add_widget(race_label)
+        race_row.add_widget(choice)
+    root.add_widget(race_row)
+
 
 
     status = Label(
@@ -1254,6 +1282,7 @@ def install_launcher_tab(manager: Any) -> None:
 
     def set_busy(busy: bool, message: str) -> None:
 
+        race_row.disabled = busy
         generate_button.disabled = busy
 
         load_button.disabled = busy
@@ -1413,6 +1442,8 @@ def install_launcher_tab(manager: Any) -> None:
 
         item_credit_input.text = str(DEFAULT_ITEM_CREDIT_REWARD)
 
+        for checkbox in race_checks.values():
+            checkbox.active = True
         status.text = "Settings reset to defaults."
 
 
@@ -1510,6 +1541,12 @@ def install_launcher_tab(manager: Any) -> None:
 
         game_speed = str(getattr(game_speed_button, "slay_value", DEFAULT_GAME_SPEED))
 
+        try:
+            selected_races = normalize_races(tuple(race for race, check in race_checks.items() if check.active))
+        except ValueError as exc:
+            show_error(str(exc))
+            return
+
         set_busy(True, "Generating Slay run...")
 
 
@@ -1532,6 +1569,7 @@ def install_launcher_tab(manager: Any) -> None:
                     game_mode=game_mode_button.slay_value,
                     extra_shop_slots=extra_shop_slots, start_with_spear=start_with_spear,
                     start_with_kerrigan=start_with_kerrigan,
+                    selected_races=selected_races,
 
                 )
 
