@@ -750,4 +750,6 @@ def install(module):
         return open_console(manager, False)
     cls.open_slay_shop = open_slay_shop
     cls.open_slay_inventory = open_slay_inventory
+    # Cards use bounded local textures; skip the native remote AsyncImage prefetch.
+    cls._slay_schedule_shop_prewarm = lambda manager, *args, **kwargs: None
     cls._slay_command_ui_installed = True
