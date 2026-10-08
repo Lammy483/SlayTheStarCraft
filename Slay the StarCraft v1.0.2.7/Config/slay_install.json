@@ -1,0 +1,9 @@
+{
+  "format_version": 2,
+  "slay_version": "1.0.2.7",
+  "archipelago_root": "C:\\Users\\chris\\Downloads\\Slay the StarCraft v1.0.2.7\\Runtime\\Archipelago",
+  "sc2_root": "C:\\Program Files (x86)\\StarCraft II",
+  "python_exe": "C:\\Users\\chris\\Downloads\\Slay the StarCraft v1.0.2.7\\Runtime\\Python\\python.exe",
+  "runtime_mode": "portable",
+  "archipelago_ref": "c311685"
+}

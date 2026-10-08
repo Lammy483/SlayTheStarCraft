@@ -1,0 +1,389 @@
+{
+  "auto_victory_next": false,
+  "boon_purchases": {
+    "BOON::meat_grinder": 1,
+    "BOON::reroll_shop": 1
+  },
+  "chosen": [
+    3
+  ],
+  "duplicate_announced": [],
+  "duplicate_replacements": {},
+  "godmode_mission_id": -1,
+  "godmode_next": false,
+  "golden_goose_bonus_per_mission": 0,
+  "golden_goose_credit_offset": 0,
+  "inventory_received_snapshot": [
+    [
+      3500,
+      -2,
+      0
+    ],
+    [
+      3501,
+      -2,
+      0
+    ],
+    [
+      3502,
+      -2,
+      0
+    ],
+    [
+      3503,
+      -2,
+      0
+    ],
+    [
+      3504,
+      -2,
+      0
+    ],
+    [
+      3505,
+      -2,
+      0
+    ],
+    [
+      3506,
+      -2,
+      0
+    ],
+    [
+      3507,
+      -2,
+      0
+    ],
+    [
+      3508,
+      -2,
+      0
+    ],
+    [
+      3509,
+      -2,
+      0
+    ],
+    [
+      3510,
+      -2,
+      0
+    ],
+    [
+      3511,
+      -2,
+      0
+    ],
+    [
+      3512,
+      -2,
+      0
+    ],
+    [
+      3513,
+      -2,
+      0
+    ],
+    [
+      3514,
+      -2,
+      0
+    ],
+    [
+      3515,
+      -2,
+      0
+    ],
+    [
+      3516,
+      -2,
+      0
+    ],
+    [
+      3517,
+      -2,
+      0
+    ],
+    [
+      3518,
+      -2,
+      0
+    ],
+    [
+      3519,
+      -2,
+      0
+    ],
+    [
+      3520,
+      -2,
+      0
+    ],
+    [
+      3521,
+      -2,
+      0
+    ],
+    [
+      3522,
+      -2,
+      0
+    ],
+    [
+      3523,
+      -2,
+      0
+    ],
+    [
+      3524,
+      -2,
+      0
+    ],
+    [
+      3525,
+      -2,
+      0
+    ],
+    [
+      3526,
+      -2,
+      0
+    ],
+    [
+      3527,
+      -2,
+      0
+    ],
+    [
+      3528,
+      -2,
+      0
+    ],
+    [
+      3529,
+      -2,
+      0
+    ],
+    [
+      3530,
+      -2,
+      0
+    ],
+    [
+      3531,
+      -2,
+      0
+    ],
+    [
+      3532,
+      -2,
+      0
+    ],
+    [
+      3533,
+      -2,
+      0
+    ],
+    [
+      3534,
+      -2,
+      0
+    ],
+    [
+      3336,
+      -2,
+      0
+    ],
+    [
+      3536,
+      -2,
+      0
+    ],
+    [
+      3537,
+      -2,
+      0
+    ],
+    [
+      3538,
+      -2,
+      0
+    ],
+    [
+      3539,
+      -2,
+      0
+    ],
+    [
+      3540,
+      -2,
+      0
+    ],
+    [
+      3541,
+      -2,
+      0
+    ],
+    [
+      3542,
+      -2,
+      0
+    ],
+    [
+      3543,
+      -2,
+      0
+    ],
+    [
+      3326,
+      -2,
+      0
+    ],
+    [
+      3545,
+      -2,
+      0
+    ],
+    [
+      3550,
+      -2,
+      0
+    ],
+    [
+      3551,
+      -2,
+      0
+    ],
+    [
+      3552,
+      -2,
+      0
+    ],
+    [
+      3553,
+      -2,
+      0
+    ],
+    [
+      1807,
+      1301,
+      1
+    ],
+    [
+      3201,
+      1302,
+      1
+    ],
+    [
+      1807,
+      1308,
+      1
+    ],
+    [
+      3810,
+      1303,
+      1
+    ]
+  ],
+  "node_effect_overrides": {},
+  "permanent_blessings": [],
+  "permanent_boons": [
+    "boon_meat_grinder"
+  ],
+  "permanent_mutations": [],
+  "purchases": {
+    "Extra Supplies (Command Center)": 1,
+    "Marine": 1,
+    "PROGRESSION::kerrigan_unlock": 1
+  },
+  "risky_investment_charges": 0,
+  "route_layout_x_fractions": {
+    "107": 0.6371372767857143,
+    "11": 0.5491512348496718,
+    "121": 0.3706754497552877,
+    "122": 0.7338227630553118,
+    "14": 0.0967427535595834,
+    "140": 0.5167372056573548,
+    "151": 0.8929435656903967,
+    "156": 0.6878787805574942,
+    "159": 0.3830454679629564,
+    "166": 0.39788948981215894,
+    "178": 0.36139793609953624,
+    "181": 0.5951629822120378,
+    "184": 0.8332476789000673,
+    "191": 0.560385422341005,
+    "193": 0.8699180093569839,
+    "194": 0.8238668966901584,
+    "201": 0.6458259871118477,
+    "217": 0.8746084004619386,
+    "225": 0.2191731765859591,
+    "24": 0.6883051797488537,
+    "28": 0.22015209354714238,
+    "3": 0.9159691220238096,
+    "39": 0.36449044065145336,
+    "44": 0.6432578818450203,
+    "50": 0.14855025530976215,
+    "72": 0.6493784869043265,
+    "90": 0.0794735863095238,
+    "92": 0.08810816993455362,
+    "94": 0.114011920809643,
+    "96": 0.7386202843292743
+  },
+  "saving_grace_charges": 0,
+  "shop_cycle": 0,
+  "shop_cycle_purchase_victory_count": 0,
+  "shop_cycle_purchases": {
+    "BOON::meat_grinder": 1,
+    "Extra Supplies (Command Center)": 1,
+    "PROGRESSION::kerrigan_unlock": 1
+  },
+  "shop_expansion": 0,
+  "shop_reroll_nonce": 1,
+  "shop_reroll_purchase_victory_count": 0,
+  "shop_rerolls_this_cycle": 1,
+  "shop_sale_items": [
+    "PROGRESSION::kerrigan_unlock",
+    "Infestor",
+    "BOON::meat_grinder",
+    "Malignant Creep (Zerg)"
+  ],
+  "shop_stock": [
+    "Widow Mine",
+    "Reaper",
+    "Predator",
+    "Hi-Sec Auto Tracking (Terran)",
+    "Extra Supplies (Command Center)",
+    "Aberration",
+    "Scourge",
+    "Infestor",
+    "Malignant Creep (Zerg)",
+    "Excavating Claws (Zerg)",
+    "Adept",
+    "Colossus",
+    "Oracle",
+    "Elder Probes (Protoss)",
+    "Progressive Protoss Weapon/Armor Upgrade",
+    "Bile Launcher",
+    "Planetary Fortress",
+    "Argus Amplifier (Hive Mind Emulator)",
+    "Infested Bunker",
+    "Additional Starting Vespene",
+    "Increased Building Construction Speed",
+    "PROGRESSION::terran_contracts",
+    "PROGRESSION::zerg_contracts",
+    "PROGRESSION::spear_unlock",
+    "BOON::meat_grinder",
+    "BOON::shop_expansion",
+    "BOON::reroll_shop",
+    "10 Kerrigan Levels",
+    "Crushing Grip (Kerrigan Ability)"
+  ],
+  "shop_stock_logic_version": 108,
+  "shop_visit_nonce": 0,
+  "spent": 750,
+  "temporary_blessings": {},
+  "test_clear_next": false,
+  "test_credit_bonus": 50,
+  "test_effects_next": [],
+  "test_mission_overrides": {}
+}

@@ -1,0 +1,2 @@
+Button/Name/APRogueBuildDrakkenLaserDrillButton=BUILD DRAKKEN LASER DRILL
+Button/Tooltip/APRogueBuildDrakkenLaserDrillButton=BUILD DRAKKEN LASER DRILL
