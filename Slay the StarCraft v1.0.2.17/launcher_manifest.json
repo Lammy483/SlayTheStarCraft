@@ -1,0 +1,22 @@
+{
+  "format_version": 1,
+  "slay_version": "1.0.2.17",
+  "distribution": "lightweight_on_demand_windows_x64",
+  "launcher_present_in_initial_zip": true,
+  "heavy_runtime_bundled": false,
+  "download_on_demand": true,
+  "python_version": "3.13.16",
+  "archipelago_ref": "c311685",
+  "sc2_data_api": "API4",
+  "global_python_required": false,
+  "system_install_required": false,
+  "data_sources": [
+    "python.org",
+    "github.com/ArchipelagoMW/Archipelago",
+    "github.com/archipelago-sc2/Archipelago-SC2-data",
+    "pypi.org / files.pythonhosted.org",
+    "bootstrap.pypa.io",
+    "raw.githubusercontent.com/eagleflo/mpyq"
+  ],
+  "release_channel": "open_beta"
+}

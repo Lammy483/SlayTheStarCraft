@@ -1,0 +1,4 @@
+# Fallback for the pinned c311685 Archipelago snapshot, which predates the
+# repository-level setup_constraints.txt file. This matches the constraint
+# Archipelago subsequently added for this source line.
+setuptools>=75,<81
