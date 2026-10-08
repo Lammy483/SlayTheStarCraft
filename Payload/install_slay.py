@@ -3683,7 +3683,7 @@ def validate_galaxy_aprg_calls_declared(apr_text: str) -> None:
 
 def validate_galaxy_call_arity(source: str, function_name: str, expected_args: int) -> None:
     """Validate top-level argument counts for Galaxy calls, including nested calls and strings."""
-    call_re = re.compile(r"\\b" + re.escape(function_name) + r"\\s*\\(")
+    call_re = re.compile(r"\b" + re.escape(function_name) + r"\s*\(")
     for match in call_re.finditer(source):
         # Skip occurrences that are inside a line comment.
         line_start = source.rfind("\n", 0, match.start()) + 1
