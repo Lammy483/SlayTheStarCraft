@@ -18,6 +18,6 @@
     "bootstrap.pypa.io",
     "raw.githubusercontent.com/eagleflo/mpyq"
   ],
-  "release_channel": "open_beta",
-  "runtime_revision": "flat-victory-hyperion-native-invasion-r40"
+  "release_channel": "stable",
+  "runtime_revision": "v1.1.0-public-release"
 }

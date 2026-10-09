@@ -169,7 +169,7 @@ def check_payload():
     for token in ("[IO.Path]::GetTempPath()", "Limit-ArchipelagoToSc2AtRoot", '"SlayAP-" + $ArchipelagoRef'):
         if token not in bootstrap: raise RuntimeError(f"Missing long-path-safe Archipelago extraction token: {token}")
     manifest=(RELEASE_ROOT/"launcher_manifest.json").read_text(encoding="utf-8")
-    if '"release_channel": "open_beta"' not in manifest: raise RuntimeError("Development manifest channel mismatch")
+    if '"release_channel": "stable"' not in manifest: raise RuntimeError("Release manifest channel mismatch")
 
 def check_archipelago_patch(ap_root,sc2_root):
     installer=load_installer()

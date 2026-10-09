@@ -1,3 +1,10 @@
+## v1.1.0 public release — UI polish and promotion
+
+- Wangfeng acknowledgement now reads **"Chinese localization and improved UI"**.
+- Campaign Length's longer cautionary note wraps to its available column width and expands its label, field and settings grid to show the entire text at narrower widths/DPI scales.
+- Source snapshot promoted from the r40 integration baseline; no additional gameplay balance changes in the release polish.
+- The stable release manifest and player-facing release notes now identify v1.1.0 as the public release. Endless Mode remains labelled ALPHA.
+
 ## v1.1.0 development r40 — flat victory bonus, Hyperion movement, Invasion Fleet pacing
 
 - Replace +50 victory credits times mission number with a flat **+100 victory credits on every mission**. Base reward is now 500 (formerly 400 + 50 × mission number). Tier adjustment, 125 credits/mutation severity, -100 credits/blessing severity, Lab Rat -100, minimum reward and user multiplier are unchanged. Apply this to generator, legacy runtime fallback, and opening credit estimates; remove the additional +50 per floor in Endless Mode so its reward also receives the flat baseline rather than another increasing mission bonus. Risky mission extra 100 remains.

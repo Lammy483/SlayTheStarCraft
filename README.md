@@ -4,17 +4,15 @@ Slay the StarCraft is a single-player StarCraft II roguelike built on the Archip
 
 This repository tracks the source for the Windows launcher, Slay runtime/client integration, run generator, Galaxy gameplay layer, data catalogs, installer tooling, and validation scripts.
 
-## r31 patch notes
+## Current release: v1.1.0
 
-Opening layer rewards of 900+ are visually elite (no bonus credits), Glass Cannons has severity 2, Tosh uses his own Psi Shield when damaged, Terran Upgrade Pack uses an Armory portrait, and inventory/shop modal navigation has been corrected. See CHANGELOG.md.
+Download the v1.1.0 ZIP from the project release page and extract it to a writable folder on Windows. Run `SlayTheStarCraft.exe`; on first launch use **Download Data** to install the private Archipelago runtime and SC2 assets into the extracted folder. StarCraft II and the campaign content are required. The launcher does not install a global Python environment.
 
-## Current development version
+The release includes the redesigned English UI, Chinese-localization contributions, new mutations, blessings, boons and consumables, and a configurable campaign length. **Endless Mode remains ALPHA**. See `CHANGELOG.md` for development details and `RELEASE_NOTES.md` for a player-facing overview.
 
-`1.1.0`
+`main` tracks the stable release. `release/v1.1.0` is the immutable-intent source snapshot of this version; further development should occur on `develop/v1.1.0` or new feature branches.
 
-`develop/v1.1.0` is the active integration line for the next feature release. The stable public release lineage remains `1.0.2` until this branch is promoted.
-
-### 1.1.0 development changes
+### Highlights introduced in v1.1.0
 
 - Integrates Wangfeng's optional StarCraft-style English command UI.
 - Adds selectable playable races during run setup.
@@ -35,7 +33,7 @@ Opening layer rewards of 900+ are visually elite (no bonus credits), Glass Canno
 - Commander heroes display `<Hero Name> has respawned` after their one-minute respawn.
 - The repository is cleaned for collaborative source control and includes validation/build helpers.
 
-See [README.txt](README.txt) for the current player-facing development changelog and installation behavior.
+See [README.txt](README.txt) for additional player-facing changes and installation behavior.
 
 ## Repository layout
 

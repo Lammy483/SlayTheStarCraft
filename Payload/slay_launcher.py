@@ -1138,30 +1138,44 @@ def install_launcher_tab(manager: Any) -> None:
 
 
     form = GridLayout(
-        cols=4, spacing=(dp(30), dp(8)), size_hint_y=None, height=dp(330),
+        cols=4, spacing=(dp(30), dp(8)), size_hint_y=None, height=dp(350),
     )
-    option_columns = [BoxLayout(orientation="vertical", spacing=dp(10)) for _ in range(4)]
+    # Explicit minimum heights let long labels wrap without overlapping the
+    # controls below them. The themed settings pane already scrolls vertically.
+    option_columns = [BoxLayout(orientation="vertical", spacing=dp(10), size_hint_y=None)
+                      for _ in range(4)]
     for column in option_columns:
+        column.bind(minimum_height=column.setter("height"))
         form.add_widget(column)
+    form.bind(minimum_height=lambda inst, value: setattr(inst, "height", max(dp(350), value)))
 
     def field_label(text: str) -> Label:
-        # Small second-line notes should wrap within their own field, not clip
-        # into the controls in neighboring columns.
         noted = "\n" in text
         label = Label(text=text, halign="left", valign="middle", size_hint_y=None,
                       font_size=dp(12) if noted else dp(14),
                       height=dp(46) if noted else dp(28))
-        label.bind(size=lambda inst, value: setattr(inst, "text_size", value))
+        if noted:
+            # text_size must constrain width, but NOT height: a fixed height
+            # silently crops this note at narrower window sizes/DPI scales.
+            label.bind(width=lambda inst, width: setattr(inst, "text_size", (max(dp(1), width), None)))
+            label.bind(texture_size=lambda inst, texture: setattr(inst, "height", max(dp(46), texture[1] + dp(10))))
+        else:
+            label.bind(size=lambda inst, value: setattr(inst, "text_size", value))
         return label
 
     def compact_text_input(**kwargs: Any) -> TextInput:
         return TextInput(size_hint_y=None, height=dp(42), **kwargs)
 
     def add_field(column_index: int, label_text: str, control: Any) -> None:
+        noted = "\n" in label_text
         field = BoxLayout(orientation="vertical", spacing=dp(4), size_hint_y=None,
-                          height=dp(90) if "\n" in label_text else dp(70))
-        field.add_widget(field_label(label_text))
+                          height=dp(90) if noted else dp(70))
+        caption = field_label(label_text)
+        field.add_widget(caption)
         field.add_widget(control)
+        if noted:
+            # Include ALL wrapped lines and the full 42dp input in the field.
+            caption.bind(height=lambda inst, height: setattr(field, "height", height + dp(4) + dp(42)))
         option_columns[column_index].add_widget(field)
 
     credits_input = compact_text_input(text=str(DEFAULT_STARTING_CREDITS), multiline=False, input_filter="int")

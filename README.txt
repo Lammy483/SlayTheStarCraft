@@ -3,7 +3,7 @@ Slay the StarCraft v1.1.0
 Slay the StarCraft is a single-player StarCraft II roguelike built on the
 Archipelago StarCraft II framework.
 
-V1.1.0 DEVELOPMENT
+V1.1.0 RELEASE
 - r31: First-layer 900+ rewards visually count as elite without the 100 bonus; inventory Show Cards / Shop / Exit Inventory controls are top-right, and shop/inventory reroll/exit transitions no longer cross-open unexpectedly. Glass Cannons severity is now 2; Tosh attempts his Psi Shield on taking damage; Terran Upgrade Pack displays the Armory icon.
 - r28: High Templar storm targeting now seeks enemy concentrations; Spear Recharge only restores energy and requires two distinct active Spear abilities. Nexus Shields cannot roll on Smash and Grab. Scripted warp-ins attach the campaign-standard animated Protoss warp model and retain their five-second fade/stun. In-game testing pending.
 - r14: Starting credits default to 600; mission victory floor is 150 (Lab Rat can still go 100 lower); mutation severity mean is raised +1 before frequency scaling. Existing runs are unchanged.

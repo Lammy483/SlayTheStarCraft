@@ -29,7 +29,7 @@ class R14Tests(unittest.TestCase):
     def test_credit_defaults(self):
         self.assertIn('DEFAULT_STARTING_CREDITS = 600',self.launcher)
         self.assertIn('default=600, help="Starting shop credits (default 600)"',(P/'generate_slay_run.py').read_text())
-        self.assertIn('height=dp(90) if "\\n" in label_text else dp(70)',self.launcher)
+        self.assertIn('height=dp(90) if noted else dp(70)',self.launcher)
 
     def test_reward_floor_and_special_lab_rat(self):
         g=self.g

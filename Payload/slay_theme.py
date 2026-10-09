@@ -287,7 +287,7 @@ def _style_setup(manager, container) -> None:
     # Keep the current v1.1.0 launcher controls and callbacks. We only restyle
     # and reposition them, including the new playable-race row.
     form.spacing = [dp(18), dp(12)]
-    form.height = dp(350)
+    form.height = max(form.height, dp(350))
     form.size_hint_y = None
     if race_row is not None:
         race_row.size_hint_y = None
@@ -312,7 +312,7 @@ def _style_setup(manager, container) -> None:
     def show_contributors(*_args):
         entries = (
             ("Lammy", "Original author · Game Design, development, balance and bug fixes."),
-            ("Wangfeng", "Chinese localization and the StarCraft-style launcher, route, shop and inventory presentation."),
+            ("Wangfeng", "Chinese localization and improved UI"),
             ("SC2 Archipelago Team", "Provided the base campaign randomizer, race-swapped missions, units and upgrades."),
         )
         popup_body = BoxLayout(orientation="vertical", padding=dp(16), spacing=dp(14))
