@@ -74,6 +74,8 @@ class R30Tests(unittest.TestCase):
 
     def test_tosh_timings_pathing_and_one_life(self):
         self.assertIn('const int APRG_MISSION_FLAG_TOSH_AND_HIS_BOYS = 32768;', GALAXY)
+        self.assertIn('PointPathingIsConnected(candidate, UnitGetPosition(home))', GALAXY)
+        self.assertGreaterEqual(GALAXY.count('APRG_ToshPathableHostileSpawnPoint(anchor, player)'), 2)
         body = GALAXY[GALAXY.index('void APRG_TickToshAndHisBoys('):GALAXY.index('bool APRG_IsOdinDefensiveStructure(')]
         for expected in ('APRG_RandomPathableHostileBaseAnchor(player)',
                          'g_aprgMacroReadyTime + 180.0', 'g_aprgMacroReadyTime + 240.0',

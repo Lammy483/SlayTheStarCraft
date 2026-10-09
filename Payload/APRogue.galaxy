@@ -18124,6 +18124,24 @@ bool APRG_TryUnitAbilityKeyword(unit caster, string keyword, unit target, point 
     return false;
 }
 
+// A connected enemy building can be close to a cliff or blocked terrain.
+// Validate the actual spawn position as well as the hostile building anchor.
+point APRG_ToshPathableHostileSpawnPoint(unit anchor, int player) {
+    unit home;
+    point candidate;
+    int attempt;
+    if (anchor == null || !UnitIsAlive(anchor)) { return null; }
+    home = APRG_FindPlayerHomeStructure(player);
+    if (home == null || !UnitIsAlive(home)) { return null; }
+    for (attempt = 0; attempt < 12; attempt += 1) {
+        candidate = APRG_FindGroundPointNear(UnitGetPosition(anchor), 3.0, 10.0);
+        if (candidate != null && PointPathingIsConnected(candidate, UnitGetPosition(home))) {
+            return candidate;
+        }
+    }
+    return null;
+}
+
 // Hostile Tosh uses normal hero spellcasting and attack-move patrols between
 // enemy-held regions. Exactly one Tosh is spawned: killing him stops new raids.
 void APRG_TickToshAndHisBoys(int player, fixed now) {
@@ -18145,8 +18163,8 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
         if (!CatalogEntryIsValid(c_gameCatalogUnit, toshType)) { return; }
         anchor = APRG_RandomPathableHostileBaseAnchor(player);
         if (anchor == null) { return; }
-        spawnPoint = APRG_FindGroundPointNear(UnitGetPosition(anchor), 3.0, 10.0);
-        if (spawnPoint == null) { spawnPoint = UnitGetPosition(anchor); }
+        spawnPoint = APRG_ToshPathableHostileSpawnPoint(anchor, player);
+        if (spawnPoint == null) { return; }
         created = UnitCreate(1, toshType, c_unitCreateIgnorePlacement, UnitGetOwner(anchor), spawnPoint, libNtve_gf_RandomAngle());
         g_aprgTosh = UnitGroupUnitFromEnd(created, 1);
         if (g_aprgTosh == null) { return; }
@@ -18183,8 +18201,8 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
                 }
                 anchor = APRG_RandomPathableHostileBaseAnchor(player);
                 if (slot >= 0 && anchor != null) {
-                    spawnPoint = APRG_FindGroundPointNear(UnitGetPosition(anchor), 3.0, 10.0);
-                    if (spawnPoint == null) { spawnPoint = UnitGetPosition(anchor); }
+                    spawnPoint = APRG_ToshPathableHostileSpawnPoint(anchor, player);
+                    if (spawnPoint != null) {
                     created = UnitCreate(1, "Spectre", c_unitCreateIgnorePlacement, UnitGetOwner(anchor), spawnPoint, libNtve_gf_RandomAngle());
                     spec = UnitGroupUnitFromEnd(created, 1);
                     if (spec != null) {
@@ -18200,6 +18218,7 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
                         if (CatalogEntryIsValid(c_gameCatalogBehavior, "APRogueCloakedNightmare")) {
                             UnitBehaviorAdd(spec, "APRogueCloakedNightmare", spec, 1);
                         }
+                    }
                     }
                 }
             }
