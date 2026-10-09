@@ -1963,7 +1963,7 @@ def _legacy_node_credit(node: Mapping[str, Any]) -> int:
 
         + 300 * (mission_tier - expected_tier)
 
-        + 150 * mutation_value
+        + 125 * mutation_value
 
         - 100 * blessing_value
 
@@ -2808,7 +2808,7 @@ def _expected_opening_credit_average(config: Mapping[str, Any]) -> float:
 
         multiplier = 1.0
 
-    return float(base + 150.0 * mf) * multiplier
+    return float(base + 125.0 * mf) * multiplier
 
 
 

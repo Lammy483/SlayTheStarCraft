@@ -1,3 +1,9 @@
+## v1.1.0 development r38 — mutation victory-credit reward adjustment
+
+- New mission victories now grant **125 credits per mutation severity point**, reduced from 150. Updated the run-generator reward, the client-side fallback reward, opening-credit estimates, and installer source assertions together so displayed and awarded credits stay consistent.
+- Blessing credit reductions (-100 per severity), mission-tier/layer calculations, fixed bonuses, shop costs, and mutation selection/danger scoring are unchanged.
+- Added focused regression tests for the generator and fallback. This is a development build for testing before promoting to main.
+
 ## v1.1.0 development r37 — Purifier Vortex targets visible units only
 
 - The shared autonomous ability scanner could cast Purifier Vortex at an enemy building or at its point, because generic enemy target groups include structures. Slay-spawned Purifiers now have a dedicated `VortexPurifier` target picker that considers only **visible, alive, enemy non-structure units** within the native 10-range, checks native order validity, and preserves the previous movement/attack order.

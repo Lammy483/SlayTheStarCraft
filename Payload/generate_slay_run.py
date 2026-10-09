@@ -427,10 +427,10 @@ def expected_opening_credit_average(difficulty: str, mutation_frequency: Any = 1
     def at_bless(mut_label: str) -> float:
         return _linear_extrapolate_points([(x, EXPECTED_OPENING_CREDIT_AVERAGE[(difficulty_key, mut_label, lab)]) for x, lab in labels], bf)
     base = _linear_extrapolate_points([(x, at_bless(lab)) for x, lab in labels], mf)
-    # A universal +1 mutation-severity budget adds about 150 base credits to
+    # A universal +1 mutation-severity budget adds about 125 base credits to
     # the expected first-layer payout at Normal frequency; keep red-risk
     # thresholds aligned with the new generation curve.
-    return max(0.0, base + 150.0 * mf) * max(0.0, float(victory_credit_reward_multiplier))
+    return max(0.0, base + 125.0 * mf) * max(0.0, float(victory_credit_reward_multiplier))
 
 
 RACE_WEAPON_ARMOR_UPGRADE_ITEMS = {
@@ -1410,7 +1410,7 @@ def expected_danger_score(
 
     map_premium = 300.0 * (expected_pool - expected_tier_zero_based)
 
-    return int(round(map_premium + (150.0 * mutation_mean) - (100.0 * blessing_mean)))
+    return int(round(map_premium + (125.0 * mutation_mean) - (100.0 * blessing_mean)))
 
 
 
@@ -2437,7 +2437,7 @@ def credit_reward(
 
     difficulty_reward = 300 * (mission_tier - expected_tier)
 
-    effect_reward = (150 * int(mutation_value)) - (100 * int(blessing_value)) + (100 * layer_number)
+    effect_reward = (125 * int(mutation_value)) - (100 * int(blessing_value)) + (100 * layer_number)
 
     old_reward = base_reward + layer_reward + difficulty_reward + effect_reward
 
