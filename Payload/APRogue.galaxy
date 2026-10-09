@@ -659,9 +659,6 @@ point g_aprgRaynorTargetPoint = null;
 point g_aprgRaynorSafePoint = null;
 fixed g_aprgRaynorEarliestNextFlybyTime = -1.0;
 fixed g_aprgRaynorNextMoveRefreshTime = -1.0;
-fixed g_aprgRaynorLastMoveDistance = -1.0;
-fixed g_aprgRaynorLastMoveProgressTime = -1.0;
-bool g_aprgRaynorFallbackMovement = false;
 unitgroup g_aprgRaynorRepairSCVs;
 fixed g_aprgRaynorLastObservedLife = -1.0;
 fixed g_aprgRaynorFlybyStartLife = -1.0;
@@ -13289,46 +13286,18 @@ unit APRG_RaynorFlybyTarget(int player) {
     return APRG_RandomPlayerStructure(player);
 }
 
+// Raynor's Raiders Hyperion must fly using the ordinary SC2 move order. Do
+// not teleport/nudge it when progress is slow: Time Stop legitimately freezes
+// the unit, and a movement watchdog would move it despite being frozen.
 void APRG_RaynorMoveToward(point destination, fixed now) {
-    point current;
-    point nudged;
-    fixed distance;
-    fixed fraction;
     if (g_aprgRaynorHyperion == null || destination == null || !UnitIsAlive(g_aprgRaynorHyperion)) { return; }
-    current = UnitGetPosition(g_aprgRaynorHyperion);
-    distance = DistanceBetweenPoints(current, destination);
-
     if (now >= g_aprgRaynorNextMoveRefreshTime) {
         UnitIssueOrder(g_aprgRaynorHyperion, OrderTargetingPoint(AbilityCommand("move", 0), destination), c_orderQueueReplace);
-        g_aprgRaynorNextMoveRefreshTime = now + 3.0;
-    }
-
-    if (!g_aprgRaynorFallbackMovement && (g_aprgRaynorLastMoveDistance < 0.0 || distance + 0.75 < g_aprgRaynorLastMoveDistance)) {
-        g_aprgRaynorLastMoveDistance = distance;
-        g_aprgRaynorLastMoveProgressTime = now;
-        return;
-    }
-
-    if (!g_aprgRaynorFallbackMovement && g_aprgRaynorLastMoveProgressTime >= 0.0 && now >= g_aprgRaynorLastMoveProgressTime + 8.0 && distance > 1.0) {
-        g_aprgRaynorFallbackMovement = true;
-    }
-    if (g_aprgRaynorFallbackMovement && distance > 1.0) {
-        fraction = MinF(1.0, 3.0 / distance);
-        nudged = Point(
-            PointGetX(current) + (PointGetX(destination) - PointGetX(current)) * fraction,
-            PointGetY(current) + (PointGetY(destination) - PointGetY(current)) * fraction
-        );
-        UnitSetPosition(g_aprgRaynorHyperion, nudged, true);
-        UnitIssueOrder(g_aprgRaynorHyperion, OrderTargetingPoint(AbilityCommand("move", 0), destination), c_orderQueueReplace);
-        g_aprgRaynorLastMoveDistance = DistanceBetweenPoints(nudged, destination);
         g_aprgRaynorNextMoveRefreshTime = now + 3.0;
     }
 }
 void APRG_RaynorBeginMove(point destination, fixed now) {
     if (destination == null || g_aprgRaynorHyperion == null) { return; }
-    g_aprgRaynorLastMoveDistance = DistanceBetweenPoints(UnitGetPosition(g_aprgRaynorHyperion), destination);
-    g_aprgRaynorLastMoveProgressTime = now;
-    g_aprgRaynorFallbackMovement = false;
     g_aprgRaynorNextMoveRefreshTime = now;
     APRG_RaynorMoveToward(destination, now);
 }
@@ -16931,9 +16900,6 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgRaynorSafePoint = null;
     g_aprgRaynorEarliestNextFlybyTime = -1.0;
     g_aprgRaynorNextMoveRefreshTime = -1.0;
-    g_aprgRaynorLastMoveDistance = -1.0;
-    g_aprgRaynorLastMoveProgressTime = -1.0;
-    g_aprgRaynorFallbackMovement = false;
     g_aprgRaynorLastObservedLife = -1.0;
     g_aprgRaynorFlybyStartLife = -1.0;
     g_aprgRaynorRepairStallTicks = 0;
@@ -17027,14 +16993,25 @@ string APRG_HyperionBoonType() {
     return "";
 }
 
+// Campaign HyperionYamatoSpecial has no native cost entry. APRogueData.xml
+// initializes an empty, writable Cost field; install player-only costs before
+// the unit is spawned/replaced so the command card and engine can enforce them.
+void APRG_ConfigureHyperionYamato(int player) {
+    string abilityType = "HyperionYamatoSpecial";
+    if (!CatalogEntryIsValid(c_gameCatalogAbil, abilityType)) { return; }
+    CatalogFieldValueSet(c_gameCatalogAbil, abilityType, "Cost.Vital[Energy]", player, "100");
+    CatalogFieldValueSet(c_gameCatalogAbil, abilityType, "Cost.Cooldown.Link", player, "APRogueHyperionYamato");
+    CatalogFieldValueSet(c_gameCatalogAbil, abilityType, "Cost.Cooldown.TimeUse", player, "15");
+    CatalogFieldValueSet(c_gameCatalogAbil, abilityType, "Cost.Cooldown.TimeStart", player, "0");
+    // Engines that expose the singular Cost as array element 0 also work.
+    CatalogFieldValueSet(c_gameCatalogAbil, abilityType, "Cost[0].Vital[Energy]", player, "100");
+    CatalogFieldValueSet(c_gameCatalogAbil, abilityType, "Cost[0].Cooldown.Link", player, "APRogueHyperionYamato");
+    CatalogFieldValueSet(c_gameCatalogAbil, abilityType, "Cost[0].Cooldown.TimeUse", player, "15");
+}
+
 void APRG_NormalizeHyperionBoon(unit hyperion, int player) {
     int i;
-    int abilityIndex;
-    int abilityCount;
-    int costIndex;
     string behavior;
-    string abilityType;
-    string basePath;
     if (hyperion == null) { return; }
 
     for (i = UnitBehaviorCountAll(hyperion); i >= 1; i -= 1) {
@@ -17061,23 +17038,10 @@ void APRG_NormalizeHyperionBoon(unit hyperion, int player) {
     UnitSetPropertyFixed(hyperion, c_unitPropEnergy, 200.0);
     DataTableSetBool(true, "APRG_NoHeroRegen_" + IntToString(UnitGetTag(hyperion)), true);
 
-    abilityCount = UnitAbilityCount(hyperion);
-    if (abilityCount > 64) { abilityCount = 64; }
-    for (abilityIndex = 1; abilityIndex <= abilityCount; abilityIndex += 1) {
-        abilityType = UnitAbilityGet(hyperion, abilityIndex);
-        if (abilityType == "" || !StringContains(abilityType, "Yamato", c_stringAnywhere, c_stringNoCase)) { continue; }
-        for (costIndex = 0; costIndex < 4; costIndex += 1) {
-            basePath = "Cost[" + IntToString(costIndex) + "]";
-            CatalogFieldValueSet(c_gameCatalogAbil, abilityType, basePath + ".Vital[Energy]", player, "100");
-            CatalogFieldValueSet(c_gameCatalogAbil, abilityType, basePath + ".Cooldown.TimeUse", player, "15");
-            CatalogFieldValueSet(c_gameCatalogAbil, abilityType, basePath + ".Cooldown.TimeStart", player, "15");
-        }
-        CatalogFieldValueSet(c_gameCatalogAbil, abilityType, "Cost.Vital[Energy]", player, "100");
-        CatalogFieldValueSet(c_gameCatalogAbil, abilityType, "Cost.Cooldown.TimeUse", player, "15");
-        CatalogFieldValueSet(c_gameCatalogAbil, abilityType, "Cost.Cooldown.TimeStart", player, "15");
-        // Some campaign Yamato variants expose Cost.Vital by numeric index.
-        CatalogFieldValueSet(c_gameCatalogAbil, abilityType, "Cost[0].Vital[2]", player, "100");
-    }
+    APRG_ConfigureHyperionYamato(player);
+    // Native Hyperion's actual ability: HyperionYamatoSpecial. Some campaign
+    // catalog variants expose Energy by its numeric vital index instead.
+    CatalogFieldValueSet(c_gameCatalogAbil, "HyperionYamatoSpecial", "Cost[0].Vital[2]", player, "100");
 }
 
 string APRG_LeviathanBoonType() {
@@ -17220,6 +17184,7 @@ bool APRG_NewBoonTrain_Func(bool testConds, bool runActions) {
     if (!g_aprgHyperionUsed && APRG_HasExtension4(APRG_EXT4_BOON_HYPERION) && StringContains(unitType, "Battlecruiser", c_stringAnywhere, c_stringNoCase)) {
         heroType = APRG_HyperionBoonType();
         if (heroType != "") {
+            APRG_ConfigureHyperionYamato(player);
             libNtve_gf_ReplaceUnit(trained, heroType, libNtve_ge_ReplaceUnitOptions_OldUnitsRelative);
             replacement = libNtve_gf_LastReplacedUnit();
             if (replacement != null) {
@@ -17605,14 +17570,14 @@ void APRG_TickPermanentStimpack(int player) {
 void APRG_TickInvasionFleet(int player, fixed now) {
     point p;
     if (!APRG_HasExtension4(APRG_EXT4_BOON_INVASION_FLEET)) { return; }
-    if (now < 300.0 || now >= 360.0 || now < g_aprgNextInvasionFleetDropTime) { return; }
+    if (now < 300.0 || now >= 420.0 || now < g_aprgNextInvasionFleetDropTime) { return; }
     p = APRG_FindInvasionFleetDropPoint(player);
     if (p != null) {
         if (!APRG_QueueRealDropPod(APRG_DROP_KIND_INVASION_FLEET, player, p, null)) {
             APRG_ResolvePlayerZergDrop(player, p, true);
         }
     }
-    g_aprgNextInvasionFleetDropTime = now + 0.5;
+    g_aprgNextInvasionFleetDropTime = now + 1.0;
 }
 
 void APRG_TickBaseLeviathanBurst(int player, fixed now);
@@ -19694,6 +19659,7 @@ bool APRG_PotionActivate(int player, int kind, point location, unit target) {
         // missions; these heroes must be player-owned and player-commandable.
         if (kind == 4) { unitType = APRG_LeviathanBoonType(); }
         if (kind == 5) { unitType = APRG_HyperionBoonType(); }
+        if (kind == 5) { APRG_ConfigureHyperionYamato(player); }
         if (unitType == "" || !CatalogEntryIsValid(c_gameCatalogUnit, unitType)) { return false; }
         // Do not pass heroes through generic AP unit-type substitution: the
         // boon uses the *exact* native Leviathan / Hyperion unit type.

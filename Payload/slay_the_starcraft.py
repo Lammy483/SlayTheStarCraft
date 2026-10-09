@@ -1162,6 +1162,7 @@ DEFAULT_STATE: dict[str, Any] = {
     "shop_stock": [],
     "potion_inventory": [],
     "potion_serial": 0,
+    "shop_potions_bought": [],
 
     "shop_stock_logic_version": 0,
 
@@ -1959,7 +1960,7 @@ def _legacy_node_credit(node: Mapping[str, Any]) -> int:
 
         400
 
-        + 50 * layer_number
+        + 100
 
         + 300 * (mission_tier - expected_tier)
 
@@ -2450,6 +2451,11 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
         state["potion_serial"] = max(0, int(value.get("potion_serial", 0)))
     except (TypeError, ValueError):
         state["potion_serial"] = 0
+    raw_potion_purchases = value.get("shop_potions_bought", [])
+    if isinstance(raw_potion_purchases, (list, tuple)):
+        state["shop_potions_bought"] = list(dict.fromkeys(
+            str(name) for name in raw_potion_purchases if str(name) in POTION_CATALOG
+        ))
     raw_stock = value.get("shop_stock", [])
 
     if isinstance(raw_stock, Sequence) and not isinstance(raw_stock, (str, bytes)):
@@ -8359,6 +8365,8 @@ def shop_stock(ctx: Any) -> list[str]:
         s["shop_cycle"] = cycle
 
         s["shop_stock_logic_version"] = SHOP_STOCK_LOGIC_VERSION
+        # Victory or a fresh stock generation restocks consumed shop offers.
+        s["shop_potions_bought"] = []
 
         s["shop_stock"] = _roll_shop_stock(ctx, cycle)
 
@@ -8784,7 +8792,11 @@ def can_buy_shop_item(ctx: Any, item_name: str) -> bool:
 
     if not enabled(ctx) or not state_ready(ctx): return False
     if item_name in POTION_CATALOG:
-        return len(potion_inventory(ctx)) < POTION_CAPACITY and _potion_unlock_eligible(ctx, item_name)
+        # Each individual offer may be bought only once until reroll or victory,
+        # even if the player uses it and opens an inventory slot again.
+        return (item_name not in state(ctx).get("shop_potions_bought", ())
+                and len(potion_inventory(ctx)) < POTION_CAPACITY
+                and _potion_unlock_eligible(ctx, item_name))
 
     if item_name in {TERRAN_CONTRACTS, ZERG_CONTRACTS, KERRIGAN_UNLOCK, SPEAR_UNLOCK}:
 
@@ -9802,6 +9814,7 @@ def _purchase_boon(
         s["shop_cycle_purchase_victory_count"] = cycle
 
         s["shop_rerolls_this_cycle"] = _shop_reroll_purchase_count(ctx) + 1
+        s["shop_potions_bought"] = []
 
         s["shop_reroll_purchase_victory_count"] = cycle
 
@@ -10190,6 +10203,8 @@ def purchase(
     current_stock = list(shop_stock(ctx))
 
     if item_name not in current_stock: return False, "That item is not in the current shop stock."
+    if item_name in POTION_CATALOG and item_name in state(ctx).get("shop_potions_bought", ()):
+        return False, "That consumable has already been purchased from this stock. Reroll or win a mission to restock it."
 
     if not can_buy_shop_item(ctx,item_name): return False,"You already have the maximum useful number of this item."
 
@@ -10207,6 +10222,11 @@ def purchase(
         s["potion_serial"] = serial
         s["potion_inventory"] = slots + [{"id": item_name, "serial": serial}]
         s["spent"] = int(s.get("spent", 0)) + price
+        # Persist per-stock purchases separately from inventory. Using a
+        # consumable must not make the same offer purchasable a second time.
+        s["shop_potions_bought"] = list(dict.fromkeys(
+            list(s.get("shop_potions_bought", ())) + [item_name]
+        ))
         _persist_state(ctx)
         return True, f"Purchased {POTION_CATALOG[item_name]['name']} for {price} credits ({len(slots)+1}/2 consumable slots)."
 

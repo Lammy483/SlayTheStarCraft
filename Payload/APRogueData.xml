@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="us-ascii"?>
 <Catalog>
+  <!-- Campaign HyperionYamatoSpecial ships with no Cost definition. Define
+       zero-valued fields so player-specific Galaxy catalog edits can grant
+       100 energy and a 15-second cooldown to boon / potion Hyperions BEFORE
+       creation, without changing the cost for enemy mission Hyperions. -->
+  <CAbilEffectTarget id="HyperionYamatoSpecial">
+    <Cost>
+      <Vital index="Energy" value="0"/>
+      <Cooldown Link="APRogueHyperionYamato" TimeUse="0" TimeStart="0"/>
+    </Cost>
+  </CAbilEffectTarget>
+
   <!-- Native potion cursor is attached to an isolated dummy unit. Move order
        carries precise engine-resolved ground/unit targets; the Galaxy order
        event runs potion logic before the unit can travel. -->

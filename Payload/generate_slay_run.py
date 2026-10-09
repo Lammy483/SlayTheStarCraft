@@ -430,7 +430,7 @@ def expected_opening_credit_average(difficulty: str, mutation_frequency: Any = 1
     # A universal +1 mutation-severity budget adds about 125 base credits to
     # the expected first-layer payout at Normal frequency; keep red-risk
     # thresholds aligned with the new generation curve.
-    return max(0.0, base + 125.0 * mf) * max(0.0, float(victory_credit_reward_multiplier))
+    return max(0.0, base + 50.0 + 125.0 * mf) * max(0.0, float(victory_credit_reward_multiplier))
 
 
 RACE_WEAPON_ARMOR_UPGRADE_ITEMS = {
@@ -2433,7 +2433,7 @@ def credit_reward(
 
     base_reward = 400
 
-    layer_reward = 50 * layer_number
+    layer_reward = 100
 
     difficulty_reward = 300 * (mission_tier - expected_tier)
 
@@ -3318,7 +3318,7 @@ def _assigned_node_is_red(
 
         if expected_average <= 0.0:
 
-            expected_average = EXPECTED_OPENING_CREDIT_AVERAGE[("brutal", "normal", "normal")] + 150.0
+            expected_average = EXPECTED_OPENING_CREDIT_AVERAGE[("brutal", "normal", "normal")] + 200.0
 
         return float(data.get("credit_reward", 0)) > (2.5 * expected_average)
 
@@ -5238,7 +5238,7 @@ def generate_endless_layer(run: dict[str, Any], progress: dict[str, Any]) -> lis
         node = copy.deepcopy(mission)
         node.update(layer=floor, lane=lane, lane_count=choice_count, next=[], high_risk=risk, mutators=mutators, blessings=blessings,
                     mutation_value=mut_value, blessing_value=bless_value,
-                    credit_reward=round((base_reward + 50 * floor + (100 if risk else 0)) * multiplier),
+                    credit_reward=round((base_reward + (100 if risk else 0)) * multiplier),
                     danger_credit_bonus=0, difficulty_override=tier)
         node["commander_hero_index"], node["commander_hero_name"] = commander_choice(run["run_seed"], mission["id"]) if "general" in blessings else (-1, "")
         selected.append(node)

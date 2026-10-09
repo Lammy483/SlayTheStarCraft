@@ -29,13 +29,13 @@ class MutationCreditRewardR38(unittest.TestCase):
         def got(mutations=0, blessings=0, pool=0, layer=0, multiplier=1.0, mission=''):
             return reward(pool, layer, mutations, blessings, bool(blessings), random.Random(123),
                           mission_name=mission, victory_credit_reward_multiplier=multiplier)
-        self.assertEqual(got(), 450)
+        self.assertEqual(got(), 500)
         for severity in (1, 2, 4, 8):
             self.assertEqual(got(mutations=severity) - got(), 125 * severity)
-        self.assertEqual(got(mutations=3, blessings=2), 450 + 3*125 - 2*100)
-        self.assertEqual(got(mutations=2, pool=2), 450 + 2*125 + 600)
-        self.assertEqual(got(mutations=4, multiplier=1.5), 1425)
-        self.assertEqual(got(mutations=4, mission='Lab Rat'), 850)
+        self.assertEqual(got(mutations=3, blessings=2), 500 + 3*125 - 2*100)
+        self.assertEqual(got(mutations=2, pool=2), 500 + 2*125 + 600)
+        self.assertEqual(got(mutations=4, multiplier=1.5), 1500)
+        self.assertEqual(got(mutations=4, mission='Lab Rat'), 900)
 
     def test_runtime_legacy_fallback_matches_generator(self):
         fallback = isolated_function(CLIENT, '_legacy_node_credit')
@@ -50,7 +50,7 @@ class MutationCreditRewardR38(unittest.TestCase):
                                               mission_name='Smash and Grab'))
 
     def test_credit_expectations_and_installer_marker_updated(self):
-        self.assertIn('base + 125.0 * mf', GENERATOR)
+        self.assertIn('base + 50.0 + 125.0 * mf', GENERATOR)
         self.assertIn('base + 125.0 * mf', CLIENT)
         self.assertIn('125.0 * mutation_mean', GENERATOR)
         self.assertIn('effect_reward = (125 * int(mutation_value))', GENERATOR)

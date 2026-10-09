@@ -1,3 +1,17 @@
+## v1.1.0 development r40 — flat victory bonus, Hyperion movement, Invasion Fleet pacing
+
+- Replace +50 victory credits times mission number with a flat **+100 victory credits on every mission**. Base reward is now 500 (formerly 400 + 50 × mission number). Tier adjustment, 125 credits/mutation severity, -100 credits/blessing severity, Lab Rat -100, minimum reward and user multiplier are unchanged. Apply this to generator, legacy runtime fallback, and opening credit estimates; remove the additional +50 per floor in Endless Mode so its reward also receives the flat baseline rather than another increasing mission bonus. Risky mission extra 100 remains.
+- **Raynor's Raiders (enemy Hyperion mutation):** remove the scripted stuck-movement detection and position nudge (`UnitSetPosition`) so Time Stop cannot cause teleporting. Keep native flying move orders, refreshed every 3 seconds, plus the existing flyby, damage retreat, repair and drop-pod logic.
+- **Invasion Fleet boon:** at mission minute five, deploy one allied Zerg drop pod per second through minute seven (120 seconds total), rather than twice per second for one minute. Updated item description; expected total remains roughly 120 pods when eligible drop points exist.
+- New r40 regression tests and adjusted r38 baseline assertions. Static tests cannot verify Galaxy compilation or Time Stop behavior in live SC2.
+
+## v1.1.0 development r39 — consumable stock, track discounts, Hyperion Yamato
+
+- Each shop consumable offer can be purchased only once until a real reroll or mission victory. The purchased offer remains displayed but disabled after use; inventory capacity remains two, and Shop Expansion does not reset sold offers. Purchased-offer state persists across launcher restarts.
+- "Reduced Spear of Adun Shop Prices by 50%" and "Reduced Kerrigan Shop Prices by 50%" cost 500 credits, previously 400.
+- Hyperion in a Bottle and the Hyperion boon now preconfigure the native HyperionYamatoSpecial ability's player-specific cost before creation / replacement: 100 energy, 15-second use cooldown. Native campaign's missing cost fields are seeded at zero in APRogueData.xml so enemy Hyperions retain original values. Live SC2 verification is still required.
+- No victory-credit reward change from r38. The standard formula and its potential late-game inflation are documented in the delivery summary.
+
 ## v1.1.0 development r38 — mutation victory-credit reward adjustment
 
 - New mission victories now grant **125 credits per mutation severity point**, reduced from 150. Updated the run-generator reward, the client-side fallback reward, opening-credit estimates, and installer source assertions together so displayed and awarded credits stay consistent.
