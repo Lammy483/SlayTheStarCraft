@@ -3,7 +3,7 @@ import argparse, ast, csv, importlib.util, py_compile, sys, xml.etree.ElementTre
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 RELEASE_ROOT=ROOT.parent
-VERSION="1.0.2.17"
+VERSION="1.1.0"
 
 def load_installer():
     spec=importlib.util.spec_from_file_location("slay_release_installer", ROOT/"install_slay.py")
@@ -33,8 +33,36 @@ def check_catalog(path, expected):
     if fields!=expected: raise RuntimeError(f"Unexpected columns in {path.name}: {fields}")
     if not rows: raise RuntimeError(f"{path.name} is empty.")
 
+def check_installer_galaxy_postchecks(payload_dir: Path) -> None:
+    """Catch stale installer-required APRogue markers *before* a user downloads data.
+
+    This reads the same literal ``post_checks[apr_target]`` list used by
+    install_slay.py's pre-install stage; it does not execute the installer or
+    require downloaded Archipelago data.
+    """
+    installer_tree = ast.parse((payload_dir / "install_slay.py").read_text(encoding="utf-8"))
+    marker_list = None
+    for node in ast.walk(installer_tree):
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Dict):
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == "post_checks" for target in node.targets):
+            continue
+        for key, value in zip(node.value.keys, node.value.values):
+            if isinstance(key, ast.Name) and key.id == "apr_target":
+                marker_list = ast.literal_eval(value)
+                break
+        break
+    if marker_list is None or not marker_list:
+        raise RuntimeError("Cannot identify the installer's APRogue pre-install post-checks")
+    galaxy = (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8")
+    missing = [marker for marker in marker_list if marker not in galaxy]
+    if missing:
+        raise RuntimeError(f"Installer will reject the APRogue.galaxy payload: {missing}")
+
+
 def check_payload():
     check_embedded_gui_methods()
+    check_installer_galaxy_postchecks(ROOT)
     verify_v1025_changes(ROOT)
     verify_v1026_changes(ROOT)
     verify_v1027_changes(ROOT)
@@ -47,6 +75,7 @@ def check_payload():
     verify_v10215_changes(ROOT)
     verify_v10216_changes(ROOT)
     verify_v10217_changes(ROOT)
+    verify_v110_ui_batch(ROOT)
     if (RELEASE_ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()!=VERSION: raise RuntimeError("VERSION.txt mismatch")
     exe_path = RELEASE_ROOT / "SlayTheStarCraft.exe"
     if exe_path.is_file():
@@ -78,6 +107,11 @@ def check_payload():
     ):
         if token not in galaxy: raise RuntimeError(f"Missing Galaxy development symbol: {token}")
     if "UnitGroupAddUnit(" in galaxy: raise RuntimeError("Invalid Galaxy UnitGroupAddUnit call")
+    # SC2 TriggerAddEventUnitOrder's second argument is unitref, not unit.
+    if 'TriggerAddEventUnitOrder(g_aprgPotionOrderTrigger, g_aprgPotionTargetCaster,' in galaxy:
+        raise RuntimeError("Invalid Galaxy unit-to-unitref native event registration (three-race failure)")
+    if 'TriggerAddEventUnitOrder(g_aprgPotionOrderTrigger, null, AbilityCommand("move", 0))' not in galaxy:
+        raise RuntimeError("Potion Move order trigger must register using a unitref-compatible argument")
     runtime=(ROOT/"slay_the_starcraft.py").read_text(encoding="utf-8")
     for token in (
         "def prepare_kerrigan_options",
@@ -93,6 +127,11 @@ def check_payload():
     if '"kerrigan_primal_status": "always_zerg"' not in generator: raise RuntimeError("Kerrigan latent form is not Always Zerg")
     for token in ("DEFAULT_CAMPAIGN_LENGTH = 12", "def _base_effect_means", "def _is_final_quarter", "def _is_past_halfway", "def _effect_selection_weight", "--mutation-frequency-multiplier", "--blessing-frequency-multiplier", '"extra_shop_slots"', '"start_with_spear"', '"start_with_kerrigan"'):
         if token not in generator: raise RuntimeError(f"Missing dynamic-run generator token: {token}")
+    endless_ui=(ROOT/"slay_endless_ui.py").read_text(encoding="utf-8")
+    if "def build_mission_table(manager,dt):" not in endless_ui:
+        raise RuntimeError("Endless UI mission-table wrapper must preserve the build_mission_table callback name")
+    if "cls.build_mission_table=build_mission_table" not in endless_ui:
+        raise RuntimeError("Endless UI mission-table wrapper is not installed under its preserved callback name")
     launcher=(ROOT/"slay_launcher.py").read_text(encoding="utf-8")
     for token in ("Campaign Length", "Mutation Frequency Multiplier", "Blessing Frequency Multiplier", "Extra Shop Slots", "Start with Spear of Adun", "Start with Kerrigan"):
         if token not in launcher: raise RuntimeError(f"Missing launcher setting: {token}")
@@ -117,6 +156,12 @@ def check_payload():
     # Validate the clean bundled Galaxy payload without requiring a release/version banner inside it.
     # This catches accidental verifier-only requirements before Download Data reaches the patch stage.
     installer_module=load_installer()
+    # Exercise the exact sibling-module loader used later by Download Data.
+    # Embedded Python runs with a restricted ._pth, so a plain module-name
+    # import can fail even when the helper is correctly bundled beside installer.
+    endless_patcher = installer_module._load_endless_client_patcher()
+    if not callable(endless_patcher):
+        raise RuntimeError("Endless client patch helper failed to load")
     host_library='include "APRogue"\nvoid libABFE498B_InitCustomScript () {\n}\nvoid libABFE498B_TestInit () {\n    libABFE498B_InitTriggers();\n    APRogue_Init();\n}\n'
     installer_module.validate_galaxy(host_library, galaxy)
     bootstrap=(RELEASE_ROOT/"Tools"/"bootstrap_slay_runtime.ps1").read_text(encoding="utf-8")
@@ -124,7 +169,7 @@ def check_payload():
     for token in ("[IO.Path]::GetTempPath()", "Limit-ArchipelagoToSc2AtRoot", '"SlayAP-" + $ArchipelagoRef'):
         if token not in bootstrap: raise RuntimeError(f"Missing long-path-safe Archipelago extraction token: {token}")
     manifest=(RELEASE_ROOT/"launcher_manifest.json").read_text(encoding="utf-8")
-    if '"release_channel": "open_beta"' not in manifest: raise RuntimeError("Development manifest channel mismatch")
+    if '"release_channel": "stable"' not in manifest: raise RuntimeError("Release manifest channel mismatch")
 
 def check_archipelago_patch(ap_root,sc2_root):
     installer=load_installer()
@@ -157,9 +202,9 @@ def verify_v1025_changes(payload_dir: Path) -> None:
     for expected in (
         "libNtve_gf_PauseUnit(u, true)",
         "libNtve_gf_PauseUnit(u, false)",
-        "libNtve_gf_AttachModelToUnitInheritVisibility",
-        "libNtve_gf_SetOpacity(1.0, 3.0)",
-        "g_aprgPurifierWarpTime[best] = now + 3.0",
+        "APRG_CreateWarpVisual(u, spawnPoint)",
+        "libNtve_gf_SetOpacity(1.0, 5.0)",
+        "g_aprgPurifierWarpTime[best] = now + 5.0",
     ):
         if expected not in galaxy_text:
             raise RuntimeError(f"Missing deterministic warp-in implementation: {expected}")
@@ -183,7 +228,7 @@ def verify_v1026_changes(payload_dir: Path) -> None:
             raise RuntimeError(f"Missing v1.0.2.17 development weighting fix: {token}")
     for token in (
         'unit[512] g_aprgAllyWarpUnit;',
-        'g_aprgAllyWarpTime[best] = now + 3.0;',
+        'g_aprgAllyWarpTime[best] = now + 5.0;',
         'APRG_QueuePurifierEscortWarp',
         'bool[32] g_aprgPurifierWarpEscort;',
     ):
@@ -242,7 +287,7 @@ def verify_v1028_changes(payload_dir: Path) -> None:
         "APRG_OdinBarrageTarget",
         'AbilityCommand("OdinBarrage", 0)',
         "APRG_ClearFriendlyBlocker",
-        'return "BattlecruiserMerc"',
+        'return "DukesRevenge"',
         "APRG_TryOrlanTrainSCV",
         "APRG_SpawnOrlanReplacementSCV",
         "g_aprgNextCloneRetargetTime = now + 10.0",
@@ -307,14 +352,14 @@ def verify_v10210_changes(payload_dir: Path) -> None:
             raise RuntimeError(f"Missing v1.0.2.17 mission-tier distribution fix: {token}")
     for token in (
         "bool APRG_GoldenPatrolRouteSafe",
-        "APRG_PointNearPlayerOrAlliedBuilding(sample, player, 30.0)",
+        "APRG_PointNearPlayerOrAlliedBuilding(sample, player, clearance)",
         "GameGetMissionTime() < 600.0",
         "APRG_SetGroupMovementSpeed(g_aprgGoldenFleet, 1.9)",
         "APRG_SetGroupMovementSpeed(g_aprgTrueGoldenFleet, 1.9)",
         "c_unitPropLifeMax, 1000.0",
         "c_unitPropShieldsMax, 1000.0",
-        'CatalogEntryIsValid(c_gameCatalogUnit, "JacksonsRevenge")',
-        "CatalogEntryCount(c_gameCatalogUnit)",
+        'CatalogEntryIsValid(c_gameCatalogUnit, "DukesRevenge")',
+        "APRG_JacksonsRevengeType()",
     ):
         if token not in galaxy:
             raise RuntimeError(f"Missing v1.0.2.17 Golden Armada/Orlan fix: {token}")
@@ -334,7 +379,7 @@ def verify_v10211_changes(payload_dir: Path) -> None:
         if token not in generator:
             raise RuntimeError(f"Missing v1.0.2.17 mission pacing fix: {token}")
     for token in (
-        "SHOP_STOCK_LOGIC_VERSION = 110",
+        "SHOP_STOCK_LOGIC_VERSION = 113",
         "def _unit_upgrade_available_from_owned_or_current_stock",
         "race_unit_stock = _weighted_shop_sample",
         "ctx, name, owned_unlocks, race_unit_stock, table",
@@ -342,7 +387,7 @@ def verify_v10211_changes(payload_dir: Path) -> None:
         if token not in runtime:
             raise RuntimeError(f"Missing v1.0.2.17 current-shop upgrade fix: {token}")
     installer = (payload_dir / "install_slay.py").read_text(encoding="utf-8")
-    if '"SHOP_STOCK_LOGIC_VERSION = 110"' not in installer:
+    if '"SHOP_STOCK_LOGIC_VERSION = 113"' not in installer:
         raise RuntimeError("Installer preflight shop-stock version is stale")
     if '"SHOP_STOCK_LOGIC_VERSION = 108"' in installer:
         raise RuntimeError("Installer still contains obsolete shop-stock version 108")
@@ -365,8 +410,13 @@ def verify_v10213_changes(payload_dir: Path) -> None:
         'DataTableGetBool(true, "APRG_Uncommandable_" + tag)',
         "APRG_IsWorkerTypeForDeath(unitType)",
         "c_playerPropMineralsCollected",
-        "c_playerPropSuppliesMade",
         "mineralsCollected - g_aprgLabRatMineralsCollectedStart < 300",
+        "APRG_CountCompletedNonTownHallSupplyProviders",
+        "c_unitPropSuppliesMade",
+        "libNtve_gf_UnitIsUnderConstruction",
+        "g_aprgLabRatCompletedSupplyProvidersStart",
+        "g_aprgLabRatSupplyCompletedTime",
+        "now < g_aprgLabRatSupplyCompletedTime + 7.0",
         'StringToText("Odin incoming!")',
         'StringToText("Brakk\'s Pack incoming!")',
         'return "AP_SoAAutonomousCaster";',
@@ -390,7 +440,7 @@ def verify_v10214_changes(payload_dir: Path) -> None:
         'DISABLED_MUTATIONS = {"enemy_spear_of_adun"}',
         '_upgrade_pack_race_is_unlocked(ctx, race, owned_unlocks)',
         'return _owned_race_unit_unlock_count(ctx, race, owned_unlocks, table) >= 3',
-        'SHOP_STOCK_LOGIC_VERSION = 110',
+        'SHOP_STOCK_LOGIC_VERSION = 113',
     ):
         if token not in runtime:
             raise RuntimeError(f"Missing v1.0.2.17 runtime fix: {token}")
@@ -439,20 +489,23 @@ def verify_v10215_changes(payload_dir: Path) -> None:
             raise RuntimeError(f"Missing v1.0.2.17 runtime/catalog update: {token}")
     for token in (
         "APRG_TickImmortalZergling",
-        'UnitCreate(1, "Zergling"',
+        'UnitCreate(1, "Zergling", c_unitCreateIgnorePlacement, owner, spawnPoint',
         "c_unitStateInvulnerable, true",
         "c_unitStateTargetable, false",
         "g_aprgMacroReadyTime + 60.0",
         "g_aprgNextImmortalZerglingTargetTime = now + 60.0",
         "APRG_OrderAttackMove(g_aprgImmortalZergling",
         "APRG_TickTestPotionUI",
-        "TEST POTION  |  +1000 MINERALS",
+        "TEST CONSUMABLE  |  +1000 MINERALS",
         "minerals + 1000",
         "TestMineralPotionRunToken",
         "StringWord(EventChatMessage(false), 20)",
     ):
         if token not in galaxy:
             raise RuntimeError(f"Missing v1.0.2.17 Galaxy prototype: {token}")
+    if 'UnitCreate(1, "Zergling", owner, spawnPoint' in galaxy:
+        raise RuntimeError("Immortal Zergling still uses the invalid five-argument UnitCreate call")
+
     for token in (
         "test_potion_run_token = slay.test_potion_run_token(self.ctx)",
         "{mercenary_upgrade_packed2} {test_potion_run_token}",
@@ -502,6 +555,72 @@ def verify_v10217_changes(payload_dir: Path) -> None:
         if token not in galaxy:
             raise RuntimeError(f"Missing v1.0.2.17 True Golden Armada patrol update: {token}")
 
+
+
+def verify_v110_ui_batch(payload_dir: Path) -> None:
+    command = (payload_dir / "slay_command_ui.py").read_text(encoding="utf-8")
+    theme = (payload_dir / "slay_theme.py").read_text(encoding="utf-8")
+    launcher = (payload_dir / "slay_launcher.py").read_text(encoding="utf-8")
+    support = (payload_dir / "slay_ui_support.py").read_text(encoding="utf-8")
+    endless = (payload_dir / "slay_endless_ui.py").read_text(encoding="utf-8")
+    installer = (payload_dir / "install_slay.py").read_text(encoding="utf-8")
+    for token in (
+        "DEFAULT_ROUTE_SCALE=.60",
+        "self.view_mode=getattr(manager,self.view_key,'list')",
+        "SHOP_SECTION_COLUMNS",
+        "INVENTORY_SECTION_COLUMNS",
+        "SECTION_PALETTE",
+        "scroll.scroll_wheel_distance=dp(45)",
+        "scale/DEFAULT_ROUTE_SCALE",
+        "width=dp(2.4 if status=='available' else 1.2)",
+        "width=dp(3)",
+        "NODE_CARD_HEIGHT=116",
+        "RoundedRectangle(pos=(0,0),size=(0,0),radius=[dp(18)]*4)",
+        "font_size=dp(21)",
+    ):
+        if token not in command:
+            raise RuntimeError(f"Missing v1.1.0 UI batch command token: {token}")
+    # An unsupported Galaxy native breaks APRogue globally: all three races
+    # appear broken even if the invalid function would never execute.
+    if "UnitHasAttribute(" in (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8"):
+        raise RuntimeError("Unsupported Galaxy native UnitHasAttribute remains; use UnitTypeTestAttribute(UnitGetType(unit), attr)")
+    if "slay_wheel_zoom_bound" in command or "def wheel_zoom(" in command:
+        raise RuntimeError("Mission map still captures mouse wheel for zoom")
+    for token in (
+        "marker_cross=Line(points=[],width=dp(2))",
+        "marker.points=[cx-14,cy-14,cx+14,cy+14]",
+        "marker_cross.points=[cx-14,cy+14,cx+14,cy-14]",
+    ):
+        if token not in command:
+            raise RuntimeError(f"Missing corrected unavailable-mission X marker: {token}")
+    if "[cx-7,cy-7,cx+7,cy+7,cx-7,cy+7,cx+7,cy-7]" in command:
+        raise RuntimeError("Unavailable-mission X still uses the connected polyline with a horizontal segment")
+    for token in (
+        "sound.volume = 0.04",
+        'text="[b]DIFFICULTY[/b]"',
+        '(log_tab, "Console Log")',
+        '(manager.slay_mission_tab, "Missions")',
+        '(manager.slay_setup_tab, "Settings")',
+    ):
+        if token not in theme:
+            raise RuntimeError(f"Missing v1.1.0 theme update: {token}")
+    if "Redfrog" in theme or "ASSEMBLE YOUR ARMY" in theme:
+        raise RuntimeError("Removed acknowledgement/splash copy is still present")
+    if "sound.volume=.04" not in support:
+        raise RuntimeError("Command UI sound volume was not reduced")
+    for token in (
+        'Seed (leave blank for random)',
+        'option.background_color = (0.12, 0.42, 0.62, 1.0) if active',
+        'spinner.bind(is_open=',
+    ):
+        if token not in launcher:
+            raise RuntimeError(f"Missing v1.1.0 settings UI update: {token}")
+    if "def build_mission_table(manager,dt):" not in endless or "cls.build_mission_table=build_mission_table" not in endless:
+        raise RuntimeError("Endless mission-table wrapper lost the Kivy-safe function name")
+    # Keep randomized blessing/upgrade-pack purchase reveals wired through the native purchase path.
+    for token in ("def _slay_show_purchase_reveal", "slay.consume_shop_purchase_reveal(self.ctx)"):
+        if token not in installer:
+            raise RuntimeError(f"Missing shop purchase reveal path: {token}")
 
 def main():
     pa = argparse.ArgumentParser()

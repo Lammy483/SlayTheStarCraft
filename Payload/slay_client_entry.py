@@ -96,6 +96,14 @@ def main() -> None:
 
     from worlds.sc2 import client as sc2_client
 
+    from worlds.sc2 import client_gui
+    if os.environ.get("SLAY_UI_STYLE", "command").casefold() != "classic":
+        import slay_theme
+        slay_theme.install(client_gui)
+    import slay_endless_ui
+    slay_endless_ui.install(client_gui)
+
+
 
 
 

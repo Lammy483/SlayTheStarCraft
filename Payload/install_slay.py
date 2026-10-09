@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 
 import html
+import importlib.util
 
 import json
 
@@ -238,7 +239,7 @@ def refresh_ap_content_docs_cache(target: pathlib.Path) -> int:
 
             AP_CONTENT_DOCS_URL,
 
-            headers={"User-Agent": "SlayTheStarCraft/1.0.2.17"},
+            headers={"User-Agent": "SlayTheStarCraft/1.1.0"},
 
         )
 
@@ -1053,6 +1054,8 @@ def patch_client(text: str) -> str:
         '            mercenary_upgrade_packed2 = slay.mercenary_upgrade_packed2(self.ctx)\n'
 
         '            test_potion_run_token = slay.test_potion_run_token(self.ctx)\n'
+        '            potion_slot0_id, potion_slot0_serial, potion_slot1_id, potion_slot1_serial = slay.potion_handshake_slots(self.ctx)\n'
+        '            potion_merc_mask = slay.potion_mercenary_mask(self.ctx)\n'
 
         '            spear_cooldown_reduction_stacks = slay.spear_cooldown_reduction_stacks(self.ctx)\n'
 
@@ -1072,11 +1075,11 @@ def patch_client(text: str) -> str:
 
         '            slay.announce_mission_effects(self.ctx, self.mission_id)\n'
 
-        '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}")\n'
+        '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}")\n'
 
     )
 
-    current_send = '?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}'
+    current_send = '?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}'
 
     previous_send_with_merc2 = '?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2}'
 
@@ -1288,7 +1291,7 @@ def patch_client(text: str) -> str:
 
                     f'            await self.chat_send(f"{send_fmt}")\n',
 
-                    '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}")\n',
+                    '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}")\n',
 
                     1,
 
@@ -1456,6 +1459,18 @@ def patch_client(text: str) -> str:
         if merc2_line in text:
             text = text.replace(merc2_line, merc2_line + potion_assignment_line, 1)
 
+    potion_slots_line = '            potion_slot0_id, potion_slot0_serial, potion_slot1_id, potion_slot1_serial = slay.potion_handshake_slots(self.ctx)\n'
+    if potion_slots_line not in text:
+        potion_marker = '            test_potion_run_token = slay.test_potion_run_token(self.ctx)\n'
+        if potion_marker in text:
+            text = text.replace(potion_marker, potion_marker + potion_slots_line, 1)
+        else:
+            raise RuntimeError("Cannot find potion handshake setup in SC2 client")
+
+    potion_merc_line = '            potion_merc_mask = slay.potion_mercenary_mask(self.ctx)\n'
+    if potion_merc_line not in text:
+        text = text.replace(potion_slots_line, potion_slots_line + potion_merc_line, 1)
+
     if previous_send_with_merc2 in text and current_send not in text:
         text = text.replace(previous_send_with_merc2, current_send, 1)
 
@@ -1487,7 +1502,7 @@ def patch_client(text: str) -> str:
 
         else:
 
-            send_line = '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}")\n'
+            send_line = '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}")\n'
 
             if send_line not in text:
 
@@ -2467,6 +2482,7 @@ def patch_gui(text: str) -> str:
             int(state.get("spent", 0)),
             slay.credits(self.ctx),
             tuple(state.get("shop_stock", ())),
+            tuple((entry["id"], entry["serial"]) for entry in slay.potion_inventory(self.ctx)),
             tuple(state.get("shop_sale_items", ())),
             tuple(sorted(state.get("shop_cycle_purchases", {}).items())),
             tuple(sorted(state.get("purchases", {}).items())),
@@ -2630,13 +2646,20 @@ def patch_gui(text: str) -> str:
         # queue several windows and make Close appear to require repeated clicks.
         if getattr(self, "slay_shop_popup", None) is popup:
             self.slay_shop_popup = None
-        reopen = bool(getattr(self, "slay_shop_reopen_pending", False))
+        destination = getattr(popup, "slay_navigate_to", None)
+        reopen = bool(getattr(self, "slay_shop_reopen_pending", False)) and destination is None
         self.slay_shop_reopen_pending = False
         self._slay_end_modal()
-        if reopen:
+        if destination == "inventory":
+            Clock.schedule_once(lambda _dt: self.open_slay_inventory(), 0)
+        elif reopen:
             Clock.schedule_once(lambda _dt: self.open_slay_shop(preserve_sale=True), 0)
 
     def _slay_refresh_shop_controls(self, popup: Popup) -> None:
+        slots_label = getattr(popup, "slay_consumable_slots_label", None)
+        if slots_label is not None:
+            available = max(0, slay.POTION_CAPACITY - len(slay.potion_inventory(self.ctx)))
+            slots_label.text = f'[b]Consumables[/b]     [color=82DFF5]Available slots: {available}/{slay.POTION_CAPACITY}[/color]'
         buttons = getattr(popup, "slay_purchase_buttons", {})
         names = list(buttons.keys())
         if not names:
@@ -3465,7 +3488,7 @@ def validate_client(text: str) -> None:
 
         "slay.effect_masks_for_mission(self.ctx, self.mission_id)",
 
-        "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}",
+        "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}",
 
         "slay.test_potion_run_token(self.ctx)", "slay.progression_flags(self.ctx)", "slay.spear_energy_regen_stacks(self.ctx)", "slay.mercenary_upgrade_packed(self.ctx)", "slay.spear_cooldown_reduction_stacks(self.ctx)", "slay.kerrigan_upgrade_flags(self.ctx)",
 
@@ -3570,7 +3593,7 @@ def validate_galaxy_declaration_order(apr_text: str) -> None:
 
     function_re = re.compile(
 
-        r"^\s*(?:bool|void|int|fixed|string|unit|unitgroup|point)\s+"
+        r"^\s*(?:bool|void|int|fixed|string|unit|unitgroup|point|actor)\s+"
 
         r"([A-Za-z_][A-Za-z0-9_]*)\s*\([^;]*\)\s*\{"
 
@@ -3640,7 +3663,7 @@ def validate_galaxy_aprg_calls_declared(apr_text: str) -> None:
 
     signature_re = re.compile(
 
-        r"^\s*(?:bool|void|int|fixed|string|unit|unitgroup|point)\s+"
+        r"^\s*(?:bool|void|int|fixed|string|unit|unitgroup|point|actor)\s+"
 
         r"(APRG_[A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*(?:\{|;)"
 
@@ -3680,6 +3703,80 @@ def validate_galaxy_aprg_calls_declared(apr_text: str) -> None:
 
 
 
+def validate_galaxy_call_arity(source: str, function_name: str, expected_args: int) -> None:
+    """Validate top-level argument counts for Galaxy calls, including nested calls and strings."""
+    call_re = re.compile(r"\b" + re.escape(function_name) + r"\s*\(")
+    for match in call_re.finditer(source):
+        # Skip occurrences that are inside a line comment.
+        line_start = source.rfind("\n", 0, match.start()) + 1
+        comment_start = source.find("//", line_start, match.start())
+        if comment_start >= 0:
+            continue
+        line_no = source.count("\n", 0, match.start()) + 1
+        i = match.end()
+        depth = 1
+        commas = 0
+        has_content = False
+        in_string = False
+        escaped = False
+        block_comment = False
+        line_comment = False
+        while i < len(source) and depth:
+            ch = source[i]
+            nxt = source[i + 1] if i + 1 < len(source) else ""
+            if line_comment:
+                if ch == "\n":
+                    line_comment = False
+                i += 1
+                continue
+            if block_comment:
+                if ch == "*" and nxt == "/":
+                    block_comment = False
+                    i += 2
+                else:
+                    i += 1
+                continue
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == '"':
+                    in_string = False
+                i += 1
+                continue
+            if ch == "/" and nxt == "/":
+                line_comment = True
+                i += 2
+                continue
+            if ch == "/" and nxt == "*":
+                block_comment = True
+                i += 2
+                continue
+            if ch == '"':
+                in_string = True
+                has_content = True
+            elif ch == "(":
+                depth += 1
+                has_content = True
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            elif ch == "," and depth == 1:
+                commas += 1
+            elif depth == 1 and not ch.isspace():
+                has_content = True
+            i += 1
+        if depth != 0:
+            raise RuntimeError(f"APRogue.galaxy has an unterminated {function_name} call at line {line_no}")
+        count = commas + 1 if has_content else 0
+        if count != expected_args:
+            raise RuntimeError(
+                f"APRogue.galaxy {function_name} call at line {line_no} has {count} arguments; expected {expected_args}"
+            )
+
+
 def validate_galaxy(lib_text: str, apr_text: str) -> None:
 
     if 'include "APRogue"' not in lib_text or "APRogue_Init();" not in lib_text:
@@ -3705,6 +3802,8 @@ def validate_galaxy(lib_text: str, apr_text: str) -> None:
     if apr_text.count("{") != apr_text.count("}"):
 
         raise RuntimeError("APRogue.galaxy has unbalanced braces")
+
+    validate_galaxy_call_arity(apr_text, "UnitCreate", 6)
 
     validate_galaxy_declaration_order(apr_text)
 
@@ -4480,6 +4579,9 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
     bundled_client_entry = source / "slay_client_entry.py"
 
+    bundled_theme = source / "slay_theme.py"
+    bundled_theme_assets = source / "slay_assets"
+
     bundled_effect_catalog = source / "EFFECT_CATALOG.csv"
 
     bundled_boon_catalog = source / "BOON_CATALOG.csv"
@@ -4516,6 +4618,8 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         (bundled_client_entry, "portable launcher client entry"),
 
+        (bundled_theme, "English SC2 theme module"),
+
         (bundled_effect_catalog, "effect catalog"),
 
         (bundled_boon_catalog, "boon catalog"),
@@ -4539,6 +4643,10 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
         if not path.is_file():
 
             raise FileNotFoundError(f"{label} not found: {path}")
+
+    # Extracted StarCraft II artwork is optional source material and is not
+    # required in the public repository. Portable test packages may bundle a
+    # local slay_assets directory; otherwise the command UI uses drawn fallbacks.
 
 
 
@@ -4726,7 +4834,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
     post_checks = {
 
-        client: ["mission_launch_summary", "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token}", "slay.progression_flags", "slay.spear_energy_regen_stacks", "slay.mercenary_upgrade_packed", "slay.spear_cooldown_reduction_stacks", "slay.kerrigan_upgrade_flags", "slay.apply_kerrigan_options", "slay.apply_purchased_kerrigan_tech(self.ctx, zerg_items)", "def _cmd_addtest", "def _cmd_cleartest", "def _cmd_canceltest", "def _cmd_victory", "def _cmd_boon", "def _cmd_credits", "def _cmd_godmode", "slay.queue_test_effect", "slay.queue_test_clear", "slay.queue_auto_victory", "slay.grant_test_boon", "slay.grant_test_credits", "slay.queue_godmode", "slay.godmode_for_mission", "slay.mission_layer_for_mission", "slay.mission_flags_for_mission", "slay.test_potion_run_token", "slay.consume_auto_victory_skip", "slay.rewrite_print_json_for_effective_rewards(self, args)", "slay.prepare_dependency_variant(ctx, mission_id)"],
+        client: ["mission_launch_summary", "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}", "slay.progression_flags", "slay.spear_energy_regen_stacks", "slay.mercenary_upgrade_packed", "slay.spear_cooldown_reduction_stacks", "slay.kerrigan_upgrade_flags", "slay.apply_kerrigan_options", "slay.apply_purchased_kerrigan_tech(self.ctx, zerg_items)", "def _cmd_addtest", "def _cmd_cleartest", "def _cmd_canceltest", "def _cmd_victory", "def _cmd_boon", "def _cmd_credits", "def _cmd_godmode", "slay.queue_test_effect", "slay.queue_test_clear", "slay.queue_auto_victory", "slay.grant_test_boon", "slay.grant_test_credits", "slay.queue_godmode", "slay.godmode_for_mission", "slay.mission_layer_for_mission", "slay.mission_flags_for_mission", "slay.test_potion_run_token", "slay.consume_auto_victory_skip", "slay.rewrite_print_json_for_effective_rewards(self, args)", "slay.prepare_dependency_variant(ctx, mission_id)"],
 
         trigger_doc_info: ["ArchipelagoCore.SC2Mod", "ArchipelagoTradeSystem.SC2Mod", "ArchipelagoPatches.SC2Mod"],
 
@@ -4740,15 +4848,15 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         gui: ["size_hint_x=0.80", "size_hint_x=0.10", "SLAY_MISSION_GAP = 36", "button.to_window(x, y, initial=True)", "width=1.8", "source_t = min(", "slay_edge_geometry_trigger"],
 
-        runtime_target: [ "DANGER_OUTLIER_MARGIN = 250", "DANGER_CREDIT_BONUS = 100", "_mission_is_difficulty_outlier_in_nodes", "SPEAR_COOLDOWN_REDUCTION", "SPEAR_PRICE_DISCOUNT", "KERRIGAN_PRICE_DISCOUNT", "KERRIGAN_RECKLESS_POWER", "KERRIGAN_RECKLESS_SPEED", "spear_cooldown_reduction_stacks", "kerrigan_upgrade_flags", "Kerrigan available", "warfields_reinforcements", "energy_overload", "heroes_of_the_storm", "too_many_wraiths", "not_enough_energy", "void_thrashers", "viking_raids", "nuclear_annihilation", "darkness", "adrenaline", "picky_eaters", "explosive_armor", "instant_workers", "arms_race", "rising_gas_prices", "juggernaut", "assembly_line", "elite_soldiers", "squishy", "forced_variety", "occasional_thor_mutation", "enemy_regeneration", "blinding_light", "specialists", "fortifications", "baneling_stream", "tychus", "zagaras_aid", "logistics", "occasional_thor_blessing", "occasional_ultralisk_blessing", "occasional_colossus_blessing", "unexpected_evolution", "another_gorgon_blessing", "another_gorgon_mutation", "burrowed_zerglings", "sniper_thor", "horde_mode", "tower_defense", "cloaked_nightmare", "rapid_repair", "blink_blessing", "power_overwhelming", "drakken_laser_drill_blessing", "jetpacks", "stealth_tunnels", "lurker_defense", "combat_workers", "rapid_evolution_mutation", "no_deaths_allowed", "glass_cannons", "victory_is_temporary", "odin", "nuclear_workers", "bounty_kills", "tactical_binoculars", "building_overcharge", "ghost_reporting", "taldarim_reinforcements", "double_time", "shrinkage", "mineral_thieves", "active_enemies", "reflective_armor", "buddy_system", "torrasque", "nexus_shield", "gargantuan_enemies", "raynors_raiders", "boon_defender", "boon_fire_power", "boon_roachling_mines", "boon_broodling_evolution", "boon_adamantium_blades", "boon_enhanced_control", "boon_banshee_swarm", "boon_enlarged_banelings", "permanent_boons", "shop_expansion", "shop_cycle_purchases", "effective_bought", "route_horizontal_positions", "route_layout_x_fractions", "remember_route_layout_x_fractions", "_is_deprecated_item", "SHOP_STOCK_LOGIC_VERSION = 110", "MISSION_FLAG_LAB_RAT_OPENING = 8192", "MISSION_FLAG_IMMORTAL_ZERGLING = 16384", "def test_potion_run_token", "immortal_zergling", "_stock_after_progression_unlock", "DEFENSIVE_STRUCTURE_ITEMS", "shop_sections", "BOON_PREFIX", "sync_duplicate_item_replacements", "FIVE_X_GENERIC_UPGRADE_ITEMS", "STACKABLE_GENERAL_UPGRADE_ITEMS", "_effective_actual_item_count", "'purifier': (4, 512)", "_same_shop_50_percent_price", "_is_general_upgrade_item", "announce_mission_effects", "test_mission_overrides", "_test_override_for_mission", "RACE_GLOBAL_UPGRADE_ITEMS", "TERRAN_CONTRACTS", "ZERG_CONTRACTS", "KERRIGAN_UNLOCK", "SPEAR_UNLOCK", "SPEAR_ENERGY_REGEN", "progression_flags", "spear_energy_regen_stacks", "mercenary_upgrade_packed", "MERCENARY_CUSTOM_UPGRADE_ITEMS", "MERCENARY_SHOP_PRICE_OVERRIDES", "apply_kerrigan_options", "apply_purchased_kerrigan_tech", "Terran Upgrades", "Mercenary Contracts", "Spear of Adun", "boon_corrosive_claws", "boon_unlimited_power", "boon_unstable_colossi", "boon_hyrda_storms", "boon_mobile_siege", "spear_of_adun_blessing", "dehakas_pack", "zombie_apocalypse", "resource_swap", "boon_missile_defense", "boon_chaos_blessings", "maskE=", "maskF=", "autoRepairStacks=", "50% chance", "allied infested terran"],
+        runtime_target: [ "DANGER_OUTLIER_MARGIN = 250", "DANGER_CREDIT_BONUS = 100", "_mission_is_difficulty_outlier_in_nodes", "SPEAR_COOLDOWN_REDUCTION", "SPEAR_PRICE_DISCOUNT", "KERRIGAN_PRICE_DISCOUNT", "KERRIGAN_RECKLESS_POWER", "KERRIGAN_RECKLESS_SPEED", "spear_cooldown_reduction_stacks", "kerrigan_upgrade_flags", "Kerrigan available", "warfields_reinforcements", "energy_overload", "heroes_of_the_storm", "too_many_wraiths", "not_enough_energy", "void_thrashers", "viking_raids", "nuclear_annihilation", "darkness", "adrenaline", "picky_eaters", "explosive_armor", "instant_workers", "arms_race", "rising_gas_prices", "juggernaut", "assembly_line", "elite_soldiers", "squishy", "forced_variety", "occasional_thor_mutation", "enemy_regeneration", "blinding_light", "specialists", "fortifications", "baneling_stream", "tychus", "zagaras_aid", "logistics", "occasional_thor_blessing", "occasional_ultralisk_blessing", "occasional_colossus_blessing", "unexpected_evolution", "another_gorgon_blessing", "another_gorgon_mutation", "burrowed_zerglings", "sniper_thor", "horde_mode", "tower_defense", "cloaked_nightmare", "rapid_repair", "blink_blessing", "power_overwhelming", "drakken_laser_drill_blessing", "jetpacks", "stealth_tunnels", "lurker_defense", "combat_workers", "rapid_evolution_mutation", "no_deaths_allowed", "glass_cannons", "victory_is_temporary", "odin", "nuclear_workers", "bounty_kills", "tactical_binoculars", "building_overcharge", "ghost_reporting", "taldarim_reinforcements", "double_time", "shrinkage", "mineral_thieves", "active_enemies", "reflective_armor", "buddy_system", "torrasque", "nexus_shield", "gargantuan_enemies", "raynors_raiders", "boon_defender", "boon_fire_power", "boon_roachling_mines", "boon_broodling_evolution", "boon_adamantium_blades", "boon_enhanced_control", "boon_banshee_swarm", "boon_enlarged_banelings", "permanent_boons", "shop_expansion", "shop_cycle_purchases", "effective_bought", "route_horizontal_positions", "route_layout_x_fractions", "remember_route_layout_x_fractions", "_is_deprecated_item", "SHOP_STOCK_LOGIC_VERSION = 113", "MISSION_FLAG_LAB_RAT_OPENING = 8192", "MISSION_FLAG_IMMORTAL_ZERGLING = 16384", "def test_potion_run_token", "immortal_zergling", "_stock_after_progression_unlock", "DEFENSIVE_STRUCTURE_ITEMS", "shop_sections", "BOON_PREFIX", "sync_duplicate_item_replacements", "FIVE_X_GENERIC_UPGRADE_ITEMS", "STACKABLE_GENERAL_UPGRADE_ITEMS", "_effective_actual_item_count", "'purifier': (4, 512)", "_same_shop_50_percent_price", "_is_general_upgrade_item", "announce_mission_effects", "test_mission_overrides", "_test_override_for_mission", "RACE_GLOBAL_UPGRADE_ITEMS", "TERRAN_CONTRACTS", "ZERG_CONTRACTS", "KERRIGAN_UNLOCK", "SPEAR_UNLOCK", "SPEAR_ENERGY_REGEN", "progression_flags", "spear_energy_regen_stacks", "mercenary_upgrade_packed", "MERCENARY_CUSTOM_UPGRADE_ITEMS", "MERCENARY_SHOP_PRICE_OVERRIDES", "apply_kerrigan_options", "apply_purchased_kerrigan_tech", "Terran Upgrades", "Mercenary Contracts", "Spear of Adun", "boon_corrosive_claws", "boon_unlimited_power", "boon_unstable_colossi", "boon_hyrda_storms", "boon_mobile_siege", "spear_of_adun_blessing", "dehakas_pack", "zombie_apocalypse", "resource_swap", "boon_missile_defense", "boon_chaos_blessings", "maskE=", "maskF=", "autoRepairStacks=", "50% chance", "allied infested terran"],
 
-        launcher_target: ["PACKAGE_VERSION = \"1.0.2.17\"", "SLAY_LAUNCHER_MODE", "SLAY_RUN_DIR", "def generate_run", "class ServerProcess", "def install_launcher_tab"],
+        launcher_target: ["PACKAGE_VERSION = \"1.1.0\"", "SLAY_LAUNCHER_MODE", "SLAY_RUN_DIR", "def generate_run", "class ServerProcess", "def install_launcher_tab"],
 
         client_entry_target: ["worlds.sc2.client", "launch()"],
 
-        generator_target: ['PACKAGE_VERSION = "1.0.2.17"', "LANES = 4", "CANVAS_WIDTH = 7", "def _generate_active_lanes", "\'dark_archons\': 1", "\'void_thrashers\': 4", "\'viking_raids\': 2", "\'nuclear_annihilation\': 3", "\'energy_overload\': 1", '"starting_credits": int(starting_credits)', "--starting-credits", "expected_tier", "opening_bias", "OPENING_POOL_WEIGHTS", "required_race", "window_keys", "for _pass in range(2):", "STARTING_STRUCTURE_UNIT_EXCLUSIONS", "LIMITED_BANK_MISSION_EXCLUSIONS", "DETECTOR_OPTIONS_BY_RACE", "DEFENSIVE_STRUCTURE_ITEMS", "mission_pool", "minimum_pool_for_layer", "SHOP_PRIORITY_ITEMS", '"victory_cache": 0', "difficulty_reward = 300 * (mission_tier - expected_tier)", "effect_reward = (150 * int(mutation_value)) - (100 * int(blessing_value)) + (100 * layer_number)", "occasional_thor_mutation", "enemy_regeneration", "blinding_light", "baneling_stream", "logistics", "occasional_thor_blessing", "occasional_ultralisk_blessing", "occasional_colossus_blessing", "unexpected_evolution", "another_gorgon_blessing", "another_gorgon_mutation", "burrowed_zerglings", "sniper_thor", "horde_mode", "tower_defense", "cloaked_nightmare", "rapid_repair", "blink_blessing", "power_overwhelming", "drakken_laser_drill_blessing", "jetpacks", "stealth_tunnels", "'compounding_interest': 2", "forbidden_blessings.add(\"rapid_repair\")", "forbidden_blessings.add(\"stealth_tunnels\")", "DEFERRED_EFFECTS: list[str] = [", "dependency_sensitive_effect_exclusions", "SWARM_DEPENDENCY_MUTATIONS", "VOID_DEPENDENCY_MUTATIONS", "EFFECT_SELECTION_WEIGHT", "MUTATION_SELECTION_WEIGHT", "mutation_profile=True", "immortal_zergling", "no_deaths_allowed", "tactical_binoculars", "lurker_defense", "combat_workers", "building_overcharge", "ghost_reporting", "taldarim_reinforcements", "glorious_martyrs", "double_time", "shrinkage", "mineral_thieves", "active_enemies", "infinite_larva", "reflective_armor", "buddy_system", "torrasque", "nexus_shield", "gargantuan_enemies", "raynors_raiders", "'purifier': 4", "'dehakas_pack': 5", "'zombie_apocalypse': 5", "'marauder_kill_teams': 2", "'resource_pickups': 1"],
+        generator_target: ['PACKAGE_VERSION = "1.1.0"', "LANES = 4", "CANVAS_WIDTH = 7", "def _generate_active_lanes", "\'dark_archons\': 1", "\'void_thrashers\': 4", "\'viking_raids\': 2", "\'nuclear_annihilation\': 3", "\'energy_overload\': 1", '"starting_credits": int(starting_credits)', "--starting-credits", "expected_tier", "opening_bias", "OPENING_POOL_WEIGHTS", "required_race", "window_keys", "for _pass in range(2):", "STARTING_STRUCTURE_UNIT_EXCLUSIONS", "LIMITED_BANK_MISSION_EXCLUSIONS", "DETECTOR_OPTIONS_BY_RACE", "DEFENSIVE_STRUCTURE_ITEMS", "mission_pool", "minimum_pool_for_layer", "SHOP_PRIORITY_ITEMS", '"victory_cache": 0', "difficulty_reward = 300 * (mission_tier - expected_tier)", "effect_reward = (125 * int(mutation_value)) - (100 * int(blessing_value)) + (100 * layer_number)", "occasional_thor_mutation", "enemy_regeneration", "blinding_light", "baneling_stream", "logistics", "occasional_thor_blessing", "occasional_ultralisk_blessing", "occasional_colossus_blessing", "unexpected_evolution", "another_gorgon_blessing", "another_gorgon_mutation", "burrowed_zerglings", "sniper_thor", "horde_mode", "tower_defense", "cloaked_nightmare", "rapid_repair", "blink_blessing", "power_overwhelming", "drakken_laser_drill_blessing", "jetpacks", "stealth_tunnels", "'compounding_interest': 2", "forbidden_blessings.add(\"rapid_repair\")", "forbidden_blessings.add(\"stealth_tunnels\")", "DEFERRED_EFFECTS: list[str] = [", "dependency_sensitive_effect_exclusions", "SWARM_DEPENDENCY_MUTATIONS", "VOID_DEPENDENCY_MUTATIONS", "EFFECT_SELECTION_WEIGHT", "MUTATION_SELECTION_WEIGHT", "mutation_profile=True", "immortal_zergling", "no_deaths_allowed", "tactical_binoculars", "lurker_defense", "combat_workers", "building_overcharge", "ghost_reporting", "taldarim_reinforcements", "glorious_martyrs", "double_time", "shrinkage", "mineral_thieves", "active_enemies", "infinite_larva", "reflective_armor", "buddy_system", "torrasque", "nexus_shield", "gargantuan_enemies", "raynors_raiders", "'purifier': 4", "'dehakas_pack': 5", "'zombie_apocalypse': 5", "'marauder_kill_teams': 2", "'resource_pickups': 1"],
 
-        apr_target: ["?APRogue", "LOAD_FINISHED_EVENT", "APRG_UpdateMacroBaseReady", "RandomInt(1, 100) > 50", "APRG_BLESS_ENERGY_OVERLOAD", "APRG_MUT_HEROES_OF_STORM", "APRG_MUT_TOO_MANY_WRAITHS", "APRG_MUT_NOT_ENOUGH_ENERGY", "APRG_MUT_VOID_THRASHERS", "APRG_TickVoidThrashers", "KaiserWormScourgeMissile", "MinimapPing(PlayerGroupSingle(player)", "APRG_MUT_VIKING_RAIDS", "APRG_MUT_NUCLEAR_ANNIHILATION", 'APRG_CreatePlayerUnitsSafe(1, "SCV"', 'AbilityCommand("AssaultMode", 0)', '"GhostNukeIndicator"', "APRG_RetargetAlliedZombies", "c_unitStateSelectable", "APRG_SetTransportLife(created, 1000.0)", "APRG_EnsureDropperlordTransport", "c_unitStateUsingSupply", "APRG_MUT_DARKNESS", "APRG_MUT_ADRENALINE", "APRG_MUT_PICKY_EATERS", "APRG_BLESS_EXPLOSIVE_ARMOR", "APRG_BLESS_INSTANT_WORKERS", "APRG_MUT_ARMS_RACE", "APRG_MUT_RISING_GAS_PRICES", "APRG_BLESS_JUGGERNAUT", "APRG_BLESS_ASSEMBLY_LINE", "APRG_ApplyAssemblyCatalog", "APRG_BLESS_ELITE_SOLDIERS", "APRG_ApplyEliteToGroup", "oldMax * 0.7", "APRG_MUT_SQUISHY", "APRG_MUT_FORCED_VARIETY", "APRG_ForcedVariety_Func", "APRG_TickWarfieldBurst", "APRG_TickWarfieldVOQueue", "SoundLengthSync(line)", "APRG_LeviathanNextInterval", "APRG_MUT_ENEMY_REGENERATION", "APRG_BLESS_BANELING_STREAM", "APRG_BLESS_LOGISTICS", "APRG_DisplayActiveEffects", "CarrierHangar", "APRG_EXT_BLESS_OCCASIONAL_THOR", "APRG_OccasionalBlessing_Func", "APRG_QueueRealDropPod", "TerranDropPod", "ZergDropPod", "APRG_EXT_BLESS_UNEXPECTED_EVOLUTION", "APRG_EXT_BLESS_ANOTHER_GORGON", "APRG_EXT_MUT_ANOTHER_GORGON", "APRG_EXT_MUT_BURROWED_ZERGLINGS", "APRG_EXT_MUT_SNIPER_THOR", "APRG_EXT_BLESS_HORDE_MODE", "APRG_HordeUnitTypeQualifies", "APRG_ApplyHordeCatalog", "Cost.Cooldown.TimeUse", "CatalogFieldValueCount(c_gameCatalogAbil", "APRG_EXT_MUT_TOWER_DEFENSE", "APRG_EXT_MUT_CLOAKED_NIGHTMARE", "APRG_EXT_BLESS_RAPID_REPAIR", "APRG_EXT_BLESS_BLINK", "APRG_EXT_BOON_VIKING_ANCHORS", "APRG_ApplyVikingAnchors", "APRG_EXT3_BOON_CORROSIVE_CLAWS", "APRG_MercenaryUpgradeStacks", "APRG_SpearGate_Func", "UnitModifyCooldown(caster, link, duration, c_cooldownOperationSet)", "APRG_TickSpearEnergyBonus", "APRG_KerriganRespawnDelay", "APRogueKerriganRecklessPower", "APRG_ApplyMercenaryRecruitCatalog", "APRG_TickMercenaryUpgrades", "APRG_MercenaryDamage_Func", "APRG_EXT3_BOON_UNLIMITED_POWER", "APRG_EXT3_BOON_UNSTABLE_COLOSSI", "APRG_EXT3_BOON_ARCHON_CANNONS", "APRG_EXT3_BOON_HYRDA_STORMS", "APRG_EXT3_BOON_MOBILE_SIEGE", "APRG_EXT3_MUT_PURIFIER", "APRG_TickPurifier", "PurifierPlanetCracker", "APRG_EXT3_BLESS_SPEAR_OF_ADUN", "APRG_EXT3_BLESS_SPEAR_OVERCHARGE", "APRG_EXT3_MUT_DEHAKAS_PACK", "APRG_EXT3_MUT_ZOMBIE_APOCALYPSE", "APRG_EXT3_MUT_ARGUMENTS", "APRG_EXT3_MUT_COMBAT_PAY", "APRG_EXT3_MUT_NUCLEAR_STRUCTURES", "APRG_EXT3_MUT_RESOURCE_SWAP", "APRG_EXT3_BLESS_RICH_VESPENE", "APRG_EXT3_BLESS_RICH_MINERALS", "APRG_EXT3_BOON_MISSILE_DEFENSE", "APRG_EXT3_BOON_STRETCHY_SPINES", "APRG_EXT3_BOON_GARGANTUAN_UNITS", "APRG_ApplyGargantuanToTrainedUnit", "APRG_CanonicalProtossReinforcementType", "ProtossGenericWarpInOut", "libNtve_gf_PauseUnit(u, true)", "libNtve_gf_AttachModelToUnitInheritVisibility", "g_aprgPurifierBeamStopTime", "g_aprgPurifierAllianceBeamStopTime", "APRG_EXT3_BOON_CHAOS_BLESSINGS", "APRG_HydraStorms_Func", "APRG_ApplyMobileSiege", "APRG_TickUnlimitedPower", "APRG_TickUnstableColossi", "APRG_TickHeroRegeneration", "APRG_TickHordeLarva", "APRG_GoldenArmadaEarlySafety", "APRG_RetargetZagaraBanelings", "APRG_IsScriptedPurifier", "APRG_WraithRaidNextInterval", "APRG_CorrosiveClaws_Func", "UnitAbilityAdd(u, \"APRogueBlink\")", "UnitAbilityExists(u, \"APRogueBlink\")", "APRG_EXT_BLESS_POWER_OVERWHELMING", "APRG_CopyArchonWarpButton", 'TechTreeAbilityAllow(player, AbilityCommand("ArchonWarp", 0), true)', 'UnitAbilityAdd(u, "ArchonWarp")', "APRG_EXT_BLESS_DRAKKEN_DRILL", "APRG_EXT_MUT_JETPACKS", "APRG_JetpacksShellForType", "APRG_ConvertJetpacksUnit", "libNtve_gf_ReplaceUnit", "APRG_TickJetpackAttackWaves", "g_aprgJetpacksProcessed", "APRG_EXT_BLESS_STEALTH_TUNNELS", "APRG_StealthTunnelSpeed_", "InfestorBurrowed", "APRG_EXT_BLESS_LURKER_DEFENSE", "APRG_EXT_BLESS_COMBAT_WORKERS", "APRG_EXT_MUT_RAPID_EVOLUTION", "APRG_EXT_MUT_NO_DEATHS_ALLOWED", "APRG_EXT_BLESS_GLASS_CANNONS", "APRG_EXT_MUT_VICTORY_TEMPORARY", "APRG_EXT_BLESS_ODIN", "APRG_EXT_MUT_NUCLEAR_WORKERS", "APRG_EXT_BLESS_BOUNTY_KILLS", "APRG_EXT_MUT_TACTICAL_BINOCULARS", "g_aprgFarseersMacroRefreshGiven", "20.0 * UnitTypeGetProperty", "DefilerMP", "APRG_FindRaidOriginAirPoint", "nearestFriendlyDistance", "APRG_FindStaticPatrolGroundPoint", "BurrowZerglingUp", "APRG_CreateRealGorgon", 'AnimCopy ::external.GorgonFinderTag', "APRG_RegisterBanelingSources", "g_aprgNextBanelingStreamRetargetTime", "RandomFixed(5.0, 15.0)", "VoidThrasherWalker", "UnitWeaponAdd(target, weaponType, null)", "APRG_RandomHostileBaseAnchor", "APRG_TowerDefenseFrontPoint", "APRG_TickTowerDefenseProbes", "APRogueCloakedNightmare", "UnitBehaviorAdd(u, \"APRogueCloakedNightmare\", u, 1)", "RepairTime", "g_aprgNukeDetonateTime = now + 19.0", "APRG_CarrierGetsFreeInterceptors", "APRG_EnsurePlayerInterceptorCost", "g_aprgAlliedTargetBlacklist", "APRG_EnemyTargetableStructures", "APRG_AlliedBuildingTargetUntil_", "c_targetFilterInvulnerable", "APRG_ApplyPickyEaters", "APRG_NearestPathablePlayerStructure", "PointPathingIsConnected", "APRG_DisableGeneratedHeroRevive", "APRG_EXT_BLESS_BUILDING_OVERCHARGE", "APRG_EXT_BLESS_GHOST_REPORTING", "APRG_EXT_MUT_TALDARIM_REINFORCEMENTS", "APRG_CreateRealGorgon", "APRG_EXT2_MUT_MIRAS_MERCENARIES", "APRG_TickMiraMercenaries", "APRG_FindMiraCampPoint", '"HelsAngelFighter", 5', "APRG_EXT2_BLESS_GLORIOUS_MARTYRS", "APRG_ApplyGloriousMartyrs", "APRogueGloriousMartyrStack", "APRG_EXT2_BLESS_INFLATABLE_SOLDIERS", "APRG_TickInflatableSoldiers", "g_aprgInflatableBaseSpeed", "OrderTargetingUnit(AbilityCommand(\"attack\", 0), target)", "APRG_CreatePlayerUnitsVanillaSafe", "GhostCloak", "APRG_FindHeroPatrolOrigin", "APRG_AddBestDonorWeaponAnyState", "APRG_OrderBanelingStreamUnit", "APRG_SpeedyCatalog_", 'c_gameCatalogWeapon, weaponType, "Range"', "APRG_EXT2_MUT_DOUBLE_TIME", "APRG_ApplyDoubleTime", "APRG_EXT2_MUT_SHRINKAGE", "APRG_TickShrinkage", "APRG_EXT2_MUT_MINERAL_THIEVES", "APRG_TickMineralThieves", "APRG_EXT2_MUT_ACTIVE_ENEMIES", "APRG_TickActiveEnemies", "APRG_EXT2_BLESS_INFINITE_LARVA", "APRG_TickInfiniteLarva", "APRG_EXT2_MUT_ZAGARAS_BANELINGS", "APRG_TickZagarasBanelings", "BANELINGS INCOMING", "APRG_EXT2_BLESS_REFLECTIVE_ARMOR", "APRG_TickBuddySystem", "APRG_TickTorrasque", "APRG_TickNexusShield", "APRG_ApplyGargantuanEnemies", "APRG_EXT2_MUT_RAYNORS_RAIDERS", "APRG_TickRaynorsRaiders", "APRG_CacheFixedPatrolPoints", "APRG_RandomFixedPatrolPoint", "APRG_DROP_KIND_RAYNOR_ASSAULT", "APRG_DROP_KIND_RAYNOR_REPAIR", "APRG_EXT2_BOON_DEFENDER", "APRG_DefenderDamage_Func", "APRG_ReaperBlitzDamage_", "blitzAccumulatedDamage += damage;", "APRG_EXT2_BOON_FIRE_POWER", "APRG_ApplyFirePower", "APRG_EXT2_BOON_ROACHLING_MINES", "APRG_EXT2_BOON_BROODLING_EVOLUTION", "APRG_BOON_ADAMANTIUM_BLADES", "APRG_ReconcileAdamantiumWeapons", "APRG_ReconcileAdamantiumDamageField", "APRG_BOON_ENHANCED_CONTROL", "APRG_EnhancedControl_Func", "APRG_BOON_BANSHEE_SWARM", "APRG_BansheeSwarm_Func", "APRG_BOON_ENLARGED_BANELINGS", "APRG_ApplyEnlargedBanelings", "APRG_IsZergTownHallType", "APRG_TickRaynorRepairSCVs", 'OverlordTransport', 'APRG_PlayerSpawnCatalogType', 'UnitCreate(1, "MULE"', 'AbilityCommand("Smart", 0)', 'APRG_DeathSpawnExcluded', 'c_unitBehaviorFlagTimedLife', '"APRG_Uncommandable_" + IntToString(UnitGetTag(dead))'],
+        apr_target: ["?APRogue", "LOAD_FINISHED_EVENT", "APRG_UpdateMacroBaseReady", "RandomInt(1, 100) > 50", "APRG_BLESS_ENERGY_OVERLOAD", "APRG_MUT_HEROES_OF_STORM", "APRG_MUT_TOO_MANY_WRAITHS", "APRG_MUT_NOT_ENOUGH_ENERGY", "APRG_MUT_VOID_THRASHERS", "APRG_TickVoidThrashers", "KaiserWormScourgeMissile", "MinimapPing(PlayerGroupSingle(player)", "APRG_MUT_VIKING_RAIDS", "APRG_MUT_NUCLEAR_ANNIHILATION", 'APRG_CreatePlayerUnitsSafe(1, "SCV"', 'AbilityCommand("AssaultMode", 0)', '"GhostNukeIndicator"', "APRG_RetargetAlliedZombies", "c_unitStateSelectable", "APRG_SetTransportLife(created, 1000.0)", "APRG_EnsureDropperlordTransport", "c_unitStateUsingSupply", "APRG_MUT_DARKNESS", "APRG_MUT_ADRENALINE", "APRG_MUT_PICKY_EATERS", "APRG_BLESS_EXPLOSIVE_ARMOR", "APRG_BLESS_INSTANT_WORKERS", "APRG_MUT_ARMS_RACE", "APRG_MUT_RISING_GAS_PRICES", "APRG_BLESS_JUGGERNAUT", "APRG_BLESS_ASSEMBLY_LINE", "APRG_ApplyAssemblyCatalog", "APRG_BLESS_ELITE_SOLDIERS", "APRG_ApplyEliteToGroup", "oldMax * 0.7", "APRG_MUT_SQUISHY", "APRG_MUT_FORCED_VARIETY", "APRG_ForcedVariety_Func", "APRG_TickWarfieldBurst", "APRG_TickWarfieldVOQueue", "SoundLengthSync(line)", "APRG_LeviathanNextInterval", "APRG_MUT_ENEMY_REGENERATION", "APRG_BLESS_BANELING_STREAM", "APRG_BLESS_LOGISTICS", "APRG_DisplayActiveEffects", "CarrierHangar", "APRG_EXT_BLESS_OCCASIONAL_THOR", "APRG_OccasionalBlessing_Func", "APRG_QueueRealDropPod", "TerranDropPod", "ZergDropPod", "APRG_EXT_BLESS_UNEXPECTED_EVOLUTION", "APRG_EXT_BLESS_ANOTHER_GORGON", "APRG_EXT_MUT_ANOTHER_GORGON", "APRG_EXT_MUT_BURROWED_ZERGLINGS", "APRG_EXT_MUT_SNIPER_THOR", "APRG_EXT_BLESS_HORDE_MODE", "APRG_HordeUnitTypeQualifies", "APRG_ApplyHordeCatalog", "Cost.Cooldown.TimeUse", "CatalogFieldValueCount(c_gameCatalogAbil", "APRG_EXT_MUT_TOWER_DEFENSE", "APRG_EXT_MUT_CLOAKED_NIGHTMARE", "APRG_EXT_BLESS_RAPID_REPAIR", "APRG_EXT_BLESS_BLINK", "APRG_EXT_BOON_VIKING_ANCHORS", "APRG_ApplyVikingAnchors", "APRG_EXT3_BOON_CORROSIVE_CLAWS", "APRG_MercenaryUpgradeStacks", "APRG_SpearGate_Func", "UnitModifyCooldown(caster, link, duration, c_cooldownOperationSet)", "APRG_TickSpearEnergyBonus", "APRG_KerriganRespawnDelay", "APRogueKerriganRecklessPower", "APRG_ApplyMercenaryRecruitCatalog", "APRG_TickMercenaryUpgrades", "APRG_MercenaryDamage_Func", "APRG_EXT3_BOON_UNLIMITED_POWER", "APRG_EXT3_BOON_UNSTABLE_COLOSSI", "APRG_EXT3_BOON_ARCHON_CANNONS", "APRG_EXT3_BOON_HYRDA_STORMS", "APRG_EXT3_BOON_MOBILE_SIEGE", "APRG_EXT3_MUT_PURIFIER", "APRG_TickPurifier", "PurifierPlanetCracker", "APRG_EXT3_BLESS_SPEAR_OF_ADUN", "APRG_EXT3_BLESS_SPEAR_OVERCHARGE", "APRG_EXT3_MUT_DEHAKAS_PACK", "APRG_EXT3_MUT_ZOMBIE_APOCALYPSE", "APRG_EXT3_MUT_ARGUMENTS", "APRG_EXT3_MUT_COMBAT_PAY", "APRG_EXT3_MUT_NUCLEAR_STRUCTURES", "APRG_EXT3_MUT_RESOURCE_SWAP", "APRG_EXT3_BLESS_RICH_VESPENE", "APRG_EXT3_BLESS_RICH_MINERALS", "APRG_EXT3_BOON_MISSILE_DEFENSE", "APRG_EXT3_BOON_STRETCHY_SPINES", "APRG_EXT3_BOON_GARGANTUAN_UNITS", "APRG_ApplyGargantuanToTrainedUnit", "APRG_CanonicalProtossReinforcementType", "ProtossGenericWarpInOut", "libNtve_gf_PauseUnit(u, true)", "APRG_CreateWarpVisual(u, spawnPoint)", "g_aprgPurifierBeamStopTime", "g_aprgPurifierAllianceBeamStopTime", "APRG_EXT3_BOON_CHAOS_BLESSINGS", "APRG_HydraStorms_Func", "APRG_ApplyMobileSiege", "APRG_TickUnlimitedPower", "APRG_TickUnstableColossi", "APRG_TickHeroRegeneration", "APRG_TickHordeLarva", "APRG_GoldenPatrolRouteSafe", "APRG_FindGoldenSafeAirPoint", "APRG_GoldenSafePatrolDestination", "APRG_RetargetZagaraBanelings", "APRG_IsScriptedPurifier", "APRG_WraithRaidNextInterval", "APRG_CorrosiveClaws_Func", "UnitAbilityAdd(u, \"APRogueBlink\")", "UnitAbilityExists(u, \"APRogueBlink\")", "APRG_EXT_BLESS_POWER_OVERWHELMING", "APRG_CopyArchonWarpButton", 'TechTreeAbilityAllow(player, AbilityCommand("ArchonWarp", 0), true)', 'UnitAbilityAdd(u, "ArchonWarp")', "APRG_EXT_BLESS_DRAKKEN_DRILL", "APRG_EXT_MUT_JETPACKS", "APRG_JetpacksShellForType", "APRG_ConvertJetpacksUnit", "libNtve_gf_ReplaceUnit", "APRG_TickJetpackAttackWaves", "g_aprgJetpacksProcessed", "APRG_EXT_BLESS_STEALTH_TUNNELS", "APRG_StealthTunnelSpeed_", "InfestorBurrowed", "APRG_EXT_BLESS_LURKER_DEFENSE", "APRG_EXT_BLESS_COMBAT_WORKERS", "APRG_EXT_MUT_RAPID_EVOLUTION", "APRG_EXT_MUT_NO_DEATHS_ALLOWED", "APRG_EXT_BLESS_GLASS_CANNONS", "APRG_EXT_MUT_VICTORY_TEMPORARY", "APRG_EXT_BLESS_ODIN", "APRG_EXT_MUT_NUCLEAR_WORKERS", "APRG_EXT_BLESS_BOUNTY_KILLS", "APRG_EXT_MUT_TACTICAL_BINOCULARS", "g_aprgFarseersMacroRefreshGiven", "20.0 * UnitTypeGetProperty", "DefilerMP", "APRG_FindRaidOriginAirPoint", "nearestFriendlyDistance", "APRG_FindStaticPatrolGroundPoint", "BurrowZerglingUp", "APRG_CreateRealGorgon", 'AnimCopy ::external.GorgonFinderTag', "APRG_RegisterBanelingSources", "g_aprgNextBanelingStreamRetargetTime", "RandomFixed(5.0, 15.0)", "VoidThrasherWalker", "UnitWeaponAdd(target, weaponType, null)", "APRG_RandomHostileBaseAnchor", "APRG_TowerDefenseFrontPoint", "APRG_TickTowerDefenseProbes", "APRogueCloakedNightmare", "UnitBehaviorAdd(u, \"APRogueCloakedNightmare\", u, 1)", "RepairTime", "g_aprgNukeDetonateTime = now + 19.0", "APRG_CarrierGetsFreeInterceptors", "APRG_EnsurePlayerInterceptorCost", "g_aprgAlliedTargetBlacklist", "APRG_EnemyTargetableStructures", "APRG_AlliedBuildingTargetUntil_", "c_targetFilterInvulnerable", "APRG_ApplyPickyEaters", "APRG_NearestPathablePlayerStructure", "PointPathingIsConnected", "APRG_DisableGeneratedHeroRevive", "APRG_EXT_BLESS_BUILDING_OVERCHARGE", "APRG_EXT_BLESS_GHOST_REPORTING", "APRG_EXT_MUT_TALDARIM_REINFORCEMENTS", "APRG_CreateRealGorgon", "APRG_EXT2_MUT_MIRAS_MERCENARIES", "APRG_TickMiraMercenaries", "APRG_FindMiraCampPoint", '"HelsAngelFighter", 5', "APRG_EXT2_BLESS_GLORIOUS_MARTYRS", "APRG_ApplyGloriousMartyrs", "APRogueGloriousMartyrStack", "APRG_EXT2_BLESS_INFLATABLE_SOLDIERS", "APRG_TickInflatableSoldiers", "g_aprgInflatableBaseSpeed", "OrderTargetingUnit(AbilityCommand(\"attack\", 0), target)", "APRG_CreatePlayerUnitsVanillaSafe", "GhostCloak", "APRG_FindHeroPatrolOrigin", "APRG_AddBestDonorWeaponAnyState", "APRG_OrderBanelingStreamUnit", "APRG_SpeedyCatalog_", 'c_gameCatalogWeapon, weaponType, "Range"', "APRG_EXT2_MUT_DOUBLE_TIME", "APRG_ApplyDoubleTime", "APRG_EXT2_MUT_SHRINKAGE", "APRG_TickShrinkage", "APRG_EXT2_MUT_MINERAL_THIEVES", "APRG_TickMineralThieves", "APRG_EXT2_MUT_ACTIVE_ENEMIES", "APRG_TickActiveEnemies", "APRG_EXT2_BLESS_INFINITE_LARVA", "APRG_TickInfiniteLarva", "APRG_EXT2_MUT_ZAGARAS_BANELINGS", "APRG_TickZagarasBanelings", "BANELINGS INCOMING", "APRG_EXT2_BLESS_REFLECTIVE_ARMOR", "APRG_TickBuddySystem", "APRG_TickTorrasque", "APRG_TickNexusShield", "APRG_ApplyGargantuanEnemies", "APRG_EXT2_MUT_RAYNORS_RAIDERS", "APRG_TickRaynorsRaiders", "APRG_CacheFixedPatrolPoints", "APRG_RandomFixedPatrolPoint", "APRG_DROP_KIND_RAYNOR_ASSAULT", "APRG_DROP_KIND_RAYNOR_REPAIR", "APRG_EXT2_BOON_DEFENDER", "APRG_DefenderDamage_Func", "APRG_ReaperBlitzDamage_", "blitzAccumulatedDamage += damage;", "APRG_EXT2_BOON_FIRE_POWER", "APRG_ApplyFirePower", "APRG_EXT2_BOON_ROACHLING_MINES", "APRG_EXT2_BOON_BROODLING_EVOLUTION", "APRG_BOON_ADAMANTIUM_BLADES", "APRG_ReconcileAdamantiumWeapons", "APRG_ReconcileAdamantiumDamageField", "APRG_BOON_ENHANCED_CONTROL", "APRG_EnhancedControl_Func", "APRG_BOON_BANSHEE_SWARM", "APRG_BansheeSwarm_Func", "APRG_BOON_ENLARGED_BANELINGS", "APRG_ApplyEnlargedBanelings", "APRG_IsZergTownHallType", "APRG_TickRaynorRepairSCVs", 'OverlordTransport', 'APRG_PlayerSpawnCatalogType', 'UnitCreate(1, "MULE"', 'AbilityCommand("Smart", 0)', 'APRG_DeathSpawnExcluded', 'c_unitBehaviorFlagTimedLife', '"APRG_Uncommandable_" + IntToString(UnitGetTag(dead))'],
 
     }
 
@@ -4767,6 +4875,8 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
         launcher_target: bundled_launcher.read_text(encoding="utf-8"),
 
         client_entry_target: bundled_client_entry.read_text(encoding="utf-8"),
+
+        **{ap_root / name: (source / name).read_text(encoding="utf-8-sig") for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py")},
 
         generator_target: bundled_generator.read_text(encoding="utf-8"),
 
@@ -4865,6 +4975,12 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
         shutil.copy2(bundled_launcher, launcher_target)
 
         shutil.copy2(bundled_client_entry, client_entry_target)
+
+        for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py"):
+            shutil.copy2(source / name, ap_root / name)
+        assets_source = source / "slay_assets"
+        if assets_source.is_dir():
+            shutil.copytree(assets_source, ap_root / "slay_assets", dirs_exist_ok=True)
 
 
 
@@ -4980,7 +5096,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
     print(f"  Drakken UI: native BuildDrakkenLaserDrill icon/button + player-specific Slay tooltip override installed at {aprogue_game_strings}")
 
-    print("Slay the StarCraft v1.0.2.17 installed successfully.")
+    print("Slay the StarCraft v1.1.0 installed successfully.")
 
     print(f"  Client:     {client}")
 
@@ -5136,6 +5252,14 @@ def uninstall(ap_root: pathlib.Path, sc2_root: pathlib.Path) -> None:
 
             path.unlink()
 
+    for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py"):
+        extra = ap_root / name
+        if extra.exists():
+            extra.unlink()
+    themed_assets = ap_root / "slay_assets"
+    if themed_assets.exists():
+        shutil.rmtree(themed_assets)
+
     if dependency_variant_dir.exists():
 
         shutil.rmtree(dependency_variant_dir)
@@ -5147,6 +5271,56 @@ def uninstall(ap_root: pathlib.Path, sc2_root: pathlib.Path) -> None:
 
 
 
+
+_native_patch_client = patch_client
+_endless_client_patcher = None
+
+def _load_endless_client_patcher():
+    # Embedded Python uses a restricted ._pth and does not guarantee that the
+    # Payload directory is importable by module name. Load the helper from its
+    # exact sibling path so Download Data works in the private runtime.
+    helper_path = pathlib.Path(__file__).resolve().with_name("slay_endless_client.py")
+    if not helper_path.is_file():
+        raise RuntimeError(f"Missing Endless client patch helper: {helper_path}")
+    spec = importlib.util.spec_from_file_location("_slay_endless_client_patch", helper_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load Endless client patch helper: {helper_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    patcher = getattr(module, "patch_endless_client", None)
+    if not callable(patcher):
+        raise RuntimeError("Endless client patch helper has no patch_endless_client function")
+    return patcher
+
+def patch_live_consumable_bot(text: str) -> str:
+    """Synchronize purchases made while SC2 is already running.
+
+    The SC2 BotAI owns the game chat socket. The Kivy shop does not, so poll the
+    Slay inventory from BotAI.on_step and send only when its serial snapshot
+    changes. Avoid adding attributes to the slotted ArchipelagoBot instance.
+    """
+    if "?SlayConsumables {token}" in text:
+        return text
+    anchor = "    async def on_step(self, iteration: int):\n        if self.want_close:"
+    if text.count(anchor) != 1:
+        raise RuntimeError("Could not locate ArchipelagoBot.on_step for live consumable syncing")
+    insertion = """    async def on_step(self, iteration: int):
+        if iteration > 0 and iteration % 22 == 0 and self.setup_done and slay.enabled(self.ctx) and slay.state_ready(self.ctx):
+            token = slay.test_potion_run_token(self.ctx)
+            slots = slay.potion_handshake_slots(self.ctx)
+            snapshot = (token,) + slots
+            if token > 0 and getattr(self.ctx, "_slay_live_consumable_snapshot", None) != snapshot:
+                await self.chat_send(f"?SlayConsumables {token} {slots[0]} {slots[1]} {slots[2]} {slots[3]}")
+                self.ctx._slay_live_consumable_snapshot = snapshot
+        if self.want_close:"""
+    return text.replace(anchor, insertion, 1)
+
+
+def patch_client(text):
+    global _endless_client_patcher
+    if _endless_client_patcher is None:
+        _endless_client_patcher = _load_endless_client_patcher()
+    return patch_live_consumable_bot(_endless_client_patcher(_native_patch_client(text)))
 
 def main() -> int:
 

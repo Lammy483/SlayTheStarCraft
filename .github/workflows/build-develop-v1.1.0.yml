@@ -1,0 +1,56 @@
+name: Build develop v1.1.0 playable
+
+on:
+  push:
+    branches:
+      - develop/v1.1.0
+  workflow_dispatch:
+
+jobs:
+  build-playable:
+    runs-on: windows-latest
+    steps:
+      - name: Check out integration branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Validate source
+        shell: pwsh
+        run: python .\Payload\verify_release.py --source-only
+
+      - name: Build Windows launcher
+        shell: pwsh
+        run: .\Tools\build_launcher.ps1
+
+      - name: Assemble portable playable folder
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP 'Slay the StarCraft develop v1.1.0'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item -Recurse -Force .\Payload (Join-Path $stage 'Payload')
+          Copy-Item -Recurse -Force .\Tools (Join-Path $stage 'Tools')
+          Copy-Item -Force .\SlayTheStarCraft.exe (Join-Path $stage 'SlayTheStarCraft.exe')
+          foreach ($file in @('VERSION.txt','launcher_manifest.json','README.txt','README.md','CHANGELOG.md','CONTRIBUTING.md')) {
+            if (Test-Path $file) { Copy-Item -Force $file (Join-Path $stage $file) }
+          }
+          Get-ChildItem -Path $stage -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $stage -Recurse -File -Include '*.pyc','*.pyo' | Remove-Item -Force -ErrorAction SilentlyContinue
+          "integration_branch=develop/v1.1.0" | Set-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
+          "commit=$env:GITHUB_SHA" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
+
+      - name: Upload playable integration build
+        uses: actions/upload-artifact@v4
+        with:
+          name: slay-the-starcraft-develop-v1.1.0-playable
+          path: ${{ runner.temp }}/Slay the StarCraft develop v1.1.0/
+          if-no-files-found: error
+          retention-days: 14

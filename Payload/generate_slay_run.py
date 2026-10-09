@@ -48,7 +48,7 @@ import yaml
 
 FORMAT_VERSION = 39
 
-PACKAGE_VERSION = "1.0.2.17"
+PACKAGE_VERSION = "1.1.0"
 
 DEFAULT_CHOICE_LAYERS = 11
 
@@ -134,9 +134,9 @@ def dependency_sensitive_effect_exclusions(mission_name: str) -> tuple[set[str],
 
 
 
-MUTATORS = {'golden_armada': 2, 'true_golden_armada': 6, 'low_quality_minerals': 2, 'conga_line': 3, 'ten_minutes_until_destruction': 4, 'siege_mode': 1, 'drakken_laser_drill_enemy': 4, 'dark_archons': 1, 'drop_pods': 3, 'dark_templar': 3, 'fragile_workers': 1, 'decay': 3, 'zombies_mutation': 3, 'limited_bank': 1, 'leviathan_in_orbit': 5, 'heroes_of_the_storm': 3, 'too_many_wraiths': 2, 'void_thrashers': 4, 'not_enough_energy': 1, 'viking_raids': 2, 'nuclear_annihilation': 3, 'darkness': 2, 'adrenaline': 3, 'picky_eaters': 2, 'arms_race': 3, 'rising_gas_prices': 2, 'squishy': 2, 'forced_variety': 2, 'occasional_thor_mutation': 1, 'occasional_ultralisk_mutation': 1, 'occasional_colossus_mutation': 1, 'enemy_regeneration': 3, 'sniper_thor': 1, 'another_gorgon_mutation': 2, 'burrowed_zerglings': 1, 'tower_defense': 2, 'cloaked_nightmare': 5, 'jetpacks': 2, 'tactical_binoculars': 4, 'no_deaths_allowed': 7, 'victory_is_temporary': 5, 'nuclear_workers': 1, 'taldarim_reinforcements': 4, 'miras_mercenaries': 2, 'double_time': 1, 'shrinkage': 3, 'mineral_thieves': 1, 'active_enemies': 2, 'zagaras_banelings': 3, 'buddy_system': 3, 'torrasque': 3, 'nexus_shield': 4, 'gargantuan_enemies': 5, 'raynors_raiders': 6, 'purifier': 4, 'dehakas_pack': 5, 'zombie_apocalypse': 5, 'arguments': 2, 'combat_pay': 2, 'marauder_kill_teams': 2, 'dark_archons_x5': 4, 'siege_mode_x5': 4, 'nuclear_structures': 1, 'hellion_run_by': 2, 'diamondback_wanderers': 3, 'leviathan_outside_base': 5, 'odin_delayed_assault': 3, 'combined_raids': 5, 'brakk_primal_army': 5, 'orlan_fortress': 4, 'enemy_spear_of_adun': 7, 'immortal_zergling': 1}
+MUTATORS = {'golden_armada': 2, 'true_golden_armada': 6, 'low_quality_minerals': 2, 'conga_line': 3, 'ten_minutes_until_destruction': 4, 'siege_mode': 1, 'drakken_laser_drill_enemy': 4, 'dark_archons': 1, 'drop_pods': 3, 'dark_templar': 3, 'fragile_workers': 1, 'decay': 3, 'zombies_mutation': 3, 'limited_bank': 1, 'leviathan_in_orbit': 5, 'heroes_of_the_storm': 3, 'too_many_wraiths': 2, 'void_thrashers': 4, 'not_enough_energy': 1, 'viking_raids': 2, 'nuclear_annihilation': 3, 'darkness': 2, 'adrenaline': 3, 'picky_eaters': 2, 'arms_race': 3, 'rising_gas_prices': 2, 'squishy': 2, 'forced_variety': 2, 'occasional_thor_mutation': 1, 'occasional_ultralisk_mutation': 1, 'occasional_colossus_mutation': 1, 'enemy_regeneration': 3, 'sniper_thor': 1, 'another_gorgon_mutation': 2, 'burrowed_zerglings': 1, 'tower_defense': 2, 'cloaked_nightmare': 5, 'jetpacks': 2, 'tactical_binoculars': 4, 'no_deaths_allowed': 7, 'victory_is_temporary': 5, 'nuclear_workers': 1, 'taldarim_reinforcements': 4, 'miras_mercenaries': 2, 'double_time': 1, 'shrinkage': 3, 'mineral_thieves': 1, 'active_enemies': 2, 'zagaras_banelings': 3, 'buddy_system': 3, 'torrasque': 3, 'nexus_shield': 4, 'gargantuan_enemies': 5, 'raynors_raiders': 6, 'purifier': 4, 'dehakas_pack': 5, 'zombie_apocalypse': 5, 'arguments': 2, 'combat_pay': 2, 'marauder_kill_teams': 2, 'dark_archons_x5': 4, 'siege_mode_x5': 4, 'nuclear_structures': 1, 'hellion_run_by': 2, 'diamondback_wanderers': 3, 'leviathan_outside_base': 5, 'odin_delayed_assault': 3, 'combined_raids': 5, 'brakk_primal_army': 5, 'orlan_fortress': 4, 'enemy_spear_of_adun': 7, 'immortal_zergling': 1, 'tosh_and_his_boys': 3}
 
-BLESSINGS = {'investors': 1, 'multi_class': 1, 'speedy': 3, 'general': 2, 'farseers': 1, 'air_support': 2, 'fire_squad': 1, 'fuel_pipeline': 2, 'rapid_evolution': 2, 'zombies_blessing': 4, 'compounding_interest': 2, 'transports': 1, 'lost_vikings': 1, 'warfields_reinforcements': 4, 'energy_overload': 1, 'explosive_armor': 3, 'instant_workers': 2, 'juggernaut': 1, 'assembly_line': 2, 'elite_soldiers': 2, 'blinding_light': 2, 'specialists': 1, 'fortifications': 1, 'baneling_stream': 4, 'tychus': 1, 'zagaras_aid': 2, 'logistics': 1, 'occasional_thor_blessing': 1, 'occasional_ultralisk_blessing': 1, 'occasional_colossus_blessing': 1, 'horde_mode': 3, 'unexpected_evolution': 2, 'another_gorgon_blessing': 2, 'rapid_repair': 1, 'blink_blessing': 2, 'power_overwhelming': 2, 'drakken_laser_drill_blessing': 4, 'lurker_defense': 1, 'combat_workers': 2, 'glass_cannons': 1, 'odin': 4, 'bounty_kills': 1, 'building_overcharge': 3, 'ghost_reporting': 1, 'glorious_martyrs': 4, 'infinite_larva': 2, 'reflective_armor': 2, 'rich_minerals': 1, 'resource_pickups': 1}
+BLESSINGS = {'investors': 1, 'multi_class': 1, 'speedy': 3, 'general': 2, 'farseers': 1, 'air_support': 2, 'fire_squad': 1, 'fuel_pipeline': 2, 'rapid_evolution': 2, 'zombies_blessing': 4, 'compounding_interest': 2, 'transports': 1, 'lost_vikings': 1, 'warfields_reinforcements': 4, 'energy_overload': 1, 'explosive_armor': 3, 'instant_workers': 2, 'juggernaut': 1, 'assembly_line': 2, 'elite_soldiers': 2, 'blinding_light': 2, 'specialists': 1, 'fortifications': 1, 'baneling_stream': 4, 'tychus': 1, 'zagaras_aid': 2, 'logistics': 1, 'occasional_thor_blessing': 1, 'occasional_ultralisk_blessing': 1, 'occasional_colossus_blessing': 1, 'horde_mode': 3, 'unexpected_evolution': 2, 'another_gorgon_blessing': 2, 'rapid_repair': 1, 'blink_blessing': 2, 'power_overwhelming': 2, 'drakken_laser_drill_blessing': 4, 'lurker_defense': 1, 'combat_workers': 2, 'glass_cannons': 2, 'odin': 4, 'bounty_kills': 1, 'building_overcharge': 3, 'ghost_reporting': 1, 'glorious_martyrs': 4, 'infinite_larva': 2, 'reflective_armor': 2, 'rich_minerals': 1, 'resource_pickups': 1}
 
 
 
@@ -427,7 +427,10 @@ def expected_opening_credit_average(difficulty: str, mutation_frequency: Any = 1
     def at_bless(mut_label: str) -> float:
         return _linear_extrapolate_points([(x, EXPECTED_OPENING_CREDIT_AVERAGE[(difficulty_key, mut_label, lab)]) for x, lab in labels], bf)
     base = _linear_extrapolate_points([(x, at_bless(lab)) for x, lab in labels], mf)
-    return max(0.0, base) * max(0.0, float(victory_credit_reward_multiplier))
+    # A universal +1 mutation-severity budget adds about 125 base credits to
+    # the expected first-layer payout at Normal frequency; keep red-risk
+    # thresholds aligned with the new generation curve.
+    return max(0.0, base + 50.0 + 125.0 * mf) * max(0.0, float(victory_credit_reward_multiplier))
 
 
 RACE_WEAPON_ARMOR_UPGRADE_ITEMS = {
@@ -1392,7 +1395,7 @@ def expected_danger_score(
 
     frac = 1.0 if final else (0.0 if choice_layers <= 0 else layer / max(1, choice_layers))
     if int(choice_layers) + 1 == DEFAULT_CAMPAIGN_LENGTH:
-        mutation_mean = _profile_value(_EXPECTED_MUTATION_SEVERITY_PROFILE, frac)
+        mutation_mean = _profile_value(_EXPECTED_MUTATION_SEVERITY_PROFILE, frac) + 1.0 + 0.25 * max(1, int(layer) + 1)
         blessing_mean = _profile_value(_EXPECTED_BLESSING_SEVERITY_PROFILE, frac)
     else:
         mutation_mean, blessing_mean = _base_effect_means(layer, choice_layers, final)
@@ -1407,7 +1410,7 @@ def expected_danger_score(
 
     map_premium = 300.0 * (expected_pool - expected_tier_zero_based)
 
-    return int(round(map_premium + (150.0 * mutation_mean) - (100.0 * blessing_mean)))
+    return int(round(map_premium + (125.0 * mutation_mean) - (100.0 * blessing_mean)))
 
 
 
@@ -2086,12 +2089,12 @@ def _base_effect_means(layer: int, choice_layers: int, final: bool = False) -> t
         bless_mean = _profile_value(blessing_budget_profile, frac)
         if final or (choice_layers >= 2 and layer >= choice_layers - 2): bless_mean -= 2.2
         elif layer > 0: bless_mean -= 1.1
-        return mut_mean, bless_mean
+        return mut_mean + 1.0 + 0.25 * mission_number, bless_mean
     mut_mean = float(mission_number + 2) + (2.0 if final else 0.0)
     third_last = max(1, total_missions - 2)
     if mission_number >= third_last or third_last <= 1: bless_mean = 1.0
     else: bless_mean = 7.0 - (6.0 * ((mission_number - 1) / max(1, third_last - 1)))
-    return mut_mean, bless_mean
+    return mut_mean + 1.0 + 0.25 * mission_number, bless_mean
 
 
 def roll_effects(
@@ -2430,15 +2433,15 @@ def credit_reward(
 
     base_reward = 400
 
-    layer_reward = 50 * layer_number
+    layer_reward = 100
 
     difficulty_reward = 300 * (mission_tier - expected_tier)
 
-    effect_reward = (150 * int(mutation_value)) - (100 * int(blessing_value)) + (100 * layer_number)
+    effect_reward = (125 * int(mutation_value)) - (100 * int(blessing_value)) + (100 * layer_number)
 
     old_reward = base_reward + layer_reward + difficulty_reward + effect_reward
 
-    reward = max(250, old_reward - (100 * layer_number))
+    reward = max(150, old_reward - (100 * layer_number))
 
     if str(mission_name).strip().casefold() == "lab rat":
 
@@ -3199,11 +3202,13 @@ def _effect_exclusions_for_mission(mission: dict[str, Any]) -> tuple[set[str], s
     mission_short_name = str(mission.get("short_name", "") or mission.get("name", ""))
     if mission_short_name.strip().casefold() in GORGON_MISSION_EXCLUSIONS:
         forbidden_mutators.add("another_gorgon_mutation")
+    if mission_short_name.strip().casefold().startswith("smash and grab"):
+        forbidden_mutators.add("nexus_shield")
 
 
     if mission_short_name.strip().casefold() in ISLAND_MISSION_NAMES:
 
-        forbidden_mutators.update({"torrasque", "ten_minutes_until_destruction", "hellion_run_by", "odin_delayed_assault", "combined_raids", "brakk_primal_army"})
+        forbidden_mutators.update({"torrasque", "ten_minutes_until_destruction", "hellion_run_by", "odin_delayed_assault", "combined_raids", "brakk_primal_army", "tosh_and_his_boys"})
 
     destruction_explicitly_forbidden = (
 
@@ -3313,7 +3318,7 @@ def _assigned_node_is_red(
 
         if expected_average <= 0.0:
 
-            expected_average = EXPECTED_OPENING_CREDIT_AVERAGE[("brutal", "normal", "normal")]
+            expected_average = EXPECTED_OPENING_CREDIT_AVERAGE[("brutal", "normal", "normal")] + 200.0
 
         return float(data.get("credit_reward", 0)) > (2.5 * expected_average)
 
@@ -3389,6 +3394,68 @@ def _red_free_paths(
 
 
 
+
+
+def _reduce_repeats_across_run(
+    assigned: dict[tuple[int, int], dict[str, Any]], rng: random.Random,
+) -> None:
+    """Discourage repeats across *earlier* route nodes, without forbidding them.
+
+    Run AFTER all mission/effect rerolls and red-route adjustments, in ascending
+    layer order, so replacement rolls cannot be invalidated by later balancing.
+    Only exchange effects for another legal one with EXACTLY the same severity:
+    credit rewards, difficulty borders, and the final-quarter major mutation
+    requirement therefore stay unchanged. Each repeated effect independently
+    has a 50% chance to be rerolled, if a legal alternative exists. At the same
+    layer, earlier lanes count as previously seen for consistent generation.
+    """
+    seen_mutations: Counter[str] = Counter()
+    seen_blessings: Counter[str] = Counter()
+    for pos in sorted(assigned):
+        data = assigned[pos]
+        layer = int(data["layer"])
+        forbidden_mutations, forbidden_blessings = _effect_exclusions_for_mission(data)
+        mutators = list(data.get("mutators", ()))
+        blessings = list(data.get("blessings", ()))
+        for index, current in enumerate(mutators):
+            if seen_mutations[current] and rng.random() < 0.50:
+                legal = [name for name, severity in MUTATORS.items()
+                         if severity == MUTATORS[current]
+                         and name != current and name not in mutators
+                         and name not in forbidden_mutations
+                         and name not in DEFERRED_EFFECTS
+                         # No Deaths Allowed has its own special rarity rules.
+                         and name != "no_deaths_allowed"
+                         and not (name == "squishy" and set(blessings) & ARMOR_GRANTING_BLESSINGS)]
+                if legal:
+                    unseen = [name for name in legal if not seen_mutations[name]]
+                    pool = unseen or legal
+                    replacement = rng.choices(pool, weights=[
+                        _effect_selection_weight(MUTATORS[name], mutation_profile=True)
+                        * EFFECT_SELECTION_MULTIPLIER.get(name, 1.0)
+                        for name in pool], k=1)[0]
+                    mutators[index] = replacement
+            seen_mutations[mutators[index]] += 1
+        for index, current in enumerate(blessings):
+            if seen_blessings[current] and rng.random() < 0.50:
+                current_severity = _blessing_severity_for_layer(current, layer)
+                legal = [name for name in BLESSINGS
+                         if name != current and name not in blessings
+                         and name not in forbidden_blessings
+                         and _blessing_severity_for_layer(name, layer) == current_severity
+                         and not ("squishy" in mutators and name in ARMOR_GRANTING_BLESSINGS)]
+                if legal:
+                    unseen = [name for name in legal if not seen_blessings[name]]
+                    pool = unseen or legal
+                    replacement = rng.choices(pool, weights=[
+                        _effect_selection_weight(_blessing_severity_for_layer(name, layer))
+                        * EFFECT_SELECTION_MULTIPLIER.get(name, 1.0)
+                        for name in pool], k=1)[0]
+                    blessings[index] = replacement
+            seen_blessings[blessings[index]] += 1
+        data["mutators"] = mutators
+        data["blessings"] = blessings
+        # Same-severity substitutions preserve both totals exactly.
 
 
 def assign_missions(
@@ -3571,6 +3638,21 @@ def assign_missions(
 
     canonical_three_race = all(race in available_races for race in canonical_opening_races)
 
+    # A one-race run has only five or six highest-tier mission variants.
+    # Reserving the final mission BEFORE rolling the earlier choices prevents
+    # them from exhausting that tier and breaking generation near the end.
+    reserved_final = None
+    available_for_choices = candidates
+    if not canonical_three_race:
+        reserved_final = choose_mission(
+            candidates, set(), set(), Counter(),
+            target_pool(choice_layers, choice_layers, difficulty, True), rng,
+            exact_pool=4, tier_weights=mission_pool_distribution(choice_layers, choice_layers, True),
+        )
+        available_for_choices = [
+            m for m in candidates if m['short_name'] != reserved_final['short_name']
+        ]
+
     opening_lanes = sorted(lane for layer, lane in edges if layer == 0)
 
     if len(opening_lanes) != 3:
@@ -3610,18 +3692,18 @@ def assign_missions(
         opening_races[0], opening_races[easy_index] = opening_races[easy_index], opening_races[0]
 
     else:
-
-
-
-
-
         opening_races = list(available_races)
-
         rng.shuffle(opening_races)
-
         while len(opening_races) < len(opening_lanes):
-
             opening_races.append(rng.choice(available_races))
+        # The inexpensive opening still applies with just one or two races.
+        easy_races = [race for race in opening_races if any(
+            str(m['race']) == race and int(m['pool']) == 0
+            for m in available_for_choices
+        )]
+        if easy_races:
+            easy_index = opening_races.index(rng.choice(easy_races))
+            opening_races[0],opening_races[easy_index]=opening_races[easy_index],opening_races[0]
 
     opening_race_by_lane = {lane: opening_races[i] for i, lane in enumerate(opening_lanes)}
 
@@ -3663,13 +3745,16 @@ def assign_missions(
 
             target = target_pool(layer, choice_layers, difficulty)
 
-            opening_easy = canonical_three_race and layer == 0 and lane == easy_opening_lane
+            opening_easy = layer == 0 and lane == easy_opening_lane and any(
+                str(m['race']) == opening_race_by_lane[lane] and int(m['pool']) == 0
+                for m in available_for_choices
+            )
 
             required_race = opening_race_by_lane.get(lane) if layer == 0 else late_race_by_layer.get(layer)
 
             mission = choose_mission(
 
-                candidates, used_ids, used_short_names, race_counts, target, rng,
+                available_for_choices, used_ids, used_short_names, race_counts, target, rng,
 
                 min_pool=minimum_pool_for_layer(layer, choice_layers),
 
@@ -3699,22 +3784,14 @@ def assign_missions(
 
     final_pos = (choice_layers, FINAL_LANE)
 
-    mission = choose_mission(
-
+    mission = reserved_final or choose_mission(
         candidates, used_ids, used_short_names, race_counts,
-
         target_pool(choice_layers, choice_layers, difficulty, True), rng,
-
         min_pool=minimum_pool_for_layer(choice_layers, choice_layers, True),
-
         required_race=late_race_by_layer.get(choice_layers),
-
         exact_pool=4,
-
         tier_weights=mission_pool_distribution(choice_layers, choice_layers, True),
-
     )
-
     assigned[final_pos] = finish_node(mission, choice_layers, FINAL_LANE, True)
 
 
@@ -4247,6 +4324,9 @@ def assign_missions(
 
 
 
+    # Apply across the finalized map, from the first node in layer 1 through
+    # the last mission. Earlier effects stay fixed; repeats remain possible.
+    _reduce_repeats_across_run(assigned, rng)
     return assigned
 
 
@@ -4331,7 +4411,7 @@ def build_run_json(
 
     assigned: dict[tuple[int, int], dict[str, Any]], shop_pool: list[str], starting_shop: list[str],
 
-    races: list[str], allow_race_swap: bool, starting_credits: int = 700,
+    races: list[str], allow_race_swap: bool, starting_credits: int = 600,
 
     mutation_frequency: Any = 1.0, blessing_frequency: Any = 1.0,
 
@@ -4798,7 +4878,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--game-speed", choices=list(GAME_SPEEDS), default="default", help="SC2 game speed override; default follows Archipelago's normal behavior")
 
-    parser.add_argument("--starting-credits", type=int, default=700, help="Starting shop credits (default 700)")
+    parser.add_argument("--starting-credits", type=int, default=600, help="Starting shop credits (default 600)")
 
     parser.add_argument("--mutation-frequency", dest="mutation_frequency", default=None, help=argparse.SUPPRESS)
 
@@ -5092,3 +5172,74 @@ if __name__ == "__main__":
 
     raise SystemExit(main())
 
+
+
+def endless_map_key(node: dict[str, Any]) -> str:
+    name = str(node.get("mission_name", node.get("name", "")))
+    for suffix in (" (Terran)", " (Zerg)", " (Protoss)"):
+        if name.endswith(suffix):
+            name = name[:-len(suffix)]
+            break
+    return name.strip().casefold()
+
+def generate_endless_layer(run: dict[str, Any], progress: dict[str, Any]) -> list[dict[str, Any]]:
+    """Use the existing mission pools, effect rolls and rewards for one three-choice floor."""
+    import copy
+    floor = int(progress["floor"])
+    rng = random.Random(f"{run['run_seed']}:endless:{floor}")
+    excluded = {key for offer in progress.get("offers", [])[-4:] for key in offer}
+    from worlds.sc2.mission_tables import lookup_id_to_mission, MissionFlag
+    candidates = []
+    for original in run["nodes"].values():
+        if endless_map_key(original) in excluded:
+            continue
+        native = lookup_id_to_mission[int(original["mission_id"])]
+        candidates.append(dict(original, id=int(original["mission_id"]), name=original["mission_name"],
+                               short_name=native.get_short_name(), pool=int(original.get("mission_pool", 0)),
+                               timed_defense=bool(MissionFlag.TimedDefense in native.flags),
+                               race_swap=bool(MissionFlag.RaceSwap in native.flags)))
+    if len({m["short_name"] for m in candidates}) < 3:
+        raise RuntimeError("Not enough distinct maps for the five-floor exclusion rule.")
+    capacity = min(4, len({endless_map_key(n) for n in run["nodes"].values()}) // 5)
+    choice_count = min(rng.choice((2, 3, 3, 4)), capacity, len({m["short_name"] for m in candidates}))
+    selected = []
+    used = set()
+    counts = Counter()
+    risk_count = 2 if floor >= 5 and rng.random() < .25 else 1
+    risky_lanes = set(rng.sample(range(choice_count), min(risk_count, choice_count-1)))
+    tier = min(3, floor // 4)
+    difficulty = ("easy", "medium", "hard", "brutal")[tier]
+    length = max(11, floor + 3)
+    for lane in range(choice_count):
+        remaining = [m for m in candidates if m["short_name"] not in used]
+        mission = choose_mission(remaining, set(), used, counts, min(4, floor / 4), rng)
+        used.add(mission["short_name"])
+        counts[mission["race"]] += 1
+        risk = lane in risky_lanes
+        roll_layer = floor + int(risk)
+        exclusions, help_exclusions = _effect_exclusions_for_mission(mission)
+        effects = roll_effects(roll_layer, length, difficulty, rng,
+                              forbidden_mutators=exclusions, forbidden_blessings=help_exclusions,
+                              mission_pool=mission["pool"], mutation_frequency=run.get("mutation_frequency", "normal"),
+                              blessing_frequency=run.get("blessing_frequency", "normal"))
+        # Risk uses the same legal rolls; pick the harder of three, without new enemy stat rules.
+        if risk:
+            for _ in range(2):
+                trial = roll_effects(roll_layer, length, difficulty, rng,
+                                     forbidden_mutators=exclusions, forbidden_blessings=help_exclusions,
+                                     mission_pool=mission["pool"], mutation_frequency=run.get("mutation_frequency", "normal"),
+                                     blessing_frequency=run.get("blessing_frequency", "normal"))
+                if trial[2] * 150 - trial[3] * 100 > effects[2] * 150 - effects[3] * 100:
+                    effects = trial
+        mutators, blessings, mut_value, bless_value = effects
+        multiplier = float(run.get("victory_credit_reward_multiplier", 1))
+        base_reward = credit_reward(mission["pool"], floor, mut_value, bless_value, bool(blessings), rng,
+                                    mission_name=mission["name"], victory_credit_reward_multiplier=1)
+        node = copy.deepcopy(mission)
+        node.update(layer=floor, lane=lane, lane_count=choice_count, next=[], high_risk=risk, mutators=mutators, blessings=blessings,
+                    mutation_value=mut_value, blessing_value=bless_value,
+                    credit_reward=round((base_reward + (100 if risk else 0)) * multiplier),
+                    danger_credit_bonus=0, difficulty_override=tier)
+        node["commander_hero_index"], node["commander_hero_name"] = commander_choice(run["run_seed"], mission["id"]) if "general" in blessings else (-1, "")
+        selected.append(node)
+    return selected

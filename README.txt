@@ -1,10 +1,18 @@
-Slay the StarCraft v1.0.2.17
+Slay the StarCraft v1.1.0
 
 Slay the StarCraft is a single-player StarCraft II roguelike built on the
 Archipelago StarCraft II framework.
 
-V1.0.2.17 DEVELOPMENT
+V1.1.0 RELEASE
+- r31: First-layer 900+ rewards visually count as elite without the 100 bonus; inventory Show Cards / Shop / Exit Inventory controls are top-right, and shop/inventory reroll/exit transitions no longer cross-open unexpectedly. Glass Cannons severity is now 2; Tosh attempts his Psi Shield on taking damage; Terran Upgrade Pack displays the Armory icon.
+- r28: High Templar storm targeting now seeks enemy concentrations; Spear Recharge only restores energy and requires two distinct active Spear abilities. Nexus Shields cannot roll on Smash and Grab. Scripted warp-ins attach the campaign-standard animated Protoss warp model and retain their five-second fade/stun. In-game testing pending.
+- r14: Starting credits default to 600; mission victory floor is 150 (Lab Rat can still go 100 lower); mutation severity mean is raised +1 before frequency scaling. Existing runs are unchanged.
+- r14: The setup and shop layout, mission arrow routing/key layout, quieter sounds, and resource/progression icons have been refined. The Terran Factory and Zerg Hive remain temporary icon stand-ins for the Mercenary Compound and Predator Nest.
 
+- The English StarCraft-style theme now covers setup, mission route, shop, and inventory while preserving current v1.1.0 gameplay/settings.
+- Shop and inventory default to the compact four-column list view using the original category placement/colors; card view remains available.
+- Mission-route mouse wheel scrolls vertically, the route defaults to the new 100% scale (old 60%), and mission labels/available/elite outlines are more readable.
+- The themed navigation tabs are Console Log, Missions, and Settings; setup copy and dropdown selection highlighting were cleaned up.
 - True Golden Armada now chooses unrestricted random playable-map patrol destinations after 10 mission minutes. Its fleet attack-moves to those points, so routes can naturally cross and engage the player base.
 - Removed the temporary 10x development selection boost from recently added mutations; new mutations now use the same normal selection weighting as established mutations.
 - Fire in the Sky now excludes both Another Gorgon blessing and mutation in initial generation and runtime/random-effect acquisition.
@@ -84,7 +92,7 @@ Built on the v1.0.2.10 development branch from the stable v1.0.2 release.
   warp effect, then unpauses and attacks.
 
 GETTING STARTED
-1. Extract the entire "Slay the StarCraft v1.0.2.17" folder somewhere writable.
+1. Extract the entire "Slay the StarCraft v1.1.0" folder somewhere writable.
 2. Release packages include SlayTheStarCraft.exe. GitHub source checkouts omit generated binaries; contributors should build it first with Tools\build_launcher.ps1.
 3. Double-click SlayTheStarCraft.exe.
 4. If required game data is missing or needs an update, click Download Data and

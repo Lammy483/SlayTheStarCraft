@@ -1,0 +1,20 @@
+Name,Effect Description,Development notes,Rarity (price is 125 x rarity)
+Mineral Reserves,Gain 1000 minerals,,1
+Gas Reserves,Gain 1000 vespene gas,,1
+Odin in a Bottle,Spawn the Odin,at target location,2
+Leviathan in a Bottle,Spawn the WoL leviathan but with its spawn mutalisk and spawn brood lord abilities on a 60 second cooldown,at target location,3
+Hyperion in a Bottle,Spawn the WoL hyperion with its legendary resistance removed,at target location,4
+Drop Pod Wave,Call down 10 terran drop pods on target area.,"player cannot control them, similar to warfield drop pods. Call down the 10 dropdowns rapidly over the course of 2 seconds. Make it a somewhat wide area.",2
+Mass EMP,Reduce all shields and energy of all units to 0 and remove all cloaked for 30 seconds,"Sets current energy and shield, not maximum. Does not affect spear of adun but affects both friendly and hostile units.",1
+Tactical Nuke,Immediately detonate a single tactical nuke at target location,,1
+Tosh's Miners,Drop down a flying command center with 5 scvs loaded inside of it at target location,,1
+Stealth Protocol,All of your units and structures become stealthed for 1 minute,,2
+Mass Stimpack,"All of your units gain 50% movement and attack speed for 1 minute, but they all lose 1 hp per second during this time.",,2
+Mass Marines,"Instantly lose up to 5000 minerals. For every 10 minerals lost, spawn a marine at your base that automatically attacks the enemy.",spawn the marines over the course of 2 seconds to not lag out the game. Player cannot control the marines. Marines use our standard AI to find an enemy to attack towards while using abilities when relevant.,1
+Mass Spellcasters,"Instantly lose up to 5000 gas. For every 20 gas spent, spawn a random spellcaster at your base. The spellcasters automatically attack the enemy and use their abilities.","each of the units from spellcasters boon, but also could spawn high templar variants, brood queen, and medics. Use our standard AI for attacking the enemy while using abilities.",1
+Spawn [amount] [unit],Spawn [amount] [unit] at target location that automatically attacks the enemy.,Choose a random unit and spawn an amount equal to 2000 divided by their added mineral and gas cost. Replace the title and description with the actual amount and unit name.,1
+Spear of Adun Recharge,Set the Spear of Adun's energy to maximum.,only appears if at least 2 Spear of Adun abilities are unlocked.,2
+Second Kerrigan,Spawn a second kerrigan that does not respawn on death,only appears if you have kerrigan unlocked,2
+Mercenary Favor,Instantly call down all units unlocked in the predator nest and merc compound for free regardless of cooldown and charges,does not use charges and does not reset cooldown. Only available if you have at least 3 total mercs available in merc compound or predator nest.,2
+Guardian Matrix,Target unit gains 2000 shields until the shields are completely depleted,"once their shields = 0, remove the shield entirely",1
+Corruption Spores,Target unit or structure takes double damage until death,,1

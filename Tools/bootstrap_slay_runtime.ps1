@@ -11,7 +11,8 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 2.0
 $BootstrapScriptPath = $PSCommandPath
 
-$PackageVersion = "1.0.2.17"
+$PackageVersion = "1.1.0"
+$RuntimeRevision = "lab-rat-r6"
 $PythonVersion = "3.13.16"
 $PythonArchiveName = "python-$PythonVersion-embed-amd64.zip"
 $PythonUrl = "https://www.python.org/ftp/python/$PythonVersion/$PythonArchiveName"
@@ -291,14 +292,21 @@ function Make-RequirementsGitless {
     $requirementFiles = @($requirementFiles | Sort-Object -Unique)
     foreach ($requirements in $requirementFiles) {
         if (-not (Test-Path -LiteralPath $requirements)) { continue }
-        $text = Get-Content -LiteralPath $requirements -Raw
+        $originalText = Get-Content -LiteralPath $requirements -Raw
         $text = [regex]::Replace(
-            $text,
+            $originalText,
             '(?im)^(\s*[A-Za-z0-9_.-]+(?:\[[^\]]+\])?\s*@\s*)git\+https://github\.com/([^/\s]+)/([^@\s]+)@([^#\s]+)(?:#[^\r\n]*)?\s*$',
             '$1https://github.com/$2/$3/archive/$4.zip'
         )
-        Set-Content -LiteralPath $requirements -Value $text -Encoding ASCII
-        $rewritten = Get-Content -LiteralPath $requirements -Raw
+        # Only write files that actually require a Gitless conversion. A few
+        # archives mark untouched requirements read-only; rewriting them causes
+        # Access denied even if those world requirements need no modification.
+        if ($text -cne $originalText) {
+            $requirementFile = Get-Item -LiteralPath $requirements
+            if ($requirementFile.IsReadOnly) { $requirementFile.IsReadOnly = $false }
+            Set-Content -LiteralPath $requirements -Value $text -Encoding ASCII
+        }
+        $rewritten = if ($text -cne $originalText) { Get-Content -LiteralPath $requirements -Raw } else { $originalText }
         if ($rewritten -match 'git\+') {
             throw "A retained Archipelago requirement still needs Git after conversion: $requirements. Slay intentionally does not install Git globally."
         }
@@ -596,6 +604,7 @@ try {
     $runtimeInfo = [ordered]@{
         format_version = 1
         slay_version = $PackageVersion
+        runtime_revision = $RuntimeRevision
         python_version = $PythonVersion
         archipelago_ref = $ArchipelagoRef
         sc2_data_api = "API4"

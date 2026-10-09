@@ -47,7 +47,7 @@ from typing import Any
 
 
 
-PACKAGE_VERSION = "1.0.2.17"
+PACKAGE_VERSION = "1.1.0"
 
 LAUNCHER_ENV = "SLAY_LAUNCHER_MODE"
 
@@ -57,7 +57,7 @@ PORTABLE_ROOT_ENV = "SLAY_PORTABLE_ROOT"
 
 RUNS_DIR_NAME = "Runs"
 
-DEFAULT_STARTING_CREDITS = 700
+DEFAULT_STARTING_CREDITS = 600
 
 DEFAULT_DIFFICULTY = "brutal"
 
@@ -75,6 +75,14 @@ MAX_CAMPAIGN_LENGTH = 31
 DEFAULT_EXTRA_SHOP_SLOTS = 0
 DEFAULT_START_WITH_SPEAR = False
 DEFAULT_START_WITH_KERRIGAN = False
+DEFAULT_RACES = ("terran", "zerg", "protoss")
+
+
+def normalize_races(races: tuple[str, ...] | list[str]) -> tuple[str, ...]:
+    """Validate before invoking the generator; keep its canonical race order."""
+    if not races or any(race not in DEFAULT_RACES for race in races):
+        raise ValueError("Select at least one of Terran, Zerg, or Protoss.")
+    return tuple(race for race in DEFAULT_RACES if race in races)
 
 DEFAULT_VICTORY_CREDIT_REWARD_MULTIPLIER = 1.00
 
@@ -386,9 +394,15 @@ def generate_run(
     extra_shop_slots: int = DEFAULT_EXTRA_SHOP_SLOTS,
     start_with_spear: bool = DEFAULT_START_WITH_SPEAR,
     start_with_kerrigan: bool = DEFAULT_START_WITH_KERRIGAN,
+    game_mode: str = "adventure",
+    selected_races: tuple[str, ...] = DEFAULT_RACES,
 
 ) -> tuple[Path, dict[str, Any]]:
 
+    selected_races = normalize_races(selected_races)
+
+    if game_mode not in {"adventure", "endless"}:
+        raise ValueError("Unsupported game mode")
     if difficulty not in DIFFICULTIES:
 
         raise ValueError(f"Unsupported difficulty: {difficulty}")
@@ -454,7 +468,7 @@ def generate_run(
 
         "--starting-credits", str(starting_credits),
 
-        "--layers", str(int(campaign_length) - 1),
+        "--layers", str((DEFAULT_CAMPAIGN_LENGTH if game_mode == "endless" else int(campaign_length)) - 1),
 
         "--mutation-frequency-multiplier", str(float(mutation_frequency)),
 
@@ -466,6 +480,7 @@ def generate_run(
         "--extra-shop-slots", str(int(extra_shop_slots)),
 
     ]
+    command.extend(["--races", *selected_races])
     if start_with_spear:
         command.append("--start-with-spear")
     if start_with_kerrigan:
@@ -488,6 +503,13 @@ def generate_run(
         raise RuntimeError("Generator completed but did not create the expected Slay run/YAML files.")
 
     run_data = json.loads(transient_run.read_text(encoding="utf-8"))
+
+    run_data["game_mode"] = game_mode
+    if game_mode == "endless":
+        from SlayTheStarCraft import endless_map_key
+        if len({endless_map_key(n) for n in run_data["nodes"].values()}) < 15:
+            raise ValueError("Endless mode requires at least 15 distinct maps for its five-floor exclusion rule.")
+    transient_run.write_text(json.dumps(run_data, indent=2), encoding="utf-8")
 
     run_id = str(run_data.get("run_id", "")).strip()
 
@@ -586,6 +608,7 @@ def generate_run(
             "starting_credits": int(run_data.get("starting_credits", starting_credits)),
 
             "current_credits": int(run_data.get("starting_credits", starting_credits)),
+            "game_mode": game_mode,
 
             "mutation_frequency": float(run_data.get("mutation_frequency", mutation_frequency)),
 
@@ -594,6 +617,7 @@ def generate_run(
             "extra_shop_slots": int(run_data.get("extra_shop_slots", extra_shop_slots)),
             "start_with_spear": bool(run_data.get("start_with_spear", start_with_spear)),
             "start_with_kerrigan": bool(run_data.get("start_with_kerrigan", start_with_kerrigan)),
+            "races": list(run_data.get("races", selected_races)),
 
             "victory_credit_reward_multiplier": float(run_data.get("victory_credit_reward_multiplier", victory_credit_reward_multiplier)),
 
@@ -890,6 +914,8 @@ def install_launcher_tab(manager: Any) -> None:
     from kivy.uix.boxlayout import BoxLayout
 
     from kivy.uix.button import Button
+    from kivy.uix.checkbox import CheckBox
+    from kivy.uix.widget import Widget
 
     from kivy.uix.spinner import Spinner, SpinnerOption
 
@@ -1112,24 +1138,44 @@ def install_launcher_tab(manager: Any) -> None:
 
 
     form = GridLayout(
-        cols=4, spacing=(dp(30), dp(8)), size_hint_y=None, height=dp(330),
+        cols=4, spacing=(dp(30), dp(8)), size_hint_y=None, height=dp(350),
     )
-    option_columns = [BoxLayout(orientation="vertical", spacing=dp(10)) for _ in range(4)]
+    # Explicit minimum heights let long labels wrap without overlapping the
+    # controls below them. The themed settings pane already scrolls vertically.
+    option_columns = [BoxLayout(orientation="vertical", spacing=dp(10), size_hint_y=None)
+                      for _ in range(4)]
     for column in option_columns:
+        column.bind(minimum_height=column.setter("height"))
         form.add_widget(column)
+    form.bind(minimum_height=lambda inst, value: setattr(inst, "height", max(dp(350), value)))
 
     def field_label(text: str) -> Label:
-        label = Label(text=text, halign="left", valign="middle", size_hint_y=None, height=dp(28))
-        label.bind(size=lambda inst, value: setattr(inst, "text_size", value))
+        noted = "\n" in text
+        label = Label(text=text, halign="left", valign="middle", size_hint_y=None,
+                      font_size=dp(12) if noted else dp(14),
+                      height=dp(46) if noted else dp(28))
+        if noted:
+            # text_size must constrain width, but NOT height: a fixed height
+            # silently crops this note at narrower window sizes/DPI scales.
+            label.bind(width=lambda inst, width: setattr(inst, "text_size", (max(dp(1), width), None)))
+            label.bind(texture_size=lambda inst, texture: setattr(inst, "height", max(dp(46), texture[1] + dp(10))))
+        else:
+            label.bind(size=lambda inst, value: setattr(inst, "text_size", value))
         return label
 
     def compact_text_input(**kwargs: Any) -> TextInput:
         return TextInput(size_hint_y=None, height=dp(42), **kwargs)
 
     def add_field(column_index: int, label_text: str, control: Any) -> None:
-        field = BoxLayout(orientation="vertical", spacing=dp(4), size_hint_y=None, height=dp(70))
-        field.add_widget(field_label(label_text))
+        noted = "\n" in label_text
+        field = BoxLayout(orientation="vertical", spacing=dp(4), size_hint_y=None,
+                          height=dp(90) if noted else dp(70))
+        caption = field_label(label_text)
+        field.add_widget(caption)
         field.add_widget(control)
+        if noted:
+            # Include ALL wrapped lines and the full 42dp input in the field.
+            caption.bind(height=lambda inst, height: setattr(field, "height", height + dp(4) + dp(42)))
         option_columns[column_index].add_widget(field)
 
     credits_input = compact_text_input(text=str(DEFAULT_STARTING_CREDITS), multiline=False, input_filter="int")
@@ -1160,11 +1206,28 @@ def install_launcher_tab(manager: Any) -> None:
             sync_height=True, size_hint_y=None, height=dp(42),
         )
         spinner.slay_value = default_value
+
+        def sync_option_highlights(*_args: Any) -> None:
+            dropdown = getattr(spinner, "_dropdown", None)
+            container = getattr(dropdown, "container", None)
+            if container is None:
+                return
+            for option in getattr(container, "children", ()):
+                if not isinstance(option, SlaySpinnerOption):
+                    continue
+                active = option.text == spinner.text
+                option.background_color = (0.12, 0.42, 0.62, 1.0) if active else (0.18, 0.20, 0.24, 1.0)
+                option.color = (1.0, 1.0, 1.0, 1.0) if active else (0.96, 0.97, 1.0, 1.0)
+
         def selected(instance: Spinner, text: str) -> None:
             instance.slay_value = label_to_value.get(text, default_value)
+            Clock.schedule_once(lambda _dt: sync_option_highlights(), 0)
+
         spinner.bind(text=selected)
+        spinner.bind(is_open=lambda _instance, opened: Clock.schedule_once(lambda _dt: sync_option_highlights(), 0) if opened else None)
         return spinner
 
+    game_mode_button = make_spinner("adventure", {"adventure": "Standard Mode", "endless": "Endless Mode (ALPHA)"})
     difficulty_button = make_spinner(DEFAULT_DIFFICULTY, {value: value.title() for value in DIFFICULTIES})
     game_speed_button = make_spinner(DEFAULT_GAME_SPEED, {
         "default": "Default", "slower": "Slower", "slow": "Slow",
@@ -1177,14 +1240,15 @@ def install_launcher_tab(manager: Any) -> None:
     item_credit_input = compact_text_input(text=str(DEFAULT_ITEM_CREDIT_REWARD), multiline=False, input_filter="int")
 
     # Column 1: campaign/gameplay.
+    add_field(0, "Game Mode", game_mode_button)
     add_field(0, "Gameplay Difficulty", difficulty_button)
     add_field(0, "Game Speed", game_speed_button)
-    add_field(0, "Campaign Length", campaign_length_input)
+    add_field(0, "Campaign Length\n(changing run length may alter difficulty in unexpected ways)", campaign_length_input)
 
     # Column 2: effect generation and seed.
     add_field(1, "Mutation Frequency Multiplier", mutation_multiplier_input)
     add_field(1, "Blessing Frequency Multiplier", blessing_multiplier_input)
-    add_field(1, "Seed", seed_input)
+    add_field(1, "Seed (leave blank for random)", seed_input)
 
     # Column 3: economy.
     add_field(2, "Starting Credits", credits_input)
@@ -1195,6 +1259,33 @@ def install_launcher_tab(manager: Any) -> None:
     add_field(3, "Extra Shop Slots", extra_shop_slots_button)
     add_field(3, "Start with Spear of Adun", start_spear_button)
     add_field(3, "Start with Kerrigan", start_kerrigan_button)
+    root.add_widget(form)
+
+    # Race selection belongs with the other generator settings, not beside
+    # Generate / Load / Reset. Keep the explanatory text adjacent to the choices.
+    race_row = BoxLayout(spacing=dp(6), size_hint_y=None, height=dp(40))
+    race_row.add_widget(Widget(size_hint_x=1))
+    race_labels = BoxLayout(orientation="vertical", spacing=dp(0), size_hint_x=None, width=dp(295))
+    for value, font in (("Available Races", dp(15)),
+                        ("(Removing races makes the game easier)", dp(12))):
+        race_caption = Label(text=value, halign="right", valign="middle", font_size=font)
+        race_caption.bind(size=lambda widget, dimensions: setattr(widget, "text_size", dimensions))
+        race_labels.add_widget(race_caption)
+    race_row.add_widget(race_labels)
+    race_checks = {}
+    for race in DEFAULT_RACES:
+        choice = BoxLayout(spacing=dp(2), size_hint_x=None, width=dp(113))
+        checkbox = CheckBox(active=True, size_hint_x=None, width=dp(32))
+        race_checks[race] = checkbox
+        choice.add_widget(checkbox)
+        race_label = Button(text=race.title(), background_normal="", background_color=(0, 0, 0, 0))
+        race_label.bind(on_release=lambda _button, check=checkbox: setattr(check, "active", not check.active))
+        choice.add_widget(race_label)
+        race_row.add_widget(choice)
+    # Insert ABOVE the main settings grid (the race row used to sit between
+    # the bottom of that grid and the run-generation controls).
+    root.remove_widget(form)
+    root.add_widget(race_row)
     root.add_widget(form)
 
 
@@ -1241,6 +1332,7 @@ def install_launcher_tab(manager: Any) -> None:
 
     def set_busy(busy: bool, message: str) -> None:
 
+        race_row.disabled = busy
         generate_button.disabled = busy
 
         load_button.disabled = busy
@@ -1251,6 +1343,7 @@ def install_launcher_tab(manager: Any) -> None:
 
         seed_input.disabled = busy
 
+        game_mode_button.disabled = busy
         difficulty_button.disabled = busy
 
         game_speed_button.disabled = busy
@@ -1316,7 +1409,9 @@ def install_launcher_tab(manager: Any) -> None:
 
             except Exception:
 
-                pass
+                # Do not hide tab routing failures: the user would otherwise
+                # see a generated run but a frozen Settings screen.
+                logger.exception("Could not switch to Missions after run activation")
 
 
 
@@ -1376,6 +1471,8 @@ def install_launcher_tab(manager: Any) -> None:
 
         seed_input.text = ""
 
+        game_mode_button.text = "Standard Mode"
+        game_mode_button.slay_value = "adventure"
         difficulty_button.text = DEFAULT_DIFFICULTY.title()
 
         difficulty_button.slay_value = DEFAULT_DIFFICULTY
@@ -1397,6 +1494,8 @@ def install_launcher_tab(manager: Any) -> None:
 
         item_credit_input.text = str(DEFAULT_ITEM_CREDIT_REWARD)
 
+        for checkbox in race_checks.values():
+            checkbox.active = True
         status.text = "Settings reset to defaults."
 
 
@@ -1494,6 +1593,12 @@ def install_launcher_tab(manager: Any) -> None:
 
         game_speed = str(getattr(game_speed_button, "slay_value", DEFAULT_GAME_SPEED))
 
+        try:
+            selected_races = normalize_races(tuple(race for race, check in race_checks.items() if check.active))
+        except ValueError as exc:
+            show_error(str(exc))
+            return
+
         set_busy(True, "Generating Slay run...")
 
 
@@ -1513,8 +1618,10 @@ def install_launcher_tab(manager: Any) -> None:
                     item_credit_reward=item_credit_reward,
 
                     game_speed=game_speed, campaign_length=campaign_length,
+                    game_mode=game_mode_button.slay_value,
                     extra_shop_slots=extra_shop_slots, start_with_spear=start_with_spear,
                     start_with_kerrigan=start_with_kerrigan,
+                    selected_races=selected_races,
 
                 )
 

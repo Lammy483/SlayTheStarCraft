@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="us-ascii"?>
 <Catalog>
+  <!-- Native potion cursor is attached to an isolated dummy unit. Move order
+       carries precise engine-resolved ground/unit targets; the Galaxy order
+       event runs potion logic before the unit can travel. -->
+  <!-- Campaign HyperionYamatoSpecial ships with no Cost definition. Define
+       zero-valued fields so player-specific Galaxy catalog edits can grant
+       100 energy and a 15-second cooldown to boon / potion Hyperions BEFORE
+       creation, without changing the cost for enemy mission Hyperions. -->
+  <CAbilEffectTarget id="HyperionYamatoSpecial">
+    <Cost>
+      <Vital index="Energy" value="0"/>
+      <Cooldown Link="APRogueHyperionYamato" TimeUse="0" TimeStart="0"/>
+    </Cost>
+  </CAbilEffectTarget>
+
+  <CUnit id="APRoguePotionTargetCaster" parent="Marine">
+    <Food value="0.0"/>
+    <Radius value="0.1"/>
+    <Sight value="0.0"/>
+    <FlagArray index="NoDraw" value="1"/>
+    <FlagArray index="Unselectable" value="1"/>
+    <FlagArray index="Unclickable" value="1"/>
+    <FlagArray index="Uncursorable" value="1"/>
+    <FlagArray index="Untargetable" value="1"/>
+    <FlagArray index="Invulnerable" value="1"/>
+    <FlagArray index="NoScore" value="1"/>
+  </CUnit>
+
   <CEffectTeleport id="APRogueBlinkEffect">
     <WhichUnit Value="Caster"/>
     <ClearQueuedOrders value="0"/>
@@ -118,6 +145,15 @@
     <Modification WeaponRange="0.25"/>
   </CBehaviorBuff>
 
+  <!-- Marauder Kill Teams: +3 armor on all units, +3 additional weapon damage on marauders. -->
+  <CBehaviorBuff id="APRogueKillTeamArmor">
+    <InfoFlags index="Hidden" value="1"/><MaxCount value="1"/>
+    <Modification LifeArmorBonus="3"/>
+  </CBehaviorBuff>
+  <CBehaviorBuff id="APRogueKillTeamBonus">
+    <InfoFlags index="Hidden" value="1"/><MaxCount value="1"/>
+    <Modification LifeArmorBonus="3"><DamageDealtUnscaled index="Ranged" value="3"/></Modification>
+  </CBehaviorBuff>
   <CBehaviorBuff id="APRogueMarauderKillTeamDamage">
     <InfoFlags index="Hidden" value="1"/>
     <MaxCount value="1"/>
@@ -362,4 +398,19 @@
     <MotionPhases index="0" Acceleration="4" MaxSpeed="2"/>
   </CMoverMissile>
 
+  <CBehaviorBuff id="APRoguePotionStealth">
+    <InfoFlags index="Hidden" value="1"/>
+    <MaxCount value="1"/>
+    <Modification><StateFlags index="Cloak" value="1"/></Modification>
+  </CBehaviorBuff>
+  <CBehaviorBuff id="APRoguePotionStim">
+    <InfoFlags index="Hidden" value="1"/>
+    <MaxCount value="1"/>
+    <Modification AdditiveMoveSpeedFactor="0.5" AdditiveAttackSpeedFactor="0.5"/>
+  </CBehaviorBuff>
+  <CBehaviorBuff id="APRoguePotionDecloak">
+    <InfoFlags index="Hidden" value="1"/>
+    <MaxCount value="1"/>
+    <Modification><StateFlags index="SuppressCloak" value="1"/></Modification>
+  </CBehaviorBuff>
 </Catalog>

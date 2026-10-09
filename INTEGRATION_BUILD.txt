@@ -1,0 +1,5 @@
+integration_branch=develop/v1.1.0
+release_branch=release/v1.1.0
+source_build=v1.1.0
+publish_status=release
+build_kind=public-windows-portable

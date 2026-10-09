@@ -48,7 +48,7 @@ Infantry Reinforcements,"Whenever one of your terran infantry dies, there is a c
 Acidic Landing Markers,"Whenever one of your banelings dies, there is a 20% chance to call down a zerg drop pod",500
 Permanent Stimpack,"Your terran infantry all have double speed, fire rate, and energy regeneration, but constantly lose 1 hp per second",400
 Recycled Armor Suits,"Whenever one of your terran infantry dies, gain 25 minerals and 10 gas",400
-Invasion Fleet,"At the 5 minute mark of each mission, many zerg drop pods attack the enemy for 1 minute",1700
+Invasion Fleet,"Starting at the 5 minute mark of each mission, one zerg drop pod attacks the enemy every second for 2 minutes",1700
 Dead Man Switch,"When one of your spectres die, a circle of nukes lands around them",500
 Reflective Carapace,Your roaches and ultralisks reflect all incoming damage back to their attackers,400
 Cell Division (Ultralisk),"When your ultralisks die, spawn 6 roaches in their place",400
@@ -66,3 +66,4 @@ Hit and Run!,Your reapers gain +5 armor while moving,400
 Meat Grinder,"Whenever you train a marine, train 5 additional marines that automatically attack the enemy",400
 Reaper Blitz,Your reapers deal 10x damage to units and structures that are at maximum hit points,400
 Purifier Alliance,"At the 5 minute mark of each mission, the purifier spawns at your base and slowly attacks the enemy and warps in allies",1300
+Single-Use Tools,"Whenever you complete a mission, gain a random consumable item if you have a slot for it.",400
