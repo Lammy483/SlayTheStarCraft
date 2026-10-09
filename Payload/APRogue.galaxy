@@ -19659,8 +19659,8 @@ bool APRG_PotionActivate(int player, int kind, point location, unit target) {
         // missions; these heroes must be player-owned and player-commandable.
         if (kind == 4) { unitType = APRG_LeviathanBoonType(); }
         if (kind == 5) { unitType = APRG_HyperionBoonType(); }
-        if (kind == 5) { APRG_ConfigureHyperionYamato(player); }
         if (unitType == "" || !CatalogEntryIsValid(c_gameCatalogUnit, unitType)) { return false; }
+        if (kind == 5) { APRG_ConfigureHyperionYamato(player); }
         // Do not pass heroes through generic AP unit-type substitution: the
         // boon uses the *exact* native Leviathan / Hyperion unit type.
         created = UnitCreate(1, unitType, c_unitCreateIgnorePlacement, player, location, 0.0);
