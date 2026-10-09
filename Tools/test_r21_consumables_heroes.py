@@ -39,7 +39,7 @@ class ConsumableAndHeroTests(unittest.TestCase):
         self.assertNotIn('"Potions"',SLAY)
         self.assertIn("'Consumables'",UI)
         self.assertNotIn("'Potions'",UI)
-        self.assertIn('Consumable slots:',UI)
+        self.assertIn('Available slots:',UI)
         start=UI.index('class CardConsole:')
         end=UI.index('    def resize(',start)
         layout=UI[start:end]

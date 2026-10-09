@@ -60,7 +60,7 @@ class PotionCatalogTests(unittest.TestCase):
                      'APRG_NearestPathableEnemyStructure(spawned, player)',
                      'if (kind == 17 || kind == 18)', 'kind >= 1901 && kind <= 1918'):
             self.assertIn(part,GALAXY)
-        self.assertIn('SHOP_STOCK_LOGIC_VERSION = 112',RUNTIME)
+        self.assertIn('SHOP_STOCK_LOGIC_VERSION = 113',RUNTIME)
 
 if __name__=='__main__':
     unittest.main()

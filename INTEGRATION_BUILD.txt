@@ -1,4 +1,4 @@
 integration_branch=develop/v1.1.0
-commit=1bc9309170128ec2ca3e2877cf7013a199e6c754
-runtime_revision=galaxy-native-audit-r17
+source_build=r30
+publish_status=pending
 build_kind=local-themed-test-package

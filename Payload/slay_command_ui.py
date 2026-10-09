@@ -24,7 +24,52 @@ from slay_ui_support import tr, LANGUAGE, related_tech
 from slay_ui_support import ASSETS, button, panel, fallback_planet, fallback_icon
 
 ICON_MAP=json.loads(Path(__file__).with_name('slay_ui_icons.json').read_text(encoding='utf-8'))
+# The Archipelago SC2 item-docs site is authoritative when its illustration
+# differs from a themed UI placeholder. Keep a usable local fallback offline.
+DOCS_ICON_MAP=json.loads(Path(__file__).with_name('slay_docs_icon_overrides.json').read_text(encoding='utf-8'))
 TEXTURES=OrderedDict()
+_DOC_ICON_DOWNLOAD_PENDING=set()
+_DOC_ICON_QUEUE=None
+_DOC_ICON_WORKERS_STARTED=False
+_DOC_ICON_LOCK=None
+
+def _queue_documented_icon(relative_path):
+    """Cache the original docs illustration without ever blocking the Kivy UI."""
+    global _DOC_ICON_QUEUE, _DOC_ICON_WORKERS_STARTED, _DOC_ICON_LOCK
+    import queue, threading
+    if _DOC_ICON_LOCK is None:
+        _DOC_ICON_LOCK=threading.Lock()
+    with _DOC_ICON_LOCK:
+        if relative_path in _DOC_ICON_DOWNLOAD_PENDING:return
+        if not _DOC_ICON_WORKERS_STARTED:
+            _DOC_ICON_QUEUE=queue.Queue()
+            _DOC_ICON_WORKERS_STARTED=True
+            def worker():
+                import urllib.request, urllib.parse
+                while True:
+                    relative=_DOC_ICON_QUEUE.get()
+                    try:
+                        # Only static PNG assets from the exact user-specified docs site.
+                        url='https://archipelago-sc2.github.io/content-docs/'+urllib.parse.quote(relative,safe='/')
+                        request=urllib.request.Request(url,headers={'User-Agent':'SlayTheStarCraft-IconCache/1.1'})
+                        with urllib.request.urlopen(request,timeout=7) as response:
+                            binary=response.read(262145)
+                        if len(binary)>262144 or not binary.startswith(b'\x89PNG\r\n\x1a\n'):continue
+                        destination=ASSETS/'icons'/Path(relative).name
+                        destination.parent.mkdir(parents=True,exist_ok=True)
+                        temporary=destination.with_name(destination.name+'.partial')
+                        temporary.write_bytes(binary)
+                        temporary.replace(destination)
+                    except Exception:
+                        # Offline play must not depend on the icon site.
+                        pass
+                    finally:
+                        _DOC_ICON_QUEUE.task_done()
+            for _ in range(4):
+                threading.Thread(target=worker,name='APSC2IconCache',daemon=True).start()
+        _DOC_ICON_DOWNLOAD_PENDING.add(relative_path)
+        _DOC_ICON_QUEUE.put(relative_path)
+
 CYAN=(.28,.78,1,1)
 SECTIONS=('Terran Units','Terran Upgrades','Zerg Units','Zerg Upgrades','Protoss Units','Protoss Upgrades',
           'Defensive Structures & Detectors','General Upgrades','Mercenary Contracts','Mercenaries','Kerrigan','Spear of Adun','Boons','Consumables','Blessings','Mutations')
@@ -100,7 +145,13 @@ def local_icon(item,source='',category=''):
     # No misleading Immortal portrait for the Spear of Adun ship unlock.
     if str(item).endswith('spear_unlock') or str(item) == 'Unlock Spear of Adun':
         return ''
-    # Every card uses a local, semantic SC2 command-button asset.
+    # Prefer the exact Archipelago documentation art whenever that upgrade
+    # has a documented image. Older themed thumbnails are only offline fallbacks.
+    docs_path=DOCS_ICON_MAP.get(str(item))
+    if docs_path:
+        preferred=ASSETS/'icons'/Path(docs_path).name
+        if preferred.is_file():return str(preferred)
+        _queue_documented_icon(docs_path)
     mapped=ICON_MAP.get(str(item))
     if mapped and (ASSETS/'icons'/mapped).is_file():return str(ASSETS/'icons'/mapped)
     if source:
@@ -334,7 +385,13 @@ class CardConsole:
         self.view_button=control('',lambda *_:self.toggle_view(),size_hint_x=None,width=dp(145))
         top.add_widget(self.view_button)
         if shop:
-            # Put Exit Shop at the far right, immediately after Show Cards/List.
+            # Dismiss the shop before opening inventory, so modal input and the
+            # map's hover suppression are reset by the regular dismissal path.
+            def show_inventory(*_):
+                self.popup.bind(on_dismiss=lambda _pop: Clock.schedule_once(
+                    lambda _dt: self.manager.open_slay_inventory(), 0))
+                self.popup.dismiss()
+            top.add_widget(control('Inventory',show_inventory,size_hint_x=None,width=dp(145)))
             top.add_widget(control('Exit Shop',self.popup.dismiss,size_hint_x=None,width=dp(170)))
         root.add_widget(top)
         body=BoxLayout(spacing=dp(14))
@@ -487,8 +544,11 @@ class CardConsole:
             if category == 'Consumables':
                 from worlds.sc2 import slay_the_starcraft as slay
                 count = len(slay.potion_inventory(self.manager.ctx))
-                heading += f'     [color=82DFF5]Consumable slots: {count}/2[/color]'
-            group.add_widget(label(heading,size_hint_y=None,height=dp(26),font_size=dp(13)))
+                heading += f'     [color=82DFF5]Available slots: {max(0, slay.POTION_CAPACITY - count)}/{slay.POTION_CAPACITY}[/color]'
+            heading_label=label(heading,size_hint_y=None,height=dp(26),font_size=dp(13))
+            if category == 'Consumables' and self.shop:
+                self.popup.slay_consumable_slots_label=heading_label
+            group.add_widget(heading_label)
             for name in names:
                 entry=self.entries[name]
                 row=RelicRow(entry,category,self.inspect,self.shop,lambda item:self.manager._slay_buy(item,self.popup),compact=True,size_hint_y=None,height=dp(88))
@@ -507,18 +567,32 @@ def open_console(manager,shop):
     if not shop and getattr(manager,'slay_inventory_popup',None):return
     if not slay.state_ready(manager.ctx):
         pop=Popup(title='Loading Adventure',content=label('Adventure data is loading. Please try again shortly.'),size_hint=(.55,.35));pop.open();return
+    # Bank acknowledgement is authoritative and may have changed since a
+    # previous in-game HUD poll. Refresh *before* building shop headings.
+    slay.refresh_consumable_slots(manager.ctx)
     manager._slay_begin_modal()
     entries={}
     if shop:
+        # Initialize actual stock first. Otherwise the first shop visit can
+        # calculate a sale for stale stock and then rebuild stock during prewarm.
+        slay.shop_stock(manager.ctx)
         sales=set(slay.shop_sale_items(manager.ctx,preserve=True))
         signature=manager._slay_shop_cache_signature();cache=getattr(manager,'slay_shop_cache',None)
         if not cache or cache.get('signature')!=signature or set(cache.get('sale_items',()))!=sales:
             manager._slay_prewarm_shop();cache=getattr(manager,'slay_shop_cache',None)
         sections=cache['sections'] if cache else slay.shop_sections(manager.ctx)
+        # The authoritative sale set and the actual prices must agree even
+        # after stock initialization and cache mutations. Only discount-priced
+        # entries get the SALE label and green background.
+        sales=set(slay.shop_sale_items(manager.ctx,preserve=True))
+        priced_sales=set()
         for category,names in sections:
             for name in names:
                 desc,display,icon=cache['entry_data'][name] if cache and name in cache['entry_data'] else (slay.shop_entry_description(name),slay.shop_entry_display_name(name),slay.shop_entry_icon(name))
-                entries[name]={'id':name,'canonical_name':name,'name':tr(display),'description':tr(desc),'icon':icon,'sale':name in sales}
+                discounted=(name in sales and slay.price_for_item(name,manager.ctx) < slay._price_for_item_before_sale(name,manager.ctx))
+                if discounted:priced_sales.add(name)
+                entries[name]={'id':name,'canonical_name':name,'name':tr(display),'description':tr(desc),'icon':icon,'sale':discounted}
+        sales=priced_sales
     else:
         sales=set();by_section=defaultdict(list)
         cache=getattr(manager,'slay_shop_cache',None)

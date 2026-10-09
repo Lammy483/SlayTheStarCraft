@@ -7,6 +7,13 @@
     <Food value="0.0"/>
     <Radius value="0.1"/>
     <Sight value="0.0"/>
+    <FlagArray index="NoDraw" value="1"/>
+    <FlagArray index="Unselectable" value="1"/>
+    <FlagArray index="Unclickable" value="1"/>
+    <FlagArray index="Uncursorable" value="1"/>
+    <FlagArray index="Untargetable" value="1"/>
+    <FlagArray index="Invulnerable" value="1"/>
+    <FlagArray index="NoScore" value="1"/>
   </CUnit>
 
   <CEffectTeleport id="APRogueBlinkEffect">
@@ -127,6 +134,15 @@
     <Modification WeaponRange="0.25"/>
   </CBehaviorBuff>
 
+  <!-- Marauder Kill Teams: +3 armor on all units, +3 additional weapon damage on marauders. -->
+  <CBehaviorBuff id="APRogueKillTeamArmor">
+    <InfoFlags index="Hidden" value="1"/><MaxCount value="1"/>
+    <Modification LifeArmorBonus="3"/>
+  </CBehaviorBuff>
+  <CBehaviorBuff id="APRogueKillTeamBonus">
+    <InfoFlags index="Hidden" value="1"/><MaxCount value="1"/>
+    <Modification LifeArmorBonus="3"><DamageDealtUnscaled index="Ranged" value="3"/></Modification>
+  </CBehaviorBuff>
   <CBehaviorBuff id="APRogueMarauderKillTeamDamage">
     <InfoFlags index="Hidden" value="1"/>
     <MaxCount value="1"/>

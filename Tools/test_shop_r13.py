@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1] / 'Payload'
 RUNTIME = (ROOT/'slay_the_starcraft.py').read_text(encoding='utf-8')
 UI = (ROOT/'slay_command_ui.py').read_text(encoding='utf-8')
 TREE = ast.parse(RUNTIME)
-FUNCTIONS={'shop_render_states','can_buy_shop_item','_potion_unlock_eligible'}
+FUNCTIONS={'shop_render_states','can_buy_shop_item','_spear_unlocked_active_ability_count','_potion_unlock_eligible'}
 VARIABLES={'POTION_PREFIX','POTION_DEFINITIONS','POTION_CATALOG','POTION_CAPACITY','POTION_RANDOM_UNITS','POTION_VARIANT_PREFIX'}
 nodes=[]
 for node in TREE.body:
@@ -37,6 +37,8 @@ class ShopR13Tests(unittest.TestCase):
             'potion_inventory':lambda ctx:ctx.slots,
             '_progression_owned':lambda ctx,name:name in ctx.owned,
             'SPEAR_UNLOCK':'Spear', 'KERRIGAN_UNLOCK':'Kerrigan',
+            'SPEAR_FALLBACK_ITEMS':{'Progressive Proxy Pylon (Spear of Adun)','Orbital Strike (Spear of Adun)'},
+            '_purchased_count':lambda ctx,name:ctx.state['purchases'].get(name,0),
             'purchased_count':lambda ctx,name:0,
             'price_for_item':lambda name,ctx,sale_items_override=None: int(NS['POTION_CATALOG'][name]['price']),
             '_parse_boon':lambda name:(None,None),
@@ -59,6 +61,9 @@ class ShopR13Tests(unittest.TestCase):
         ctx=Ctx()
         self.assertFalse(self.states(ctx,['slay_potion::12'])['slay_potion::12'][1])
         ctx.owned.add('Spear')
+        self.assertFalse(self.states(ctx,['slay_potion::12'])['slay_potion::12'][1])
+        ctx.state['purchases']['Progressive Proxy Pylon (Spear of Adun)']=1
+        ctx.state['purchases']['Orbital Strike (Spear of Adun)']=1
         self.assertTrue(self.states(ctx,['slay_potion::12'])['slay_potion::12'][1])
     def test_random_variants_also_use_potion_purchase_rules(self):
         ctx=Ctx()

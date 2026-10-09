@@ -39,10 +39,10 @@ class R14Tests(unittest.TestCase):
 
     def test_mutation_mean_plus_one_for_every_campaign_length(self):
         g=self.g
-        self.assertAlmostEqual(g._base_effect_means(0,11)[0],2.95)
-        self.assertAlmostEqual(g._base_effect_means(0,2)[0],4.0)
-        self.assertAlmostEqual(g._base_effect_means(10,11)[0],12.15)
-        self.assertAlmostEqual(g._base_effect_means(11,11,True)[0],15.87)
+        self.assertAlmostEqual(g._base_effect_means(0,11)[0],3.20)
+        self.assertAlmostEqual(g._base_effect_means(0,2)[0],4.25)
+        self.assertAlmostEqual(g._base_effect_means(10,11)[0],14.90)
+        self.assertAlmostEqual(g._base_effect_means(11,11,True)[0],18.87)
         self.assertIn('_curve_value(_EXPECTED_MUTATION_SEVERITY_PROFILE, frac) + 1.0',self.runtime)
 
     def test_captions_and_form_notes(self):

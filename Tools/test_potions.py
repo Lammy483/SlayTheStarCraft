@@ -15,7 +15,7 @@ from typing import Any, Mapping, Sequence
 
 SOURCE=Path(__file__).parents[1] / 'Payload' / 'slay_the_starcraft.py'
 MODULE=ast.parse(SOURCE.read_text(encoding='utf-8'),str(SOURCE))
-KEEP_FUNC={"_potion_unlock_eligible", "potion_mercenary_mask", "_potion_bank_uses", "potion_inventory", "potion_handshake_slots", "can_buy_shop_item", "purchase", "price_for_item", "shop_category_for_item", "test_potion_run_token"}
+KEEP_FUNC={"_spear_unlocked_active_ability_count", "_potion_unlock_eligible", "potion_mercenary_mask", "_potion_bank_uses", "potion_inventory", "potion_handshake_slots", "can_buy_shop_item", "purchase", "price_for_item", "shop_category_for_item", "test_potion_run_token"}
 KEEP_VARS={"POTION_PREFIX", "POTION_DEFINITIONS", "POTION_CATALOG", "POTION_CAPACITY", "POTION_MERC_NAMES", "_POTION_BANK_USE_CACHE", "POTION_RANDOM_UNITS", "POTION_VARIANT_PREFIX"}
 body=[]
 for item in MODULE.body:
@@ -43,6 +43,8 @@ class PotionTests(unittest.TestCase):
         NS.update({"enabled":lambda ctx:True,"state_ready":lambda ctx:True,"state":lambda ctx:ctx.state,
                    "_potion_bank_uses":lambda ctx:set(),"_progression_owned":lambda ctx,name:name in ctx.owned,
                    "SPEAR_UNLOCK":"Spear", "KERRIGAN_UNLOCK":"Kerrigan",
+                   "SPEAR_FALLBACK_ITEMS":{"Progressive Proxy Pylon (Spear of Adun)","Orbital Strike (Spear of Adun)","Guardian Shell (Spear of Adun)"},
+                   "_purchased_count":lambda ctx,name:ctx.state.get('purchases',{}).get(name,0),
                    "shop_stock":lambda ctx:ctx.stock,"credits":lambda ctx:ctx.available_credits-ctx.state['spent'],
                    "_persist_state":lambda ctx:setattr(ctx,'persist_count',ctx.persist_count+1)})
     def test_every_potion_has_expected_fixed_price_and_target(self):
@@ -108,6 +110,10 @@ class PotionTests(unittest.TestCase):
         self.assertFalse(NS['_potion_unlock_eligible'](self.ctx,"slay_potion::13"))
         self.assertFalse(NS['_potion_unlock_eligible'](self.ctx,"slay_potion::14"))
         self.ctx.owned={"Spear","Kerrigan",*NS['POTION_MERC_NAMES'][:3]}
+        self.assertFalse(NS['_potion_unlock_eligible'](self.ctx,"slay_potion::12"))
+        self.ctx.state['purchases']={'Progressive Proxy Pylon (Spear of Adun)':1}
+        self.assertFalse(NS['_potion_unlock_eligible'](self.ctx,"slay_potion::12"))
+        self.ctx.state['purchases']['Orbital Strike (Spear of Adun)']=1
         self.assertTrue(all(NS['_potion_unlock_eligible'](self.ctx,"slay_potion::"+str(i)) for i in (12,13,14)))
         self.assertEqual(NS['potion_mercenary_mask'](self.ctx),7)
     def test_bank_xml_consumption_isolated_to_run_token(self):

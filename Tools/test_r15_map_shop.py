@@ -51,7 +51,7 @@ class R15MapShopTests(unittest.TestCase):
         self.assertIn("color=(.13,.23,.16,1) if shop and entry.get('sale')", UI)
         self.assertNotIn('self.slay_sale_outline=Line(', UI)
         self.assertIn('sale_background=RoundedRectangle(', UI)
-        self.assertIn("'sale':name in sales", UI)
+        self.assertIn("'sale':discounted", UI)
         self.assertIn('sales=set(slay.shop_sale_items(manager.ctx,preserve=True))', UI)
 
     def test_spear_unlock_does_not_render_empty_icon_widgets(self):

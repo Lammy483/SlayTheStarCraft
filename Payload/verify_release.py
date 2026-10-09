@@ -33,8 +33,36 @@ def check_catalog(path, expected):
     if fields!=expected: raise RuntimeError(f"Unexpected columns in {path.name}: {fields}")
     if not rows: raise RuntimeError(f"{path.name} is empty.")
 
+def check_installer_galaxy_postchecks(payload_dir: Path) -> None:
+    """Catch stale installer-required APRogue markers *before* a user downloads data.
+
+    This reads the same literal ``post_checks[apr_target]`` list used by
+    install_slay.py's pre-install stage; it does not execute the installer or
+    require downloaded Archipelago data.
+    """
+    installer_tree = ast.parse((payload_dir / "install_slay.py").read_text(encoding="utf-8"))
+    marker_list = None
+    for node in ast.walk(installer_tree):
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Dict):
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == "post_checks" for target in node.targets):
+            continue
+        for key, value in zip(node.value.keys, node.value.values):
+            if isinstance(key, ast.Name) and key.id == "apr_target":
+                marker_list = ast.literal_eval(value)
+                break
+        break
+    if marker_list is None or not marker_list:
+        raise RuntimeError("Cannot identify the installer's APRogue pre-install post-checks")
+    galaxy = (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8")
+    missing = [marker for marker in marker_list if marker not in galaxy]
+    if missing:
+        raise RuntimeError(f"Installer will reject the APRogue.galaxy payload: {missing}")
+
+
 def check_payload():
     check_embedded_gui_methods()
+    check_installer_galaxy_postchecks(ROOT)
     verify_v1025_changes(ROOT)
     verify_v1026_changes(ROOT)
     verify_v1027_changes(ROOT)
@@ -174,9 +202,9 @@ def verify_v1025_changes(payload_dir: Path) -> None:
     for expected in (
         "libNtve_gf_PauseUnit(u, true)",
         "libNtve_gf_PauseUnit(u, false)",
-        "libNtve_gf_AttachModelToUnitInheritVisibility",
-        "libNtve_gf_SetOpacity(1.0, 3.0)",
-        "g_aprgPurifierWarpTime[best] = now + 3.0",
+        "APRG_CreateWarpVisual(u, spawnPoint)",
+        "libNtve_gf_SetOpacity(1.0, 5.0)",
+        "g_aprgPurifierWarpTime[best] = now + 5.0",
     ):
         if expected not in galaxy_text:
             raise RuntimeError(f"Missing deterministic warp-in implementation: {expected}")
@@ -200,7 +228,7 @@ def verify_v1026_changes(payload_dir: Path) -> None:
             raise RuntimeError(f"Missing v1.0.2.17 development weighting fix: {token}")
     for token in (
         'unit[512] g_aprgAllyWarpUnit;',
-        'g_aprgAllyWarpTime[best] = now + 3.0;',
+        'g_aprgAllyWarpTime[best] = now + 5.0;',
         'APRG_QueuePurifierEscortWarp',
         'bool[32] g_aprgPurifierWarpEscort;',
     ):
@@ -259,7 +287,7 @@ def verify_v1028_changes(payload_dir: Path) -> None:
         "APRG_OdinBarrageTarget",
         'AbilityCommand("OdinBarrage", 0)',
         "APRG_ClearFriendlyBlocker",
-        'return "BattlecruiserMerc"',
+        'return "DukesRevenge"',
         "APRG_TryOrlanTrainSCV",
         "APRG_SpawnOrlanReplacementSCV",
         "g_aprgNextCloneRetargetTime = now + 10.0",
@@ -324,14 +352,14 @@ def verify_v10210_changes(payload_dir: Path) -> None:
             raise RuntimeError(f"Missing v1.0.2.17 mission-tier distribution fix: {token}")
     for token in (
         "bool APRG_GoldenPatrolRouteSafe",
-        "APRG_PointNearPlayerOrAlliedBuilding(sample, player, 30.0)",
+        "APRG_PointNearPlayerOrAlliedBuilding(sample, player, clearance)",
         "GameGetMissionTime() < 600.0",
         "APRG_SetGroupMovementSpeed(g_aprgGoldenFleet, 1.9)",
         "APRG_SetGroupMovementSpeed(g_aprgTrueGoldenFleet, 1.9)",
         "c_unitPropLifeMax, 1000.0",
         "c_unitPropShieldsMax, 1000.0",
-        'CatalogEntryIsValid(c_gameCatalogUnit, "JacksonsRevenge")',
-        "CatalogEntryCount(c_gameCatalogUnit)",
+        'CatalogEntryIsValid(c_gameCatalogUnit, "DukesRevenge")',
+        "APRG_JacksonsRevengeType()",
     ):
         if token not in galaxy:
             raise RuntimeError(f"Missing v1.0.2.17 Golden Armada/Orlan fix: {token}")
@@ -351,7 +379,7 @@ def verify_v10211_changes(payload_dir: Path) -> None:
         if token not in generator:
             raise RuntimeError(f"Missing v1.0.2.17 mission pacing fix: {token}")
     for token in (
-        "SHOP_STOCK_LOGIC_VERSION = 112",
+        "SHOP_STOCK_LOGIC_VERSION = 113",
         "def _unit_upgrade_available_from_owned_or_current_stock",
         "race_unit_stock = _weighted_shop_sample",
         "ctx, name, owned_unlocks, race_unit_stock, table",
@@ -359,7 +387,7 @@ def verify_v10211_changes(payload_dir: Path) -> None:
         if token not in runtime:
             raise RuntimeError(f"Missing v1.0.2.17 current-shop upgrade fix: {token}")
     installer = (payload_dir / "install_slay.py").read_text(encoding="utf-8")
-    if '"SHOP_STOCK_LOGIC_VERSION = 112"' not in installer:
+    if '"SHOP_STOCK_LOGIC_VERSION = 113"' not in installer:
         raise RuntimeError("Installer preflight shop-stock version is stale")
     if '"SHOP_STOCK_LOGIC_VERSION = 108"' in installer:
         raise RuntimeError("Installer still contains obsolete shop-stock version 108")
@@ -412,7 +440,7 @@ def verify_v10214_changes(payload_dir: Path) -> None:
         'DISABLED_MUTATIONS = {"enemy_spear_of_adun"}',
         '_upgrade_pack_race_is_unlocked(ctx, race, owned_unlocks)',
         'return _owned_race_unit_unlock_count(ctx, race, owned_unlocks, table) >= 3',
-        'SHOP_STOCK_LOGIC_VERSION = 112',
+        'SHOP_STOCK_LOGIC_VERSION = 113',
     ):
         if token not in runtime:
             raise RuntimeError(f"Missing v1.0.2.17 runtime fix: {token}")

@@ -1,3 +1,84 @@
+## v1.1.0 development r30 — Single-Use Tools and Tosh and his Boys
+
+- **Single-Use Tools** (400 credits): owning this boon awards one randomly rolled shop-eligible consumable after a completed mission if there is an empty consumable slot. It never exceeds two inventory slots, does not reward pre-purchase victories, and records completed missions to avoid repeat awards on reconnect or reopening the shop.
+- **Tosh and his Boys** (mutation severity 3): Tosh starts in ground-connected enemy territory and starts attack/patrol AI three minutes after the base is established. Four minutes after establishment, a cloaked Spectre raid begins, recurring once per minute while Tosh lives. Spectres attack-move toward the nearest pathable player building and try to nuke within five range of it. They attempt their native ability first, with an interruptible warning-and-detonation fallback for campaign variants lacking nuke support. The mutation is prohibited on island missions.
+- New regression coverage for both systems. Full SC2 Galaxy mission verification is still required; source-level checks are not a native SC2 compiler.
+
+## v1.1.0 development r29 — documented icons, consumable shop, mercenary squads, HUD, VO
+
+- Prefer the exact Archipelago SC2 item documentation artwork for upgrades with a documented image, including 35 source-map corrections. Shipped images are used locally; older UI-themed icons remain as fallback for unavailable source files.
+- Give all 19 consumables and the 18 random-unit consumables appropriate local SC2 artwork. In particular, Mass Spellcasters uses the High Templar, Mass Stimpack uses Stimpack, Hyperion uses the Battlecruiser, and Leviathan uses the Spawn Leviathan icon.
+- Shop Expansion adds one rolled consumable offer per stack (+1 per purchase) without increasing the two-consumable inventory capacity. Includes a stock-version bump so cached old rolls refresh.
+- Mercenary Favor generates suitable squad sizes (four War Pigs, two Hammer Securities, single Jotun/Jackson's Revenge and other heavy mercenaries) from living Merc Compound/Predator Nest sites rather than the main base. Uses the standard player unit factory and avoids consuming the potion when no eligible mercenary can spawn.
+- Warfield's Drop Pod Wave VO triggers once on potion activation, not with each landed pod, and no longer increments recurring Warfield drop VO counters.
+- Native potion HUD controls shrink from 260×56 to 235×44 and move flush with the top anchor, staying about 15% in from the left to clear objective text.
+- Confirm the allied For Aiur/Nexus Shields and Purifier hostile/escort scripted warp-in queues share the campaign model animation, five-second stun and fade.
+- Offline regression coverage added; gameplay, artwork scale, and placement still need live in-game validation.
+
+## v1.1.0 development r28 — storm targeting, Spear energy, mission safety, warp-in effects
+
+- Autonomous High Templar (including Mass Spellcasters and Specialists) prioritize Psionic Storm ahead of generic abilities, ignore misleading native autocast flags, and choose dense enemy groups (up to 24 potential targets) within casting range. They resume their previous attack-move order after a cast. Player-controlled High Templar are unaffected.
+- Spear of Adun Recharge consumable now fills only the Spear energy pool, without trying to reset cooldowns. It is eligible for the shop only after the Spear has been unlocked and at least **two distinct active abilities** have been unlocked; passive upgrades and repeated levels of the same ability do not count. The free initial Deploy Pylon counts as one ability.
+- Nexus Shields cannot roll on **Smash and Grab**, whether during run generation or later mutation acquisition/rerolls.
+- Scripted ally/Purifier warp-ins now attach the campaign-standard `ProtossGenericWarpInOut` animated model to the unit as the primary effect, rather than treating the `ProtossFastWarpinMarker` point actor as a successful warp animation. Five-second pause and fade-in are unchanged.
+- Offline validation and regression coverage added. Visuals and ability usage require live StarCraft II testing; GitHub unchanged.
+
+## v1.1.0 development r27 — one-time contract structures and HUD placement
+
+- Fixed the Merc Compound regenerating after destruction. Previously, `APRG_TickContractStructures` interpreted a dead tracked compound as a reason to create another. Both Merc Compound and Predator Nest now use a one-time-per-mission resolution flag: failed initial placement can retry, but destruction never triggers a replacement.
+- Repositioned the two consumable buttons from the upper-right overlay to the top-left region, panel left edge 320 SC2 UI units (~15% on a 16:9 screen), 4 units from the top. The external Archipelago announcement frame and consumable mechanics are unchanged.
+- Source regression tests cover both once-only structure flags and the new HUD location. In-game verification is still required. Not pushed to GitHub.
+
+## v1.1.0 development r26 — consumable gameplay and warp-in feedback
+
+- Move the consumable buttons down another 12 game UI units, and show successful use notices for four seconds. The separate Archipelago notification frame could not be moved safely from Slay's Galaxy script and remains unchanged.
+- Extend the scripted Nexus Shields, Purifier, and For Aiur warp-in stun/fade from three to five seconds; attempt a world-space Fast Warp In marker with the existing attached-model fallback. Actual animation visibility needs in-game verification.
+- Hyperion in a Bottle: configure Yamato energy cost and cooldown alongside the Hyperion boon, with full initial energy.
+- Mass Spellcasters: create actual native campaign Infestors rather than accidentally substituting Infested Terrans; keep Specialists-compatible spellcasters plus requested extra units and initialize them at full energy.
+- Spear of Adun Recharge: reset caster and player cooldown links found in the Spear abilities rather than only their first link; recharge both caster forms.
+- Mercenary Favor: resolve actual mercenary unit IDs and their squad sizes, without consuming charges or cooldowns. The actual live mercenary train commands are not invoked.
+- Controllable named-unit consumables: no automatic attack orders or autonomous AI enrollment. The uncontrollable Mass Marines and Mass Spellcasters waves retain their standard attack AI. Resolve healthy unlocked AP variants once per use, prefer known default War Council choices, and fall back to a normal unit if an AP variant is an invalid placeholder.
+- Keep existing 30/s mass-spawn limit and all compatibility wire IDs. GitHub not updated.
+
+## v1.1.0 development r25 — installer verification hotfix and Armada buffers
+
+- Fix `Download Data` failure during *Applying Slay patches*: installer still required deleted `APRG_GoldenArmadaEarlySafety` from the older emergency-retreat implementation. Check the current `APRG_GoldenPatrolRouteSafe`, `APRG_FindGoldenSafeAirPoint` and `APRG_GoldenSafePatrolDestination` helpers instead.
+- Validate the installer's complete APRogue Galaxy required-symbol list during source verification, **before** releasing the archive; add a regression that deliberately introduces the r24 bug and confirms validation rejects it.
+- Non-True Golden Armada: change central spawn safety radius to 40 (from 55), patrol clearance to 24 for the fleet's central route (20 minimum + approximately 4 formation margin). The path sampling and checks against player/allied structures remain active until four minutes.
+- **True Golden Armada unchanged:** spawn clearance 55, early patrol clearance 40, special timing remains in place.
+- GitHub not updated (by request).
+
+## v1.1.0 r24 — Golden Armada safety, consumables, and HUD corrections
+
+- Spear of Adun unlock price is 500 credits.
+- Golden Armada uses allied-building-safe enemy-side spawn points and segment-validated enemy-territory patrols before its four-minute engagement window. Removed the earlier reactive retreat behavior and, critically, the air-reachability relocation that moved the fleet toward the player's base after a valid spawn.
+- True Golden Armada retains its existing ten-minute protected patrol interval. It no longer uses that relocation, checks its fleet and Phoenix routes against player/allied buildings, avoids premature mothership-loss assaults before four minutes, and delays Oracle Revelation orders until its protected patrol phase ends.
+- Added 0.25 average mutation severity per mission number in the generator and expected-danger/credit model (mission ten +2.5 severity on average), on top of the existing +1 global baseline.
+- Shop and inventory refresh consumed consumable serials on open and show the actual number of free slots; shop header updates after purchase.
+- Removed “native SC2” from the consumable targeting instructions.
+- The private consumable-targeting Marine is hidden, unselectable, invulnerable, untargetable, non-highlightable, and excluded from Slay player-unit collections. It remains present internally to preserve the targeting cursor.
+- Preserved r23 gameplay and launcher behavior; no GitHub update.
+
+## v1.1.0 r23 — Baneling AI, mercenary Battlecruiser, live consumables and Kill Teams
+
+- Baneling Stream uses shared validated attack-move point orders and reselects destinations every 8 seconds; ground target fallback avoids idle suicide units.
+- Orlan's Planetary Fortress uses the campaign's `DukesRevenge` unit ID (the actual mercenary Battlecruiser per SC2 Campaign RequirementsAI); generic Battlecruiser fallback is preferred over incomplete Jackson-name placeholder entries. Mercenary Favor uses the same resolver.
+- Standard enemy/player attack-target selection excludes invulnerable structures and units, without removing them from the general mission structure pools.
+- Running SC2 bot polls the current run's consumable slots for changes and sends an isolated `?SlayConsumables` chat handshake. The Galaxy receiver validates run token and serials, refreshes hidden/visible HUD buttons, and resets the used flag only on a newly assigned serial. Startup `?APRogue` configuration remains unchanged.
+- Marauder Kill Teams receive +3 armor and +3 bonus ranged damage on spawned Marauders, and +3 armor on Medics. Existing special model and fallback damage buff behavior remains.
+- Source-only validation is not an SC2 Galaxy compiler or live mission verification. No GitHub changes.
+
+## v1.1.0 r22 — Shop sale consistency, inventory consumables, spawn throttling and Kerrigan cleanup
+
+- Initialize current stock before sale selection, then reconcile highlighted sale rows with the live discounted price after any prewarm/cache rebuild. Do not highlight a row simply because it appears in an outdated sale ID set.
+- Add an Inventory button between Show Cards and Exit Shop in the shop header. Dismiss the shop before opening the inventory modal.
+- Show purchased, unused consumables in Inventory with the exact catalog description; keep consumables hidden after their consumption serial is recorded in the mission bank.
+- Throttle Mass Marines and Mass Spellcasters to a shared maximum of three units per 0.1-second fast tick (30 units per second total), even if both consumable waves run simultaneously. Other unit-spawn consumables retain their original timing.
+- Move the top-right consumable button panel down by 12 game UI units.
+- On either successful Kerrigan respawn path, remove living player-owned Kerrigan revive cocoons.
+- Archipelago's in-mission announcement overlay is owned by the external Archipelago SC2 mod. It is not reliably addressable from APRogue's consumable Dialog; announcement repositioning remains pending rather than risking unrelated SC2 frame modification.
+- Retain all r21 systems and stable consumable wire IDs. Do not push this local patch to GitHub.
+
 ## v1.1.0 r21 — Consumables, mission risk, shop and Heroes of the Storm safety
 
 - Reclassify Sonic Disrupter and Psi Screen (Psi Disrupter upgrades) under Defensive Structures & Detectors, alongside the Psi Disrupter itself.

@@ -134,7 +134,7 @@ def dependency_sensitive_effect_exclusions(mission_name: str) -> tuple[set[str],
 
 
 
-MUTATORS = {'golden_armada': 2, 'true_golden_armada': 6, 'low_quality_minerals': 2, 'conga_line': 3, 'ten_minutes_until_destruction': 4, 'siege_mode': 1, 'drakken_laser_drill_enemy': 4, 'dark_archons': 1, 'drop_pods': 3, 'dark_templar': 3, 'fragile_workers': 1, 'decay': 3, 'zombies_mutation': 3, 'limited_bank': 1, 'leviathan_in_orbit': 5, 'heroes_of_the_storm': 3, 'too_many_wraiths': 2, 'void_thrashers': 4, 'not_enough_energy': 1, 'viking_raids': 2, 'nuclear_annihilation': 3, 'darkness': 2, 'adrenaline': 3, 'picky_eaters': 2, 'arms_race': 3, 'rising_gas_prices': 2, 'squishy': 2, 'forced_variety': 2, 'occasional_thor_mutation': 1, 'occasional_ultralisk_mutation': 1, 'occasional_colossus_mutation': 1, 'enemy_regeneration': 3, 'sniper_thor': 1, 'another_gorgon_mutation': 2, 'burrowed_zerglings': 1, 'tower_defense': 2, 'cloaked_nightmare': 5, 'jetpacks': 2, 'tactical_binoculars': 4, 'no_deaths_allowed': 7, 'victory_is_temporary': 5, 'nuclear_workers': 1, 'taldarim_reinforcements': 4, 'miras_mercenaries': 2, 'double_time': 1, 'shrinkage': 3, 'mineral_thieves': 1, 'active_enemies': 2, 'zagaras_banelings': 3, 'buddy_system': 3, 'torrasque': 3, 'nexus_shield': 4, 'gargantuan_enemies': 5, 'raynors_raiders': 6, 'purifier': 4, 'dehakas_pack': 5, 'zombie_apocalypse': 5, 'arguments': 2, 'combat_pay': 2, 'marauder_kill_teams': 2, 'dark_archons_x5': 4, 'siege_mode_x5': 4, 'nuclear_structures': 1, 'hellion_run_by': 2, 'diamondback_wanderers': 3, 'leviathan_outside_base': 5, 'odin_delayed_assault': 3, 'combined_raids': 5, 'brakk_primal_army': 5, 'orlan_fortress': 4, 'enemy_spear_of_adun': 7, 'immortal_zergling': 1}
+MUTATORS = {'golden_armada': 2, 'true_golden_armada': 6, 'low_quality_minerals': 2, 'conga_line': 3, 'ten_minutes_until_destruction': 4, 'siege_mode': 1, 'drakken_laser_drill_enemy': 4, 'dark_archons': 1, 'drop_pods': 3, 'dark_templar': 3, 'fragile_workers': 1, 'decay': 3, 'zombies_mutation': 3, 'limited_bank': 1, 'leviathan_in_orbit': 5, 'heroes_of_the_storm': 3, 'too_many_wraiths': 2, 'void_thrashers': 4, 'not_enough_energy': 1, 'viking_raids': 2, 'nuclear_annihilation': 3, 'darkness': 2, 'adrenaline': 3, 'picky_eaters': 2, 'arms_race': 3, 'rising_gas_prices': 2, 'squishy': 2, 'forced_variety': 2, 'occasional_thor_mutation': 1, 'occasional_ultralisk_mutation': 1, 'occasional_colossus_mutation': 1, 'enemy_regeneration': 3, 'sniper_thor': 1, 'another_gorgon_mutation': 2, 'burrowed_zerglings': 1, 'tower_defense': 2, 'cloaked_nightmare': 5, 'jetpacks': 2, 'tactical_binoculars': 4, 'no_deaths_allowed': 7, 'victory_is_temporary': 5, 'nuclear_workers': 1, 'taldarim_reinforcements': 4, 'miras_mercenaries': 2, 'double_time': 1, 'shrinkage': 3, 'mineral_thieves': 1, 'active_enemies': 2, 'zagaras_banelings': 3, 'buddy_system': 3, 'torrasque': 3, 'nexus_shield': 4, 'gargantuan_enemies': 5, 'raynors_raiders': 6, 'purifier': 4, 'dehakas_pack': 5, 'zombie_apocalypse': 5, 'arguments': 2, 'combat_pay': 2, 'marauder_kill_teams': 2, 'dark_archons_x5': 4, 'siege_mode_x5': 4, 'nuclear_structures': 1, 'hellion_run_by': 2, 'diamondback_wanderers': 3, 'leviathan_outside_base': 5, 'odin_delayed_assault': 3, 'combined_raids': 5, 'brakk_primal_army': 5, 'orlan_fortress': 4, 'enemy_spear_of_adun': 7, 'immortal_zergling': 1, 'tosh_and_his_boys': 3}
 
 BLESSINGS = {'investors': 1, 'multi_class': 1, 'speedy': 3, 'general': 2, 'farseers': 1, 'air_support': 2, 'fire_squad': 1, 'fuel_pipeline': 2, 'rapid_evolution': 2, 'zombies_blessing': 4, 'compounding_interest': 2, 'transports': 1, 'lost_vikings': 1, 'warfields_reinforcements': 4, 'energy_overload': 1, 'explosive_armor': 3, 'instant_workers': 2, 'juggernaut': 1, 'assembly_line': 2, 'elite_soldiers': 2, 'blinding_light': 2, 'specialists': 1, 'fortifications': 1, 'baneling_stream': 4, 'tychus': 1, 'zagaras_aid': 2, 'logistics': 1, 'occasional_thor_blessing': 1, 'occasional_ultralisk_blessing': 1, 'occasional_colossus_blessing': 1, 'horde_mode': 3, 'unexpected_evolution': 2, 'another_gorgon_blessing': 2, 'rapid_repair': 1, 'blink_blessing': 2, 'power_overwhelming': 2, 'drakken_laser_drill_blessing': 4, 'lurker_defense': 1, 'combat_workers': 2, 'glass_cannons': 1, 'odin': 4, 'bounty_kills': 1, 'building_overcharge': 3, 'ghost_reporting': 1, 'glorious_martyrs': 4, 'infinite_larva': 2, 'reflective_armor': 2, 'rich_minerals': 1, 'resource_pickups': 1}
 
@@ -1395,7 +1395,7 @@ def expected_danger_score(
 
     frac = 1.0 if final else (0.0 if choice_layers <= 0 else layer / max(1, choice_layers))
     if int(choice_layers) + 1 == DEFAULT_CAMPAIGN_LENGTH:
-        mutation_mean = _profile_value(_EXPECTED_MUTATION_SEVERITY_PROFILE, frac) + 1.0
+        mutation_mean = _profile_value(_EXPECTED_MUTATION_SEVERITY_PROFILE, frac) + 1.0 + 0.25 * max(1, int(layer) + 1)
         blessing_mean = _profile_value(_EXPECTED_BLESSING_SEVERITY_PROFILE, frac)
     else:
         mutation_mean, blessing_mean = _base_effect_means(layer, choice_layers, final)
@@ -2089,12 +2089,12 @@ def _base_effect_means(layer: int, choice_layers: int, final: bool = False) -> t
         bless_mean = _profile_value(blessing_budget_profile, frac)
         if final or (choice_layers >= 2 and layer >= choice_layers - 2): bless_mean -= 2.2
         elif layer > 0: bless_mean -= 1.1
-        return mut_mean + 1.0, bless_mean
+        return mut_mean + 1.0 + 0.25 * mission_number, bless_mean
     mut_mean = float(mission_number + 2) + (2.0 if final else 0.0)
     third_last = max(1, total_missions - 2)
     if mission_number >= third_last or third_last <= 1: bless_mean = 1.0
     else: bless_mean = 7.0 - (6.0 * ((mission_number - 1) / max(1, third_last - 1)))
-    return mut_mean + 1.0, bless_mean
+    return mut_mean + 1.0 + 0.25 * mission_number, bless_mean
 
 
 def roll_effects(
@@ -3202,11 +3202,13 @@ def _effect_exclusions_for_mission(mission: dict[str, Any]) -> tuple[set[str], s
     mission_short_name = str(mission.get("short_name", "") or mission.get("name", ""))
     if mission_short_name.strip().casefold() in GORGON_MISSION_EXCLUSIONS:
         forbidden_mutators.add("another_gorgon_mutation")
+    if mission_short_name.strip().casefold().startswith("smash and grab"):
+        forbidden_mutators.add("nexus_shield")
 
 
     if mission_short_name.strip().casefold() in ISLAND_MISSION_NAMES:
 
-        forbidden_mutators.update({"torrasque", "ten_minutes_until_destruction", "hellion_run_by", "odin_delayed_assault", "combined_raids", "brakk_primal_army"})
+        forbidden_mutators.update({"torrasque", "ten_minutes_until_destruction", "hellion_run_by", "odin_delayed_assault", "combined_raids", "brakk_primal_army", "tosh_and_his_boys"})
 
     destruction_explicitly_forbidden = (
 
