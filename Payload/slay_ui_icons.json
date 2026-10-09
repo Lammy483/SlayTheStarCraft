@@ -1758,7 +1758,7 @@
   "BOON::random_blessing::3": "btn-ability-kerrigan-revive.png",
   "BOON::random_blessing::4": "btn-ability-kerrigan-revive.png",
   "BOON::random_blessing::5": "btn-ability-kerrigan-revive.png",
-  "BOON::upgrade_pack::terran": "btn-building-zerg-evolutionchamber.png",
+  "BOON::upgrade_pack::terran": "btn-building-terran-armory.png",
   "BOON::upgrade_pack::zerg": "btn-building-zerg-evolutionchamber.png",
   "BOON::upgrade_pack::protoss": "btn-building-zerg-evolutionchamber.png",
   "BOON::golden_goose": "btn-unit-terran-mule.png",

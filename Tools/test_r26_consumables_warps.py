@@ -27,11 +27,11 @@ class R26ConsumableTests(unittest.TestCase):
         self.assertIn('return "RaynorCommando"', GALAXY)
         self.assertIn('return "TychusCommando"', GALAXY)
 
-    def test_potion_ui_shift_and_four_second_notice(self):
-        self.assertIn('DialogCreate(490, 60, c_anchorTopLeft, 320, 0, false)', GALAXY)
-        self.assertIn('g_aprgConsumableNoticeUntil = GameGetMissionTime() + 4.0', fn('APRG_ConsumableNotice'))
-        self.assertIn('now >= g_aprgConsumableNoticeUntil', fn('APRG_TickPotions'))
-        self.assertIn('APRG_ConsumableNotice(player, "[Slay] Used "', GALAXY)
+    def test_potion_ui_shift_without_info_notice(self):
+        self.assertIn('DialogCreate(544, 60, c_anchorTopLeft, 320, 0, false)', GALAXY)
+        self.assertNotIn('APRG_ConsumableNotice(', GALAXY)
+        self.assertNotIn('g_aprgConsumableNoticeUntil', fn('APRG_TickPotions'))
+        self.assertNotIn('[Slay] Used ', GALAXY)
 
     def test_native_spellcasters_and_energy(self):
         self.assertIn('APRG_CreatePlayerUnitsVanillaSafe(1, unitType, player, p', fn('APRG_TickPotionSpawnQueues'))

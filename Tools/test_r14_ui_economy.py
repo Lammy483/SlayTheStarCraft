@@ -47,7 +47,7 @@ class R14Tests(unittest.TestCase):
 
     def test_captions_and_form_notes(self):
         for term in ('(Removing races makes the game easier)',
-                     '(Longer campaign lengths makes the game easier)'):
+                     '(changing run length may alter difficulty in unexpected ways)'):
             self.assertIn(term,self.launcher)
         self.assertIn('text="[b]DIFFICULTY[/b]"',self.theme)
         self.assertNotIn('ADVENTURE CONFIGURATION',self.theme)

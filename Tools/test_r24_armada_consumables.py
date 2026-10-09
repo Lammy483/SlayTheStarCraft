@@ -89,8 +89,9 @@ class R24Tests(unittest.TestCase):
         self.assertIn('slay_consumable_slots_label',INSTALL)
         self.assertIn('_POTION_BANK_USE_CACHE.pop(test_potion_run_token(ctx), None)',SLAY)
 
-    def test_instruction_no_native_sc2_wording(self):
-        self.assertIn('[Slay] Choose a target for ',GAL)
-        self.assertNotIn('[Slay] Choose a native SC2 target for ',GAL)
+    def test_no_consumable_click_info_text(self):
+        self.assertNotIn('[Slay] Choose a target for ', GAL)
+        self.assertNotIn('[Slay] Choose a native SC2 target for ', GAL)
+        self.assertIn('APRG_PotionArmNativeTarget(player)', GAL)
 
 if __name__=='__main__':unittest.main()

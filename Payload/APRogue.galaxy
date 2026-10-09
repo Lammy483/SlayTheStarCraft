@@ -368,6 +368,9 @@ int[2] g_aprgPotionSerial;
 bool[2] g_aprgPotionUsed;
 int[2] g_aprgPotionButton;
 int g_aprgPotionDialog = 0;
+int g_aprgPotionMinimizeButton = 0;
+bool g_aprgPotionMinimized = false;
+trigger g_aprgPotionMinimizeTrigger = null;
 trigger g_aprgPotionClickTrigger = null;
 trigger g_aprgPotionCancelTrigger = null;
 trigger g_aprgPotionDamageTrigger = null;
@@ -388,9 +391,6 @@ point g_aprgPotionDropPoint = null;
 int g_aprgPotionDropsLeft = 0;
 fixed g_aprgPotionNextDropTime = -1.0;
 int g_aprgPotionMercMask = 0;
-int g_aprgConsumableNoticeDialog = 0;
-int g_aprgConsumableNoticeLabel = 0;
-fixed g_aprgConsumableNoticeUntil = 0.0;
 // Two independent nonblocking batches of up to 500 units. Running the work
 // inside the existing 0.1s fast tick distributes heavy spawns over 2 seconds.
 int[2] g_aprgPotionQueueKind;
@@ -449,6 +449,9 @@ int g_aprgDarkArchonsSpawned = 0;
 int g_aprgDarkArchonRetries = 0;
 int g_aprgDrillRetries = 0;
 bool g_aprgDrillSpawned = false;
+unit g_aprgEnemyMutationDrill = null;
+fixed g_aprgEnemyDrillNextInterrupt = -1.0;
+fixed g_aprgEnemyDrillResumeTime = -1.0;
 int g_aprgHostileHeroesSpawned = 0;
 int g_aprgHostileHeroRetries = 0;
 unitgroup g_aprgHeroesOfStormUnits;
@@ -534,6 +537,7 @@ int g_aprgVoidThrasherVisionCount = 0;
 unitgroup g_aprgClonedUnits;
 fixed g_aprgNextCloneRetargetTime = 10.0;
 unitgroup g_aprgAlliedSupport;
+unitgroup g_aprgPurifierAllianceReinforcements;
 unitgroup g_aprgAirSupportUnits;
 unitgroup g_aprgAlliedZombies;
 point[1024] g_aprgZombieSpawnPoint;
@@ -736,6 +740,7 @@ point[512] g_aprgAllyWarpPoint;
 fixed[512] g_aprgAllyWarpTime;
 actor[512] g_aprgAllyWarpActor;
 unit[512] g_aprgAllyWarpUnit;
+bool[512] g_aprgAllyWarpPurifierAlliance;
 int[32] g_aprgPurifierWarpState;
 int[32] g_aprgPurifierWarpOwner;
 string[32] g_aprgPurifierWarpType;
@@ -1549,6 +1554,9 @@ bool APRG_IsCreepTumorType(string unitType) {
 bool APRG_IsScriptedPurifier(unit u) {
     string unitType;
     if (u == null) { return false; }
+    // The Slay mutation has its own tracked Purifier. It is an ordinary
+    // hostile target, not the invulnerable Safe Haven scripted boss.
+    if (u == g_aprgPurifier) { return false; }
     unitType = UnitGetType(u);
     return unitType == "Purifier" || unitType == "AP_Purifier";
 }
@@ -3832,6 +3840,19 @@ void APRG_RetargetAlliedSupport(int player) {
     }
 }
 
+void APRG_RetargetPurifierAllianceReinforcements(int player) {
+    int i;
+    unit u;
+    unit target;
+    for (i = UnitGroupCount(g_aprgPurifierAllianceReinforcements, c_unitCountAlive); i > 0; i -= 1) {
+        u = UnitGroupUnitFromEnd(g_aprgPurifierAllianceReinforcements, i);
+        if (u == null || !UnitIsAlive(u)) { continue; }
+        target = APRG_NearestPathableEnemyStructure(u, player);
+        if (target == null) { target = APRG_NearestEligibleEnemyMobileUnit(UnitGetPosition(u), player); }
+        if (target != null) { APRG_OrderAttackMove(u, UnitGetPosition(target)); }
+    }
+}
+
 void APRG_RetargetHostilePatrollers() {
     int i = UnitGroupCount(g_aprgHostilePatrollers, c_unitCountAlive);
     unit u;
@@ -4553,7 +4574,33 @@ void APRG_TrySpawnEnemyDrill(int player) {
     APRG_RegisterMutationEnemyGroup(created);
     if (UnitGroupCount(created, c_unitCountAlive) > 0) {
         g_aprgDrillSpawned = true;
+        g_aprgEnemyMutationDrill = UnitGroupUnitFromEnd(created, 1);
+        g_aprgEnemyDrillNextInterrupt = GameGetMissionTime() + 9.0;
+        g_aprgEnemyDrillResumeTime = -1.0;
     }
+}
+
+// The hostile drill's sustained beam can leave a Guardian Shell-protected unit
+// in a broken invulnerable state if held indefinitely. Force a real break in
+// the drill's attack loop at most every nine seconds. Only the Slay-spawned
+// hostile drill is cycled; the friendly Drakken blessing is not touched.
+void APRG_TickEnemyDrillTargetLimit(fixed now) {
+    order stopOrder;
+    if (g_aprgEnemyMutationDrill == null || !UnitIsAlive(g_aprgEnemyMutationDrill)) { return; }
+    if (g_aprgEnemyDrillResumeTime >= 0.0) {
+        if (now < g_aprgEnemyDrillResumeTime) { return; }
+        libNtve_gf_PauseUnit(g_aprgEnemyMutationDrill, false);
+        g_aprgEnemyDrillResumeTime = -1.0;
+        g_aprgEnemyDrillNextInterrupt = now + 9.0;
+        return;
+    }
+    if (g_aprgEnemyDrillNextInterrupt < 0.0 || now < g_aprgEnemyDrillNextInterrupt) { return; }
+    stopOrder = Order(AbilityCommand("stop", 0));
+    if (UnitOrderIsValid(g_aprgEnemyMutationDrill, stopOrder)) {
+        UnitIssueOrder(g_aprgEnemyMutationDrill, stopOrder, c_orderQueueReplace);
+    }
+    libNtve_gf_PauseUnit(g_aprgEnemyMutationDrill, true);
+    g_aprgEnemyDrillResumeTime = now + 2.0;
 }
 
 void APRG_TrySpawnDarkArchons(int player) {
@@ -4825,9 +4872,43 @@ void APRG_DisableGeneratedHeroRevive(unit u) {
     }
 }
 
+// Niadra's native births are the nine commands of SwarmQueenTrain, not nine
+// separate ability links. Apply the cooldown to each TrainN entry so one
+// birth cannot bypass the restriction by selecting another command variant.
+void APRG_NormalizeNiadraBirthCooldown(unit hero) {
+    int owner;
+    int abilityCount;
+    int abilityIndex;
+    int birthIndex;
+    string abilityType;
+    string path;
+    if (hero == null || !StringContains(UnitGetType(hero), "Niadra", c_stringAnywhere, c_stringNoCase)) { return; }
+    owner = UnitGetOwner(hero);
+    abilityCount = MinI(64, UnitAbilityCount(hero));
+    for (abilityIndex = 1; abilityIndex <= abilityCount; abilityIndex += 1) {
+        abilityType = UnitAbilityGet(hero, abilityIndex);
+        if (abilityType != "SwarmQueenTrain" && abilityType != "SwarmQueenTrainLarva" &&
+            !StringContains(abilityType, "NiadraBirth", c_stringAnywhere, c_stringNoCase)) { continue; }
+        if (!CatalogEntryIsValid(c_gameCatalogAbil, abilityType)) { continue; }
+        // Do not assign a shared ability-level cooldown: each TrainN birth
+        // command should have its own timer rather than locking all births.
+        for (birthIndex = 1; birthIndex <= 9; birthIndex += 1) {
+            path = "InfoArray[Train" + IntToString(birthIndex) + "]";
+            // CAbilTrain's cooldown belongs directly to InfoArray[TrainN].
+            // Give each command its own link so Zergling, Roach and Hydra
+            // births have independent cooldowns even on the same Niadra.
+            CatalogFieldValueSet(c_gameCatalogAbil, abilityType, path + ".Cooldown.Link", owner,
+                "APRG_Niadra_" + abilityType + "_" + IntToString(birthIndex));
+            CatalogFieldValueSet(c_gameCatalogAbil, abilityType, path + ".Cooldown.TimeUse", owner, "60");
+            CatalogFieldValueSet(c_gameCatalogAbil, abilityType, path + ".Cooldown.TimeStart", owner, "60");
+        }
+    }
+}
+
 void APRG_RegisterGeneratedHero(unit u) {
     if (u == null) { return; }
     APRG_DisableGeneratedHeroRevive(u);
+    APRG_NormalizeNiadraBirthCooldown(u);
     if (g_aprgGeneratedHeroCount >= APRG_MAX_GENERATED_HEROES) { return; }
     g_aprgGeneratedHeroes[g_aprgGeneratedHeroCount] = u;
     g_aprgGeneratedHeroDied[g_aprgGeneratedHeroCount] = false;
@@ -5291,6 +5372,63 @@ bool APRG_TryAutonomousPointOrder(unit caster, string abilityType, int commandIn
     return true;
 }
 
+// Slay's mutation and boon Purifiers must cast Vortex only at visible,
+// living enemy units.  The generic spellcaster target list also contains
+// structures, which are inappropriate Vortex targets.  Do not let a failed
+// unit search fall through to the generic nearest-building point fallback.
+bool APRG_TrySlayPurifierVortex(unit purifier, int player, bool friendlyToPlayer) {
+    unitgroup targets;
+    unit target;
+    point origin;
+    order previousOrder;
+    bool hadPreviousOrder;
+    int i;
+    int commandIndex;
+    int examined = 0;
+    int owner;
+    string abilityType = "VortexPurifier";
+    if (purifier == null || !UnitIsAlive(purifier)) { return false; }
+    if (purifier != g_aprgPurifier && purifier != g_aprgPurifierAlliance) { return false; }
+    if (!UnitAbilityExists(purifier, abilityType) || !APRG_AICastThrottleReady(purifier, abilityType, APRG_AI_ULTIMATE)) { return false; }
+    owner = UnitGetOwner(purifier);
+    origin = UnitGetPosition(purifier);
+    // The campaign VortexPurifier ability has a native range of 10.
+    // Require the actual caster owner's vision, not just proximity.
+    targets = APRG_AIOpposingTargetsNear(purifier, player, friendlyToPlayer, 10.0);
+    for (i = UnitGroupCount(targets, c_unitCountAlive); i > 0; i -= 1) {
+        target = UnitGroupUnitFromEnd(targets, i);
+        if (target == null) { continue; }
+        if (!UnitIsAlive(target) ||
+            UnitTypeTestAttribute(UnitGetType(target), c_unitAttributeStructure) ||
+            !libNtve_gf_UnitIsVisibleToPlayer(target, owner)) {
+            UnitGroupRemove(targets, target);
+        }
+    }
+    // No valid visible enemy units means no Vortex, even if enemy
+    // buildings are within range.  Preserve the previous combat order.
+    if (UnitGroupCount(targets, c_unitCountAlive) <= 0) { return false; }
+    hadPreviousOrder = UnitOrderCount(purifier) > 0;
+    if (hadPreviousOrder) { previousOrder = UnitOrder(purifier, 0); }
+    while (UnitGroupCount(targets, c_unitCountAlive) > 0 && examined < 24) {
+        target = UnitGroupClosestToPoint(targets, origin);
+        if (target == null) { break; }
+        UnitGroupRemove(targets, target);
+        examined += 1;
+        if (!UnitIsAlive(target) ||
+            UnitTypeTestAttribute(UnitGetType(target), c_unitAttributeStructure) ||
+            !libNtve_gf_UnitIsVisibleToPlayer(target, owner)) { continue; }
+        if (DistanceBetweenPoints(origin, UnitGetPosition(target)) > 10.0) { continue; }
+        for (commandIndex = 0; commandIndex < 4; commandIndex += 1) {
+            if (APRG_TryAutonomousPointOrder(purifier, abilityType, commandIndex, UnitGetPosition(target))) {
+                APRG_QueuePriorAutonomousOrder(purifier, previousOrder, hadPreviousOrder);
+                APRG_RecordAICast(purifier, abilityType);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool APRG_TrySwannFlamingBetty(unit swann, int player) {
     string unitType;
     string key;
@@ -5597,6 +5735,7 @@ bool APRG_TryCategorizedAutonomousAbility(unit caster, int player, bool friendly
     if (APRG_TryAttackDeploymentPosture(caster, player, friendlyToPlayer)) { return true; }
     // Prioritize storm even if native autocast is enabled for this ability.
     if (APRG_TryHighTemplarStorm(caster, player, friendlyToPlayer, priorOrder, hadPriorOrder)) { return true; }
+    if (APRG_TrySlayPurifierVortex(caster, player, friendlyToPlayer)) { return true; }
 
     enemyTarget = APRG_AIClosestOpposingTarget(caster, player, friendlyToPlayer);
     inCombat = enemyTarget != null;
@@ -5604,6 +5743,10 @@ bool APRG_TryCategorizedAutonomousAbility(unit caster, int player, bool friendly
     for (abilityIndex = 1; abilityIndex <= abilityCount; abilityIndex += 1) {
         abilityType = UnitAbilityGet(caster, abilityIndex);
         if (abilityType == "") { continue; }
+        // Slay Purifiers use a unit-only Vortex selector above.  Never
+        // retry their Vortex on the generic structure/point target pool.
+        if ((caster == g_aprgPurifier || caster == g_aprgPurifierAlliance) &&
+            APRG_AIHas(abilityType, "Vortex")) { continue; }
         if (APRG_AbilityUsesNativeAutocastCached(abilityType, UnitGetOwner(caster))) { continue; }
         category = APRG_AutonomousAbilityCategoryCached(abilityType);
         if (category == APRG_AI_NONE || !APRG_AICastThrottleReady(caster, abilityType, category)) { continue; }
@@ -7135,6 +7278,7 @@ bool APRG_QueueAllyWarp(string unitType, int owner, point center, fixed when) {
         g_aprgAllyWarpTime[i] = when;
         g_aprgAllyWarpActor[i] = null;
         g_aprgAllyWarpUnit[i] = null;
+        g_aprgAllyWarpPurifierAlliance[i] = (g_aprgPurifierAlliance != null && UnitIsAlive(g_aprgPurifierAlliance) && owner == UnitGetOwner(g_aprgPurifierAlliance));
         return true;
     }
     return false;
@@ -7211,6 +7355,10 @@ void APRG_ProcessAllyWarpQueue(int player, fixed now) {
         libNtve_gf_PauseUnit(u, false);
         ready = UnitGroupEmpty();
         UnitGroupAdd(ready, u);
+        // Both Purifier Alliance and For Aiur units are uncommandable AI allies.
+        // Keep them in the recurring support/ability-AI pool after the warp stun.
+        UnitGroupAdd(g_aprgAlliedSupport, u);
+        if (g_aprgAllyWarpPurifierAlliance[best]) { UnitGroupAdd(g_aprgPurifierAllianceReinforcements, u); }
         APRG_OrderGroupTowardNearestEnemyStructure(ready, UnitGetPosition(u), player);
     }
     if (g_aprgAllyWarpActor[best] != null) { ActorSend(g_aprgAllyWarpActor[best], "Destroy"); }
@@ -7221,6 +7369,7 @@ void APRG_ProcessAllyWarpQueue(int player, fixed now) {
     g_aprgAllyWarpTime[best] = 0.0;
     g_aprgAllyWarpActor[best] = null;
     g_aprgAllyWarpUnit[best] = null;
+    g_aprgAllyWarpPurifierAlliance[best] = false;
 }
 
 void APRG_QueueForAiurDeath(unit dead, point p) {
@@ -7610,19 +7759,22 @@ bool APRG_DeathSpawnExcluded(unit dead, string unitType) {
 }
 
 bool APRG_BasicZombieDeathExcluded(unit dead, string unitType) {
+    string tag;
     if (APRG_DeathSpawnExcluded(dead, unitType)) { return true; }
-    return DataTableGetBool(true, "APRG_BasicZombie_" + IntToString(UnitGetTag(dead)));
+    tag = IntToString(UnitGetTag(dead));
+    // Never cross-trigger another zombie mechanic's own free spawns.
+    return DataTableGetBool(true, "APRG_BasicZombie_" + tag) ||
+        DataTableGetBool(true, "APRG_ZombieApocalypse_" + tag);
 }
 
 bool APRG_ZombieApocalypseDeathExcluded(unit dead, string unitType) {
-    string tagKey;
-    if (dead == null) { return true; }
-    tagKey = "APRG_ZombieApocalypse_" + IntToString(UnitGetTag(dead));
-    if (DataTableGetBool(true, tagKey)) { return true; }
-    if (APRG_DeathSpawnExcluded(dead, unitType)) { return true; }
-    if (StringContains(unitType, "InfestedCivilian", c_stringAnywhere, c_stringNoCase)) { return true; }
-    if (StringContains(unitType, "InfestedTerran", c_stringAnywhere, c_stringNoCase)) { return true; }
-    return false;
+    string tag;
+    if (dead == null || APRG_DeathSpawnExcluded(dead, unitType)) { return true; }
+    tag = IntToString(UnitGetTag(dead));
+    // Only exclude zombies we created. Natural or purchased Infested Terran
+    // must remain eligible, but zombies from either effect never recurse.
+    return DataTableGetBool(true, "APRG_ZombieApocalypse_" + tag) ||
+        DataTableGetBool(true, "APRG_BasicZombie_" + tag);
 }
 
 void APRG_TagZombieApocalypseGroup(unitgroup created) {
@@ -12652,48 +12804,29 @@ void APRG_TickInfiniteLarva(int player, fixed now) {
     }
 }
 
-bool APRG_MiraPointNearAlliedBase(point candidate, int player) {
-    unitgroup alliedStructures;
-    int i;
-    unit u;
-    if (candidate == null) { return true; }
-    alliedStructures = UnitGroupAlliance(
-        player,
-        c_unitAllianceAlly,
-        RegionCircle(candidate, 40.0),
-        UnitFilter(
-            (1 << c_targetFilterStructure),
-            0,
-            (1 << c_targetFilterMissile),
-            (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))
-        ),
-        0
-    );
-    for (i = UnitGroupCount(alliedStructures, c_unitCountAlive); i > 0; i -= 1) {
-        u = UnitGroupUnitFromEnd(alliedStructures, i);
-        if (u != null && UnitGetOwner(u) != player) { return true; }
-    }
-    return false;
-}
-
 point APRG_FindMiraCampPoint(int player) {
     int attempt;
     point candidate;
-    unit nearestPlayerStructure;
+    unit home;
     unit nearestEnemy;
     unitgroup enemies = APRG_EnemyAllUnits(player);
+    home = APRG_FindPlayerHomeStructure(player);
+    if (home == null) { return null; }
 
     for (attempt = 0; attempt < APRG_MAX_POINT_ATTEMPTS; attempt += 1) {
         candidate = RegionRandomPoint(RegionPlayableMap());
         if (candidate == null || !PointPathingPassable(candidate)) { continue; }
-        nearestPlayerStructure = APRG_NearestPlayerStructure(candidate, player);
-        if (nearestPlayerStructure != null && DistanceBetweenPoints(candidate, UnitGetPosition(nearestPlayerStructure)) < 24.0) { continue; }
-        if (APRG_MiraPointNearAlliedBase(candidate, player)) { continue; }
+        // These groups contain many mercenaries. Keep a generous camp-center
+        // buffer so their placement footprint remains >20 from *every*
+        // player-owned or player-allied building, not just the home base.
+        if (APRG_PointNearPlayerOrAlliedBuilding(candidate, player, 40.0)) { continue; }
+        if (APRG_GroundSpawnsNeedPlayerPathing() && !PointPathingIsConnected(candidate, UnitGetPosition(home))) { continue; }
         nearestEnemy = UnitGroupClosestToPoint(enemies, candidate);
         if (nearestEnemy != null && DistanceBetweenPoints(candidate, UnitGetPosition(nearestEnemy)) < 18.0) { continue; }
         return candidate;
     }
-    return APRG_FindStaticPatrolGroundPoint(player);
+    // No unsafe fallback near the player base; retry on the next tick.
+    return null;
 }
 
 void APRG_AddMiraMercenaryType(int owner, string unitType, int count, point p, int player) {
@@ -13505,9 +13638,13 @@ void APRG_ProcessPurifierHostileWarpQueue(int player, fixed now) {
         mainActor = libNtve_gf_MainActorofUnit(u);
         if (mainActor != null) { ActorSend(mainActor, libNtve_gf_SetOpacity(1.0, 0.0)); }
         libNtve_gf_PauseUnit(u, false);
-        if (!g_aprgPurifierWarpEscort[best]) {
-            ready = UnitGroupEmpty();
-            UnitGroupAdd(ready, u);
+        ready = UnitGroupEmpty();
+        UnitGroupAdd(ready, u);
+        if (g_aprgPurifierWarpEscort[best]) {
+            // Escort flyers used to receive no attack order at all after unpausing.
+            APRG_AddHostileRaiders(ready, UnitGetPosition(u), player);
+        }
+        else {
             APRG_OrderGroupTowardNearestPlayerStructure(ready, UnitGetPosition(u), player);
         }
     }
@@ -13589,6 +13726,19 @@ bool APRG_PurifierNearPlayerStructure(unit purifier, int player, fixed radius) {
     return DistanceBetweenPoints(UnitGetPosition(purifier), UnitGetPosition(nearest)) <= radius;
 }
 
+// WoL Purifier has InvulnerabilityShield in its base CUnit BehaviorArray.
+// Safe Haven removes it from the scripted boss during its encounter, but
+// Slay's separately spawned mutation Purifier never receives that mission event.
+// Never touch the map's own gv_purifier or the allied Purifier Alliance boon.
+void APRG_RemoveMutationPurifierInvulnerability(unit purifier) {
+    if (purifier == null || !UnitIsAlive(purifier)) { return; }
+    if (UnitBehaviorCount(purifier, "InvulnerabilityShield") > 0) {
+        UnitBehaviorRemove(purifier, "InvulnerabilityShield", c_unitBehaviorCountAll);
+    }
+    // Keep our mutation unit vulnerable if another campaign effect sets the unit state.
+    UnitSetState(purifier, c_unitStateInvulnerable, false);
+}
+
 void APRG_TickPurifier(int player, fixed now) {
     point spawnPoint;
     unit spawnAnchor;
@@ -13616,6 +13766,7 @@ void APRG_TickPurifier(int player, fixed now) {
         g_aprgPurifier = UnitGroupUnitFromEnd(created, 1);
         if (g_aprgPurifier == null) { return; }
         APRG_StripVoidEntityBehavior(g_aprgPurifier);
+        APRG_RemoveMutationPurifierInvulnerability(g_aprgPurifier);
         AISetUnitScriptControlled(g_aprgPurifier, true);
         speed = UnitGetPropertyFixed(g_aprgPurifier, c_unitPropMovementSpeed, c_unitPropCurrent);
         if (speed != 0.25) { UnitSetPropertyFixed(g_aprgPurifier, c_unitPropMovementSpeed, 0.25); }
@@ -13633,6 +13784,9 @@ void APRG_TickPurifier(int player, fixed now) {
     }
 
     if (g_aprgPurifier == null || !UnitIsAlive(g_aprgPurifier)) { return; }
+    // Safe Haven's regular boss is independent; ensure only our mutation unit
+    // remains vulnerable even if a campaign trigger restores its starting buff.
+    APRG_RemoveMutationPurifierInvulnerability(g_aprgPurifier);
     UnitSetPropertyFixed(g_aprgPurifier, c_unitPropMovementSpeed, 0.25);
     if (g_aprgPurifierRevealRegion != null && g_aprgPurifierRevealer != null) {
         RegionSetCenter(g_aprgPurifierRevealRegion, UnitGetPosition(g_aprgPurifier));
@@ -13683,6 +13837,10 @@ void APRG_TickPurifier(int player, fixed now) {
         UnitIssueOrder(g_aprgPurifier, OrderTargetingPoint(AbilityCommand("move", 0), UnitGetPosition(home)), c_orderQueueReplace);
         g_aprgNextPurifierMoveRefreshTime = now + 10.0;
     }
+    // The mutation Purifier runs a bespoke approach/Planet Cracker loop.
+    // Give it the same visible-unit-only Vortex rule as the allied boon,
+    // without interrupting the Planet Cracker channel once it has started.
+    if (!g_aprgPurifierCrackerIssued) { APRG_TrySlayPurifierVortex(g_aprgPurifier, player, false); }
 }
 
 void APRG_QueuePurifierAllianceEscort(int player, fixed now) {
@@ -16492,6 +16650,9 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgTestPotionBankLoaded = false;
     g_aprgTestPotionConsumed = false;
     g_aprgPotionDialog = 0;
+    g_aprgPotionMinimizeButton = 0;
+    g_aprgPotionMinimized = false;
+    g_aprgPotionMinimizeTrigger = null;
     g_aprgPotionButton[0] = 0;
     g_aprgPotionButton[1] = 0;
     g_aprgPotionClickTrigger = null;
@@ -16584,6 +16745,7 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgBuildingOverchargeProcessed = UnitGroupEmpty();
     g_aprgMiraMercenaries = UnitGroupEmpty();
     g_aprgAlliedSupport = UnitGroupEmpty();
+    g_aprgPurifierAllianceReinforcements = UnitGroupEmpty();
     g_aprgAirSupportUnits = UnitGroupEmpty();
     g_aprgAlliedZombies = UnitGroupEmpty();
     g_aprgZombieSpawnHead = 0;
@@ -16601,6 +16763,9 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgPowerOverwhelmingProcessed = UnitGroupEmpty();
     g_aprgDrakkenDrillProcessed = UnitGroupEmpty();
     g_aprgDrakkenDataUnlocked = false;
+    g_aprgEnemyMutationDrill = null;
+    g_aprgEnemyDrillNextInterrupt = -1.0;
+    g_aprgEnemyDrillResumeTime = -1.0;
     g_aprgJetpacksProcessed = UnitGroupEmpty();
     g_aprgTowerDefenseProbes = UnitGroupEmpty();
     g_aprgAirSupportCarriers = UnitGroupEmpty();
@@ -16984,6 +17149,22 @@ bool APRG_LeviathanBoonSpawnAbility(string abilityType, int player) {
     return false;
 }
 
+// The native campaign Leviathan types are controllable but can lack the
+// ArmySelect flag used by SC2's F2/all-army selection. Apply the override to
+// the base catalog as well as the local player (same fix as Karass), so both
+// the Corruptor-replacement boon and the bottled hero enter the normal army.
+void APRG_EnableLeviathanArmySelection(int player) {
+    int variant;
+    string leviathanType;
+    for (variant = 0; variant < 2; variant += 1) {
+        if (variant == 0) { leviathanType = "Leviathan"; }
+        else { leviathanType = "LeviathanHOTS"; }
+        if (!CatalogEntryIsValid(c_gameCatalogUnit, leviathanType)) { continue; }
+        CatalogFieldValueSet(c_gameCatalogUnit, leviathanType, "FlagArray[ArmySelect]", c_playerAny, "1");
+        CatalogFieldValueSet(c_gameCatalogUnit, leviathanType, "FlagArray[ArmySelect]", player, "1");
+    }
+}
+
 void APRG_NormalizeLeviathanBoon(unit leviathan, int player) {
     int abilityCount;
     int abilityIndex;
@@ -16993,6 +17174,7 @@ void APRG_NormalizeLeviathanBoon(unit leviathan, int player) {
     string abilityType;
     string basePath;
     if (leviathan == null) { return; }
+    APRG_EnableLeviathanArmySelection(player);
 
     abilityCount = UnitAbilityCount(leviathan);
     for (abilityIndex = 1; abilityIndex <= abilityCount; abilityIndex += 1) {
@@ -17489,6 +17671,7 @@ void APRG_ActivateEffects(int player) {
     g_aprgEffectsActivated = true;
 
     APRG_EnsurePlayerInterceptorCost(player);
+    APRG_EnableLeviathanArmySelection(player);
 
     // Karass is a campaign hero whose catalog entry does not consistently carry
     // the ArmySelect flag. Campaign F2 logic reads the base catalog through
@@ -18144,6 +18327,40 @@ point APRG_ToshPathableHostileSpawnPoint(unit anchor, int player) {
 
 // Hostile Tosh uses normal hero spellcasting and attack-move patrols between
 // enemy-held regions. Exactly one Tosh is spawned: killing him stops new raids.
+bool APRG_TryToshDefensiveShield(unit tosh) {
+    fixed health;
+    fixed healthMax;
+    string abilityType;
+    order shieldOrder;
+    order priorOrder;
+    bool hadPriorOrder;
+    int abilityIndex;
+    int commandIndex;
+    if (tosh == null || !UnitIsAlive(tosh)) { return false; }
+    health = UnitGetPropertyFixed(tosh, c_unitPropLife, c_unitPropCurrent);
+    healthMax = UnitGetPropertyFixed(tosh, c_unitPropLifeMax, c_unitPropCurrent);
+    // Tosh's campaign Psi Shield uses VoodooShield (rather than Raven's
+    // DefensiveMatrix). Cast as soon as he takes any real health damage.
+    if (healthMax <= 0.0 || health >= healthMax - 0.5) { return false; }
+    for (abilityIndex = 1; abilityIndex <= MinI(96, UnitAbilityCount(tosh)); abilityIndex += 1) {
+        abilityType = UnitAbilityGet(tosh, abilityIndex);
+        if (!APRG_AIHas(abilityType, "VoodooShield") && !APRG_AIHas(abilityType, "PsiShield") &&
+            !APRG_AIHas(abilityType, "PsionicShield")) { continue; }
+        if (!APRG_AICastThrottleReady(tosh, abilityType, APRG_AI_REACTIVE)) { continue; }
+        for (commandIndex = 0; commandIndex < 2; commandIndex += 1) {
+            shieldOrder = Order(AbilityCommand(abilityType, commandIndex));
+            if (!UnitOrderIsValid(tosh, shieldOrder)) { continue; }
+            hadPriorOrder = UnitOrderCount(tosh) > 0;
+            if (hadPriorOrder) { priorOrder = UnitOrder(tosh, 0); }
+            UnitIssueOrder(tosh, shieldOrder, c_orderQueueReplace);
+            APRG_QueuePriorAutonomousOrder(tosh, priorOrder, hadPriorOrder);
+            APRG_RecordAICast(tosh, abilityType);
+            return true;
+        }
+    }
+    return false;
+}
+
 void APRG_TickToshAndHisBoys(int player, fixed now) {
     unit anchor;
     unit spec;
@@ -18177,6 +18394,9 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
     }
     // Previous spectres finish their attacks, but Tosh's death halts new spawns.
     if (g_aprgTosh != null && UnitIsAlive(g_aprgTosh)) {
+        // Do not wait for the 5-second generic hero AI tick or for a nearby
+        // offensive target before using Tosh's personal protective shield.
+        APRG_TryToshDefensiveShield(g_aprgTosh);
         if (now >= g_aprgNextToshPatrolTime) {
             anchor = APRG_RandomPathableHostileBaseAnchor(player);
             if (anchor != null) {
@@ -18986,7 +19206,6 @@ bool APRG_TestPotionClick_Func(bool testConds, bool runActions) {
         BankSave(g_aprgTestPotionBank);
     }
     APRG_HideTestPotionUI(player);
-    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText("[Slay] Test Consumable consumed: +1000 minerals."));
     return true;
 }
 
@@ -19013,26 +19232,8 @@ void APRG_TickTestPotionUI(int player) {
 }
 
 // POTIONS ---------------------------------------------------------------------
-// The UI uses native Galaxy mouse events. Left click selects a world point (or
-// nearest unit in the world), right click cancels without consuming a potion.
-// An actual command-card targeting cursor would require catalog abilities on
-// a separate selected caster, so do not call this a command-card ability.
-// Consumable feedback is a short-lived in-game notice, not a persistent
-// Archipelago chat entry. Never clear the normal AP chat/message history.
-void APRG_ConsumableNotice(int player, string message) {
-    playergroup players = PlayerGroupSingle(player);
-    if (g_aprgConsumableNoticeDialog == 0) {
-        g_aprgConsumableNoticeDialog = DialogCreate(550, 42, c_anchorTopRight, -16, 110, false);
-        DialogSetTransparency(g_aprgConsumableNoticeDialog, 35.0);
-        g_aprgConsumableNoticeLabel = DialogControlCreate(g_aprgConsumableNoticeDialog, c_triggerControlTypeLabel);
-        DialogControlSetSize(g_aprgConsumableNoticeLabel, players, 532, 34);
-        DialogControlSetPosition(g_aprgConsumableNoticeLabel, players, c_anchorCenter, 0, 0);
-    }
-    DialogControlSetPropertyAsText(g_aprgConsumableNoticeLabel, c_triggerControlPropertyText, players, StringToText(message));
-    DialogSetVisible(g_aprgConsumableNoticeDialog, players, true);
-    g_aprgConsumableNoticeUntil = GameGetMissionTime() + 4.0;
-}
-
+// Consumable buttons and native target cursor convey state without a second
+// on-screen [Slay] message or a persistent informational notice dialog.
 string APRG_PotionName(int kind) {
     if (kind == 1) { return "Mineral Reserves"; }
     if (kind == 2) { return "Gas Reserves"; }
@@ -19103,7 +19304,7 @@ void APRG_PotionRefreshButtons(int player) {
             DialogControlSetVisible(g_aprgPotionButton[i], players, false);
             continue;
         }
-        DialogControlSetVisible(g_aprgPotionButton[i], players, true);
+        DialogControlSetVisible(g_aprgPotionButton[i], players, !g_aprgPotionMinimized);
         labelText = APRG_PotionName(g_aprgPotionType[i]);
         if (g_aprgPotionPendingSlot == i) { labelText = labelText + "  [TARGETING]"; }
         DialogControlSetPropertyAsText(g_aprgPotionButton[i], c_triggerControlPropertyText, players, StringToText(labelText));
@@ -19727,19 +19928,41 @@ bool APRG_PotionNativeOrder_Func(bool testConds, bool runActions) {
     if ((kind == 15 || kind == 16) && (target == null || !UnitIsAlive(target) ||
             (kind == 15 && UnitGetOwner(target) != player))) {
         APRG_PotionArmNativeTarget(player);
-        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-            StringToText("[Slay] Select a valid unit. Consumable not consumed."));
         return true;
     }
     if (APRG_PotionActivate(player, kind, pos, target)) {
         APRG_PotionConsume(player, slot);
         APRG_PotionEndNativeTarget(player);
-        APRG_ConsumableNotice(player, "[Slay] Used " + APRG_PotionName(kind));
     } else {
         APRG_PotionArmNativeTarget(player);
-        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-            StringToText("[Slay] Invalid target. Consumable not consumed."));
     }
+    return true;
+}
+
+bool APRG_PotionMinimize_Func(bool testConds, bool runActions) {
+    int player;
+    playergroup players;
+    if (!runActions || EventDialogControl() != g_aprgPotionMinimizeButton || g_aprgPotionDialog == 0) { return true; }
+    player = APRG_GetPrimaryPlayer();
+    players = PlayerGroupSingle(player);
+    g_aprgPotionMinimized = !g_aprgPotionMinimized;
+    if (g_aprgPotionMinimized) {
+        DialogSetSize(g_aprgPotionDialog, 42, 44);
+        DialogControlSetPosition(g_aprgPotionMinimizeButton, players, c_anchorTopLeft, 4, 5);
+    }
+    else {
+        DialogSetSize(g_aprgPotionDialog, 544, 60);
+        DialogControlSetPosition(g_aprgPotionMinimizeButton, players, c_anchorTopLeft, 497, 11);
+    }
+    if (g_aprgPotionMinimized) {
+        DialogControlSetPropertyAsText(g_aprgPotionMinimizeButton, c_triggerControlPropertyText, players, StringToText("+"));
+        DialogControlSetPropertyAsText(g_aprgPotionMinimizeButton, c_triggerControlPropertyTooltip, players, StringToText("Expand consumables"));
+    }
+    else {
+        DialogControlSetPropertyAsText(g_aprgPotionMinimizeButton, c_triggerControlPropertyText, players, StringToText("-"));
+        DialogControlSetPropertyAsText(g_aprgPotionMinimizeButton, c_triggerControlPropertyTooltip, players, StringToText("Minimize consumables"));
+    }
+    APRG_PotionRefreshButtons(player);
     return true;
 }
 
@@ -19758,20 +19981,15 @@ bool APRG_PotionClick_Func(bool testConds, bool runActions) {
         // Native targeting is only armed when a caster is available; a missing
         // mod catalog must never leave the UI stuck or spend the potion.
         if (!APRG_PotionArmNativeTarget(player)) {
-            UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                StringToText("[Slay] Native consumable targeting unavailable. Consumable not consumed."));
             return true;
         }
         g_aprgPotionPendingSlot = slot;
         g_aprgPotionArmedAt = GameGetMissionTime();
         APRG_PotionRefreshButtons(player);
-        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaDirective,
-            StringToText("[Slay] Choose a target for " + APRG_PotionName(kind) + ". Right-click to cancel."));
     }
     else if (APRG_PotionActivate(player, kind, null, null)) {
         if (g_aprgPotionPendingSlot >= 0) { APRG_PotionEndNativeTarget(player); }
         APRG_PotionConsume(player, slot);
-        APRG_ConsumableNotice(player, "[Slay] Used " + APRG_PotionName(kind));
     }
     return true;
 }
@@ -19846,15 +20064,23 @@ void APRG_TickPotions(int player, fixed now) {
         players = PlayerGroupSingle(player);
         // Left edge ~15% across a 16:9 SC2 HUD (2133 logical units wide).
         // Keep the controls at the very top, away from the AP chat overlay.
-        g_aprgPotionDialog = DialogCreate(490, 60, c_anchorTopLeft, 320, 0, false);
+        g_aprgPotionDialog = DialogCreate(544, 60, c_anchorTopLeft, 320, 0, false);
         DialogSetTransparency(g_aprgPotionDialog, 25.0);
         for (i = 0; i < 2; i += 1) {
             g_aprgPotionButton[i] = DialogControlCreate(g_aprgPotionDialog, c_triggerControlTypeButton);
             DialogControlSetSize(g_aprgPotionButton[i], players, 235, 44);
-            DialogControlSetPosition(g_aprgPotionButton[i], players, c_anchorCenter, (i * 246) - 123, 0);
+            DialogControlSetPosition(g_aprgPotionButton[i], players, c_anchorTopLeft, 7 + (i * 243), 8);
         }
+        g_aprgPotionMinimizeButton = DialogControlCreate(g_aprgPotionDialog, c_triggerControlTypeButton);
+        DialogControlSetSize(g_aprgPotionMinimizeButton, players, 34, 34);
+        DialogControlSetPosition(g_aprgPotionMinimizeButton, players, c_anchorTopLeft, 497, 11);
+        DialogControlSetPropertyAsText(g_aprgPotionMinimizeButton, c_triggerControlPropertyText, players, StringToText("-"));
+        DialogControlSetPropertyAsText(g_aprgPotionMinimizeButton, c_triggerControlPropertyTooltip, players,
+            StringToText("Minimize consumables"));
         DialogSetVisible(g_aprgPotionDialog, players, true);
         APRG_PotionRefreshButtons(player);
+        g_aprgPotionMinimizeTrigger = TriggerCreate("APRG_PotionMinimize_Func");
+        TriggerAddEventDialogControl(g_aprgPotionMinimizeTrigger, player, g_aprgPotionMinimizeButton, c_triggerControlEventTypeClick);
         g_aprgPotionClickTrigger = TriggerCreate("APRG_PotionClick_Func");
         for (i = 0; i < 2; i += 1) {
             TriggerAddEventDialogControl(g_aprgPotionClickTrigger, player, g_aprgPotionButton[i], c_triggerControlEventTypeClick);
@@ -19865,10 +20091,6 @@ void APRG_TickPotions(int player, fixed now) {
         TriggerAddEventMouseClicked(g_aprgPotionCancelTrigger, player, c_mouseButtonRight, true);
         g_aprgPotionDamageTrigger = TriggerCreate("APRG_PotionDamage_Func");
         TriggerAddEventUnitDamaged(g_aprgPotionDamageTrigger, null, c_unitDamageTypeAny, c_unitDamageEither, null);
-    }
-    if (g_aprgConsumableNoticeDialog != 0 && g_aprgConsumableNoticeUntil > 0.0 && now >= g_aprgConsumableNoticeUntil) {
-        DialogSetVisible(g_aprgConsumableNoticeDialog, PlayerGroupSingle(player), false);
-        g_aprgConsumableNoticeUntil = 0.0;
     }
     APRG_TickPotionEffects(player, now);
 }
@@ -20199,6 +20421,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     }
     if (APRG_HasMutation(APRG_MUT_DRAKKEN_DRILL) && APRG_PlayerMacroBaseReady(player)) {
         APRG_TrySpawnEnemyDrill(player);
+        APRG_TickEnemyDrillTargetLimit(now);
     }
     if (APRG_HasMutation(APRG_MUT_DARK_ARCHONS) || APRG_HasExtension4(APRG_EXT4_MUT_DARK_ARCHONS_X5)) {
         APRG_TrySpawnDarkArchons(player);
@@ -20353,6 +20576,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
         APRG_RetargetRaiders(player);
         APRG_RetargetAlliedZombies(player);
         APRG_RetargetAlliedSupport(player);
+        APRG_RetargetPurifierAllianceReinforcements(player);
         APRG_RetargetHostilePatrollers();
         g_aprgNextRaidRetargetTime = now + 20.0;
     }

@@ -385,14 +385,14 @@ class CardConsole:
         self.view_button=control('',lambda *_:self.toggle_view(),size_hint_x=None,width=dp(145))
         top.add_widget(self.view_button)
         if shop:
-            # Dismiss the shop before opening inventory, so modal input and the
-            # map's hover suppression are reset by the regular dismissal path.
-            def show_inventory(*_):
-                self.popup.bind(on_dismiss=lambda _pop: Clock.schedule_once(
-                    lambda _dt: self.manager.open_slay_inventory(), 0))
-                self.popup.dismiss()
-            top.add_widget(control('Inventory',show_inventory,size_hint_x=None,width=dp(145)))
-            top.add_widget(control('Exit Shop',self.popup.dismiss,size_hint_x=None,width=dp(170)))
+            top.add_widget(control('Inventory',lambda *_:self.navigate_to('inventory'),size_hint_x=None,width=dp(145)))
+            top.add_widget(control('Exit Shop',lambda *_:self.close(),size_hint_x=None,width=dp(170)))
+        else:
+            # View mode -> Shop -> Exit Inventory. Keep navigation explicit;
+            # never bind one-off screen changes to the same dismissal event
+            # that rerolls and standard Close use.
+            top.add_widget(control('Shop',lambda *_:self.navigate_to('shop'),size_hint_x=None,width=dp(145)))
+            top.add_widget(control('Exit Inventory',lambda *_:self.close(),size_hint_x=None,width=dp(170)))
         root.add_widget(top)
         body=BoxLayout(spacing=dp(14))
         sidebar_scroll=ScrollView(size_hint_x=None,width=dp(170),do_scroll_x=False)
@@ -425,17 +425,28 @@ class CardConsole:
         self.tech_panel=BoxLayout(orientation='vertical',size_hint_y=None,height=0)
         inspect.add_widget(self.tech_panel)
         body.add_widget(inspect);self.inspector=inspect;root.add_widget(body)
-        if not shop:
-            footer=BoxLayout(size_hint_y=None,height=dp(36),spacing=dp(8))
-            footer.add_widget(label('View acquired supplies, units, upgrades and permanent effects',halign='left',font_size=dp(13)))
-            footer.add_widget(control('Close Inventory',self.popup.dismiss,size_hint_x=None,width=dp(170)))
-            root.add_widget(footer)
         self.popup.content=root;self.popup.slay_scroll=self.scroll;self.popup.slay_purchase_buttons={}
         self.popup.slay_credit_label=self.credit;self.popup.slay_console=self
         self.popup.bind(size=self.resize)
         if not self.category or self.category not in dict(sections):self.category=sections[0][0] if sections else ''
         self.render()
         self.resize()
+
+    def navigate_to(self, destination):
+        # A single authoritative transition, handled by the popup's regular
+        # dismissal listener. Never attach an accumulating on_dismiss lambda.
+        if destination not in ('inventory', 'shop'):
+            return
+        self.popup.slay_navigate_to = destination
+        if self.shop:
+            self.manager.slay_shop_reopen_pending = False
+        self.popup.dismiss()
+
+    def close(self):
+        self.popup.slay_navigate_to = None
+        if self.shop:
+            self.manager.slay_shop_reopen_pending = False
+        self.popup.dismiss()
 
     def resize(self,*_):
         # Keep all eight cards on comfortable desktop widths; narrow windows use three columns.
@@ -613,7 +624,12 @@ def open_console(manager,shop):
         console.popup.bind(on_dismiss=lambda pop:manager._slay_shop_dismissed(pop))
     else:
         manager.slay_inventory_popup=console.popup
-        def dismissed(*_):manager.slay_inventory_popup=None;manager._slay_end_modal()
+        def dismissed(pop):
+            if manager.slay_inventory_popup is pop:
+                manager.slay_inventory_popup = None
+            manager._slay_end_modal()
+            if getattr(pop, 'slay_navigate_to', None) == 'shop':
+                Clock.schedule_once(lambda _dt:manager.open_slay_shop(), 0)
         console.popup.bind(on_dismiss=dismissed)
     console.popup.open()
 

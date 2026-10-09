@@ -292,14 +292,21 @@ function Make-RequirementsGitless {
     $requirementFiles = @($requirementFiles | Sort-Object -Unique)
     foreach ($requirements in $requirementFiles) {
         if (-not (Test-Path -LiteralPath $requirements)) { continue }
-        $text = Get-Content -LiteralPath $requirements -Raw
+        $originalText = Get-Content -LiteralPath $requirements -Raw
         $text = [regex]::Replace(
-            $text,
+            $originalText,
             '(?im)^(\s*[A-Za-z0-9_.-]+(?:\[[^\]]+\])?\s*@\s*)git\+https://github\.com/([^/\s]+)/([^@\s]+)@([^#\s]+)(?:#[^\r\n]*)?\s*$',
             '$1https://github.com/$2/$3/archive/$4.zip'
         )
-        Set-Content -LiteralPath $requirements -Value $text -Encoding ASCII
-        $rewritten = Get-Content -LiteralPath $requirements -Raw
+        # Only write files that actually require a Gitless conversion. A few
+        # archives mark untouched requirements read-only; rewriting them causes
+        # Access denied even if those world requirements need no modification.
+        if ($text -cne $originalText) {
+            $requirementFile = Get-Item -LiteralPath $requirements
+            if ($requirementFile.IsReadOnly) { $requirementFile.IsReadOnly = $false }
+            Set-Content -LiteralPath $requirements -Value $text -Encoding ASCII
+        }
+        $rewritten = if ($text -cne $originalText) { Get-Content -LiteralPath $requirements -Raw } else { $originalText }
         if ($rewritten -match 'git\+') {
             throw "A retained Archipelago requirement still needs Git after conversion: $requirements. Slay intentionally does not install Git globally."
         }

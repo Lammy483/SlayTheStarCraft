@@ -18,9 +18,10 @@ class R22Regression(unittest.TestCase):
         self.assertIn("'sale':discounted", SHOP)
         self.assertIn('sales=priced_sales', SHOP)
     def test_inventory_button_opens_after_modal_dismissal(self):
-        self.assertIn("control('Inventory',show_inventory", SHOP)
-        self.assertIn('self.manager.open_slay_inventory()', SHOP)
-        self.assertIn("control('Exit Shop',self.popup.dismiss", SHOP)
+        self.assertIn("control('Inventory',lambda *_:self.navigate_to('inventory')", SHOP)
+        self.assertIn('self.popup.slay_navigate_to = destination', SHOP)
+        self.assertIn("control('Exit Shop',lambda *_:self.close()", SHOP)
+        self.assertNotIn('self.popup.bind(on_dismiss=lambda _pop:', SHOP)
     def test_owned_consumables_have_descriptions_in_inventory(self):
         ast.parse(CORE)
         self.assertIn('for slot in potion_inventory(ctx):', CORE)
@@ -38,6 +39,6 @@ class R22Regression(unittest.TestCase):
         self.assertEqual(segment.count('APRG_RemoveKerriganReviveCocoons(player);'),2)
         self.assertIn('UnitRemove(u);', GAL.split('void APRG_RemoveKerriganReviveCocoons(int player)')[1].split('void APRG_PositionShopKerriganAtHome')[0])
     def test_consumable_overlay_shift(self):
-        self.assertIn('DialogCreate(490, 60, c_anchorTopLeft, 320, 0, false)', GAL)
+        self.assertIn('DialogCreate(544, 60, c_anchorTopLeft, 320, 0, false)', GAL)
 
 if __name__=='__main__': unittest.main()

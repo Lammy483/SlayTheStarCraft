@@ -44,10 +44,13 @@ class ConsumableAndHeroTests(unittest.TestCase):
         end=UI.index('    def resize(',start)
         layout=UI[start:end]
         self.assertLess(layout.index('top.add_widget(self.view_button)'),layout.index("top.add_widget(control('Exit Shop'"))
-        self.assertIn('if not shop:\n            footer=BoxLayout(',layout)
+        self.assertLess(layout.index('top.add_widget(self.view_button)'),layout.index("top.add_widget(control('Shop'"))
+        self.assertLess(layout.index("top.add_widget(control('Shop'"),layout.index("top.add_widget(control('Exit Inventory'"))
+        self.assertNotIn('Close Inventory',layout)
         self.assertIn('Both consumable slots are full',SLAY)
-        for message in ('Targeted consumables','Consumable not consumed','TEST CONSUMABLE'):
-            self.assertIn(message,GALAXY)
+        self.assertIn('TEST CONSUMABLE', GALAXY)
+        self.assertNotIn('[Slay] Used ', GALAXY)
+        self.assertNotIn('Consumable not consumed', GALAXY)
 
     def test_high_risk_full_ring_and_red_text(self):
         decorate=UI[UI.index('def decorate_node('):UI.index('\ndef build_chart(')]

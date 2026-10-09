@@ -30,9 +30,9 @@ class R18Tests(unittest.TestCase):
         ast.parse(UI)
 
     def test_empty_potion_slots_hidden_and_hud_near_top_left(self):
-        self.assertIn('DialogCreate(490, 60, c_anchorTopLeft, 320, 0, false)',GALAXY)
+        self.assertIn('DialogCreate(544, 60, c_anchorTopLeft, 320, 0, false)',GALAXY)
         self.assertIn('DialogControlSetVisible(g_aprgPotionButton[i], players, false)',GALAXY)
-        self.assertIn('DialogControlSetVisible(g_aprgPotionButton[i], players, true)',GALAXY)
+        self.assertIn('DialogControlSetVisible(g_aprgPotionButton[i], players, !g_aprgPotionMinimized)',GALAXY)
         self.assertIn('DialogSetVisible(g_aprgPotionDialog, players,',GALAXY)
         self.assertIn('!g_aprgPotionUsed[0] && g_aprgPotionType[0] > 0',GALAXY)
         self.assertIn('!g_aprgPotionUsed[1] && g_aprgPotionType[1] > 0',GALAXY)

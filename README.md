@@ -4,6 +4,10 @@ Slay the StarCraft is a single-player StarCraft II roguelike built on the Archip
 
 This repository tracks the source for the Windows launcher, Slay runtime/client integration, run generator, Galaxy gameplay layer, data catalogs, installer tooling, and validation scripts.
 
+## r31 patch notes
+
+Opening layer rewards of 900+ are visually elite (no bonus credits), Glass Cannons has severity 2, Tosh uses his own Psi Shield when damaged, Terran Upgrade Pack uses an Armory portrait, and inventory/shop modal navigation has been corrected. See CHANGELOG.md.
+
 ## Current development version
 
 `1.1.0`
@@ -14,7 +18,7 @@ This repository tracks the source for the Windows launcher, Slay runtime/client 
 
 - Integrates Wangfeng's optional StarCraft-style English command UI.
 - Adds selectable playable races during run setup.
-- Adds an optional Endless Mode while keeping Standard Mode as the default.
+- Adds an optional Endless Mode (ALPHA) while keeping Standard Mode as the default.
 - Fixes portable-runtime loading of the Endless client patch helper.
 - Ports the full English StarCraft-style theme and fixes the themed route lifecycle.
 - Uses the compact four-column list view as the default shop/inventory presentation while retaining the optional card view.

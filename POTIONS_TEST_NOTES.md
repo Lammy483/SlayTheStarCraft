@@ -1,3 +1,38 @@
+## r37 Purifier Vortex live checks
+
+- Purifier Alliance boon: put an enemy structure within 10 range but no visible enemy units; the allied Purifier must **not** cast Vortex on the structure. Then move visible enemy units within 10 range and confirm it can cast at them and resumes moving afterwards.
+- Purifier mutation: repeat with player structures only, then player army units nearby. The enemy Purifier should use Vortex on visible player units, **not** on buildings. Its scripted Planet Cracker behavior should be unaffected.
+- Confirm neither version casts at hidden/fogged units and that the map's original scripted boss (if present) remains unchanged.
+
+## r36 live checks — minimize, Zombies and Purifier AI
+
+1. In a mission with two consumables, click the small `-` button. Confirm the entire panel collapses to a small `+` restore button and stops covering mission objectives. Expand and activate a targeted and nontargeted consumable; ensure inventory persistence, native targeting, and right-click cancellation still work. Repeat after using a consumable and with zero available slots.
+2. With the Zombies blessing/mutation or Zombie Apocalypse, kill naturally existing Infested Terran (and campaign Infested Civilians). They should trigger death-spawns unless they have timed life. Zombie units spawned by Zombies or Zombie Apocalypse should never trigger additional zombie spawns even with both effects active.
+3. Trigger Purifier Alliance and follow friendly Zealots, Stalkers, Void Rays, and air escorts through the five-second warp. They must proactively attack nearby enemies and retarget after their targets die, including when their original order stalls. Repeat with For Aiur and with mutation Purifier escorts/ground waves attacking the player.
+4. On Haven's Fall, Safe Haven, and a non-Haven mission, the mutation-spawned enemy Purifier must take immediate damage, with no `InvulnerabilityShield` buff. The normal Safe Haven scripted boss encounter must retain its campaign shield behavior. Player AI should target the mutation Purifier normally.
+5. Check the three playable races for Galaxy compilation, targeting, and non-overlapping HUD controls.
+
+### r35 Purifier mutation regression
+
+- On Haven's Fall (without Kerrigan), activate the Purifier mutation and attack its newly spawned mothership. Confirm damage goes through immediately and no InvulnerabilityShield buff remains.
+- On Safe Haven, verify the separate vanilla/Archipelago scripted Purifier encounter still uses its own shield progression; the Slay mutation's additional Purifier must be vulnerable from the start.
+- Confirm the mutation still moves, spawns escorts/ground waves and fires Planet Cracker; check a non-Haven mission for the same behavior.
+- Purifier Alliance (friendly boon) is deliberately unchanged.
+
+## r34 live regression checks
+
+1. Acquire the Leviathan boon, produce a Corruptor to replace with the native Leviathan, and press F2 (select all army). Confirm the Leviathan is selected with other army units and remains commandable.
+2. Use Leviathan in a Bottle, press F2, and confirm the spawned Leviathan joins the selection. Test both standard WoL and HotS campaign mission dependencies if possible.
+3. Use a non-targeted consumable and a targeted consumable. Neither should show a `[Slay]` informational message or temporary notice panel. Targeting should still show `[TARGETING]` on the consumable button and the native target cursor; invalid clicks must not spend it.
+4. Confirm ordinary gameplay `[Slay]` warnings/alerts are unaffected.
+
+## r32 live tests — Niadra, Mira, enemy Drakken
+
+1. Obtain Niadra as a Commander and through Heroes of the Storm. Use Birth Zergling, Birth Roach and Birth Hydralisk, including available upgraded strain variants; each used birth ability should have a 60-second cooldown. Verify ability cards and cooldown visualization, and that unrelated abilities are unchanged. Check WoL, HotS and LotV mission contexts.
+2. Trigger Mira's Mercenaries beside a dense player/allied base. Their camp must be >=20 range from every friendly building. Repeat on a non-island map with isolated enemy pockets; Mira's ground force must be able to reach the player's base. If no safe point exists, there must be no unsafe fallback placement. Check spawn performance with the full squad.
+3. Spawn an enemy Drakken Laser Drill and watch one durable player unit being continuously targeted. The beam should break by nine seconds, remain interrupted about two seconds and resume attacking. Repeat with a unit saved by Spear of Adun Guardian Shell: it must not become permanently invulnerable. Check that the friendly Drakken boon does not pulse/pause.
+4. Smoke test launch and Galaxy compilation with each of the three player race settings (avoid the prior three-race critical regression).
+
 ## r30 live tests — Single-Use Tools / Tosh and his Boys
 
 1. Purchase Single-Use Tools (400). On each subsequent mission victory, return to shop/inventory: one random, eligible shop consumable is awarded when an inventory slot is free. With two occupied slots, no reward is given or queued for later. Reconnect/reopen should not grant a duplicate. Earlier victories never give retroactive rewards.

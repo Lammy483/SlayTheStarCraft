@@ -1,3 +1,52 @@
+## v1.1.0 development r37 — Purifier Vortex targets visible units only
+
+- The shared autonomous ability scanner could cast Purifier Vortex at an enemy building or at its point, because generic enemy target groups include structures. Slay-spawned Purifiers now have a dedicated `VortexPurifier` target picker that considers only **visible, alive, enemy non-structure units** within the native 10-range, checks native order validity, and preserves the previous movement/attack order.
+- Applied to both the enemy **Purifier mutation** and the friendly **Purifier Alliance boon**. The normal generic Vortex building/point fallback is bypassed for these Slay Purifiers only. The mutation's scripted Planet Cracker takes priority and is not interrupted once started. Original map-scripted Purifier encounters and other autonomous casters are unchanged.
+- Added r37 source regressions covering the eligible-target filter, vision, range, both AI paths, no fallback, and command resumption. Live SC2 verification remains necessary for successful Vortex casts and the visual effect.
+
+## v1.1.0 development r36 — collapsible consumables, zombie origins, Purifier reinforcement AI
+
+- Added an in-mission consumable minimizer: a small `-` button at the right of the two top-row consumables reduces the whole HUD panel to a single `+` restore button. The minimized panel no longer covers the mission objectives; consumed/empty slots still hide normally. The same native targeting and consumption rules are retained.
+- Allow natural/campaign Infested Terran and Infested Civilians to trigger Zombies blessing/mutation and Zombie Apocalypse on death (subject to the shared worker/timed-life rules). Slay-created zombie units receive origin tags and are excluded from *both* zombie mechanisms so simultaneous mutations/blessings cannot recursively produce zombies.
+- Purifier Alliance and For Aiur warped allies now join the recurring friendly support AI after their five-second warp stun; Purifier Alliance reinforcements also receive periodic target refreshes. Hostile Purifier mutation escorts now join the normal hostile raid AI after warp-in; ground waves already used that group. All scripted warp visuals and five-second stun remain intact.
+- Kept r35's mutation Purifier-only `InvulnerabilityShield` stripping at creation and every tick on **all missions**, without changing Safe Haven's map boss or the friendly Purifier Alliance boon. Corrected `APRG_IsScriptedPurifier` so the Slay mutation enemy is an eligible combat target rather than being misclassified as a map-scripted objective.
+- Added r36 regression coverage and updated four previous UI tests to reflect the wider expandable potion bar. Live StarCraft II testing is still necessary for the minimize control, attack AI and Purifier vulnerability.
+
+## v1.1.0 development r35 — Purifier mutation shield fix
+
+- The Wings of Liberty `Purifier` unit has `InvulnerabilityShield` in its base unit catalog. Safe Haven removes/reapplies it for its scripted boss, but Slay-created Purifiers do not participate in that mission event. The inherited shield was therefore unintended on Haven's Fall and potentially any other mission.
+- Immediately remove `InvulnerabilityShield` and clear the invulnerable state on the **mutation-spawned enemy Purifier**. Reassert its vulnerability in the mutation tick if campaign triggers restore the shield. Do not alter Safe Haven's normal scripted boss or the separate allied Purifier Alliance boon. The mutation stays enabled on both Haven missions.
+- Added targeted offline regression tests; live SC2 verification remains necessary to check that the shield vanishes and the mutation's planet cracker/escorts continue normally.
+
+## v1.1.0 development r34 — Leviathan army selection and quiet consumables
+
+- Both native Leviathan unit variants (`Leviathan`, `LeviathanHOTS`) now have `ArmySelect` enabled in the base and player-specific catalogs. The override runs at mission activation and whenever the Leviathan boon or Leviathan in a Bottle normalizes its unit, matching the working Karass F2 approach.
+- Removed the consumable-use `[Slay]` notice dialog, its timed-hide tick, and all consumable-click `[Slay]` informational messages (target prompts, failure notices, use acknowledgments, and test consumable use). Native target cursor, button `[TARGETING]` state, spending safeguards, and consumable behavior are unchanged.
+- Added regression tests. Real F2 behavior must still be verified in an actual StarCraft II mission.
+
+## v1.1.0 development r33 — settings clarity and requirements write resilience
+
+- Replaced the Campaign Length difficulty claim with "changing run length may alter difficulty in unexpected ways" without modifying run generation.
+- Game-mode selector now labels Endless Mode as "Endless Mode (ALPHA)" while preserving its internal `endless` value and Standard Mode as the default.
+- Private runtime bootstrap no longer rewrites unmodified Archipelago requirements files; if a Gitless replacement is necessary, it clears the read-only attribute before writing. This reduces a known potential cause of Access Denied failures in `Runtime/Archipelago/worlds/_sc2common/requirements.txt`. Other permission/AV failures still require log investigation.
+
+## v1.1.0 development r32 — Niadra birth cooldowns, Mira clearance, hostile laser drill break
+
+- Niadra's native Swarm Queen birth/train commands (including the available Zergling, Roach and Hydralisk variants) now have 60-second cooldowns applied at hero creation, using the same player-specific catalog normalization style as the Leviathan's native spawn abilities.
+- Mira's Mercenaries now require their camp center to be at least 40 range from all player-owned or allied structures (giving the requested 20-range buffer even after squad spread). On ordinary maps, the camp must have ground pathing to the player's home. Removed the fallback patrol-point path that bypassed those safety checks. An unsafe attempt now waits and retries rather than spawning near friendly buildings.
+- The mutation-spawned enemy Drakken Laser Drill interrupts its sustained beam every nine seconds via Stop, pauses for two seconds, then resumes native attacks. This caps uninterrupted fire intervals below ten seconds as a mitigation for Guardian Shell/invulnerability bugs. The allied drill blessing is unaffected.
+- Added three focused safety regression tests. Source-only checks do not validate live Galaxy compilation or prove the Guardian Shell bug is eliminated; test the mechanic in-game.
+
+## v1.1.0 development r31 — elite openings, inventory navigation, Tosh shield, icons
+
+- On the first mission layer, 900+ victory-credit missions are marked elite/high-risk even when the usual dynamic opening-average comparison does not mark them; layer-one elites do not gain the extra 100 victory credits.
+- Inventory now places Show Cards/List, Shop, and Exit Inventory in that order at the top-right; the redundant bottom Close Inventory control is removed.
+- Shop/Inventory switches use one-shot navigation handled by the normal dismissal lifecycle. Exit Shop and Exit Inventory only close; reroll rebuilds Shop once and cannot trigger inventory navigation.
+- Glass Cannons blessing severity increased from 1 to 2 in both generator/runtime tables and the effect catalog.
+- Tosh attempts his actual campaign Psi Shield (`VoodooShield`) immediately after taking health damage, preserving his attack-move order.
+- Terran Upgrade Pack now uses the bundled Terran Armory image rather than the Zerg Evolution Chamber image.
+- Automated regression tests added/updated. Source-level verification does not replace live SC2 Galaxy compilation or playtesting.
+
 ## v1.1.0 development r30 — Single-Use Tools and Tosh and his Boys
 
 - **Single-Use Tools** (400 credits): owning this boon awards one randomly rolled shop-eligible consumable after a completed mission if there is an empty consumable slot. It never exceeds two inventory slots, does not reward pre-purchase victories, and records completed missions to avoid repeat awards on reconnect or reopening the shop.

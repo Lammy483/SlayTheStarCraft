@@ -1213,7 +1213,7 @@ def install_launcher_tab(manager: Any) -> None:
         spinner.bind(is_open=lambda _instance, opened: Clock.schedule_once(lambda _dt: sync_option_highlights(), 0) if opened else None)
         return spinner
 
-    game_mode_button = make_spinner("adventure", {"adventure": "Standard Mode", "endless": "Endless Mode"})
+    game_mode_button = make_spinner("adventure", {"adventure": "Standard Mode", "endless": "Endless Mode (ALPHA)"})
     difficulty_button = make_spinner(DEFAULT_DIFFICULTY, {value: value.title() for value in DIFFICULTIES})
     game_speed_button = make_spinner(DEFAULT_GAME_SPEED, {
         "default": "Default", "slower": "Slower", "slow": "Slow",
@@ -1229,7 +1229,7 @@ def install_launcher_tab(manager: Any) -> None:
     add_field(0, "Game Mode", game_mode_button)
     add_field(0, "Gameplay Difficulty", difficulty_button)
     add_field(0, "Game Speed", game_speed_button)
-    add_field(0, "Campaign Length\n(Longer campaign lengths makes the game easier)", campaign_length_input)
+    add_field(0, "Campaign Length\n(changing run length may alter difficulty in unexpected ways)", campaign_length_input)
 
     # Column 2: effect generation and seed.
     add_field(1, "Mutation Frequency Multiplier", mutation_multiplier_input)

@@ -2646,10 +2646,13 @@ def patch_gui(text: str) -> str:
         # queue several windows and make Close appear to require repeated clicks.
         if getattr(self, "slay_shop_popup", None) is popup:
             self.slay_shop_popup = None
-        reopen = bool(getattr(self, "slay_shop_reopen_pending", False))
+        destination = getattr(popup, "slay_navigate_to", None)
+        reopen = bool(getattr(self, "slay_shop_reopen_pending", False)) and destination is None
         self.slay_shop_reopen_pending = False
         self._slay_end_modal()
-        if reopen:
+        if destination == "inventory":
+            Clock.schedule_once(lambda _dt: self.open_slay_inventory(), 0)
+        elif reopen:
             Clock.schedule_once(lambda _dt: self.open_slay_shop(preserve_sale=True), 0)
 
     def _slay_refresh_shop_controls(self, popup: Popup) -> None:

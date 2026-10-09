@@ -40,11 +40,11 @@ class R27RegressionTests(unittest.TestCase):
 
     def test_potion_buttons_top_left_and_ap_overlay_untouched(self):
         tick = function("APRG_TickPotions")
-        self.assertIn("DialogCreate(490, 60, c_anchorTopLeft, 320, 0, false)", tick)
+        self.assertIn("DialogCreate(544, 60, c_anchorTopLeft, 320, 0, false)", tick)
         self.assertNotIn("c_anchorTopRight", tick)
         self.assertIn("for (i = 0; i < 2; i += 1)", tick)
         self.assertIn("DialogControlSetSize(g_aprgPotionButton[i], players, 235, 44)", tick)
-        self.assertIn("g_aprgConsumableNoticeUntil", tick)
+        self.assertNotIn("g_aprgConsumableNoticeUntil", tick)
 
 
 if __name__ == "__main__":

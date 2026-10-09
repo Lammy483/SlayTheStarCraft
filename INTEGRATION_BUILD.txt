@@ -1,4 +1,4 @@
 integration_branch=develop/v1.1.0
-source_build=r30
-publish_status=pending
+source_build=r37
+publish_status=published
 build_kind=local-themed-test-package
