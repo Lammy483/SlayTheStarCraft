@@ -23,19 +23,19 @@ class R25Tests(unittest.TestCase):
         self.assertIn("APRG_FindGoldenSafeAirPoint(player, 40.0)", normal)
         patrol = section("void APRG_RetargetGoldenArmada(", "bool APRG_EnsureAirReachableToPlayer(")
         # 24 at path center includes up to four range of spacing to protect all members.
-        self.assertIn("g_aprgGoldenPatrolIndex, 24.0", patrol)
+        self.assertIn("g_aprgGoldenPatrolIndex, clearance", patrol)
         self.assertIn('AbilityCommand("move", 0)', patrol)
-        self.assertIn("GameGetMissionTime() < 240.0", patrol)
+        self.assertIn("APRG_TimeSinceMacroBase(GameGetMissionTime()) < 720.0", patrol)
         self.assertNotIn("APRG_EnsureAirReachableToPlayer(probe", normal)
 
     def test_true_armada_buffers_are_unchanged(self):
         true_spawn = section("void APRG_TrySpawnTrueGoldenArmada(", "void APRG_TickTrueGoldenArmada(")
         self.assertIn("APRG_FindGoldenSafeAirPoint(player, 55.0)", true_spawn)
         true_patrol = section("void APRG_RetargetTrueGoldenArmada(", "unit APRG_TrueGoldenAnchorUnit(")
-        self.assertIn("g_aprgTrueGoldenPatrolIndex, 40.0", true_patrol)
-        self.assertIn("GameGetMissionTime() < 600.0", true_patrol)
+        self.assertIn("g_aprgTrueGoldenPatrolIndex, clearance", true_patrol)
+        self.assertIn("APRG_TimeSinceMacroBase(GameGetMissionTime()) < 1200.0", true_patrol)
         phoenix = section("void APRG_TickTrueGoldenPhoenixes(", "unit APRG_TrueGoldenNearestCloakedPlayerUnit(")
-        self.assertIn("APRG_GoldenPatrolRouteSafe(UnitGetPosition(phoenix), destination, player, 40.0)", phoenix)
+        self.assertIn("APRG_GoldenPatrolRouteSafe(UnitGetPosition(phoenix), destination, player, clearance)", phoenix)
 
     def test_route_samples_path_and_checks_player_allied_structures(self):
         route = section("bool APRG_GoldenPatrolRouteSafe(", "point APRG_FindGoldenSafeAirPoint(")

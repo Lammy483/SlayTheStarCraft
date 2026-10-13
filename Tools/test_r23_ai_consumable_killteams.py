@@ -18,9 +18,10 @@ def segment(start, end):
 class R23AIConsumables(unittest.TestCase):
     def test_banelings_use_standard_attack_move(self):
         f = segment('void APRG_OrderBanelingStreamUnit(', 'void APRG_TickBanelingStream(')
-        self.assertIn('APRG_OrderAttackMove(u, destination)',f)
+        self.assertIn('APRG_OrderBanelingStreamAttackMove(u, destination)',f)
         self.assertNotIn('OrderTargetingUnit(AbilityCommand("attack", 0)',f)
         self.assertIn('APRG_RandomFixedPatrolPointForUnit(u, player, true)',f)
+        self.assertNotIn('APRG_OrderAttackMove(u, destination)',f)
         self.assertIn('g_aprgNextBanelingStreamRetargetTime = now + 8.0;',GAL)
         self.assertIn('APRG_CreatePlayerUnitsVanillaSafe(1, "Baneling"',GAL)
 

@@ -15,10 +15,10 @@ class R33SettingsTests(unittest.TestCase):
         self.assertIn('Campaign Length\\n(changing run length may alter difficulty in unexpected ways)', self.launcher)
         self.assertNotIn('Longer campaign lengths makes the game easier', self.launcher)
 
-    def test_alpha_only_labels_endless_mode(self):
-        self.assertIn('"adventure": "Standard Mode", "endless": "Endless Mode (ALPHA)"', self.launcher)
-        self.assertIn('game_mode not in {"adventure", "endless"}', self.launcher)
-        self.assertNotIn('"endless": "Endless Mode"', self.launcher)
+    def test_endless_retired_from_new_run_setup(self):
+        self.assertNotIn('game_mode_button', self.launcher)
+        self.assertNotIn('add_field(0, "Game Mode"', self.launcher)
+        self.assertIn('if game_mode != "adventure":', self.launcher)
 
     def test_gitless_requirements_do_not_rewrite_unchanged_files(self):
         segment = self.bootstrap.split('function Make-RequirementsGitless {', 1)[1].split('\nfunction Ensure-PythonPackages {', 1)[0]

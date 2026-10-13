@@ -244,7 +244,7 @@ const int APRG_MAX_SHRINKAGE_UNITS = 512;
 const int APRG_MAX_DECAY_UNITS = 512;
 const int APRG_MAX_ACTIVE_ENEMIES = 512;
 const int APRG_MAX_WARFIELD_VO_QUEUE = 16;
-const int APRG_MAX_ALWAYS_VISIBLE = 64;
+const int APRG_MAX_ALWAYS_VISIBLE = 128;
 
 const int APRG_PROGRESSION_TERRAN_CONTRACTS = 1;
 const int APRG_PROGRESSION_ZERG_CONTRACTS = 2;
@@ -269,6 +269,10 @@ const int APRG_MISSION_FLAG_TRUE_GOLDEN_ARMADA = 4096;
 const int APRG_MISSION_FLAG_LAB_RAT_OPENING = 8192;
 const int APRG_MISSION_FLAG_IMMORTAL_ZERGLING = 16384;
 const int APRG_MISSION_FLAG_TOSH_AND_HIS_BOYS = 32768;
+const int APRG_MISSION_FLAG_DOMINATION_ANY_PICKER = 65536;
+const int APRG_MISSION_FLAG_ENGINE_OF_DESTRUCTION_LOKI = 131072;
+const int APRG_MISSION_FLAG_SMASH_AND_GRAB_EXTRA_WORKERS = 262144;
+const int APRG_MISSION_FLAG_DEVILS_PLAYGROUND_ZERG_ELIMINATION = 524288;
 
 int g_aprgMaskA = 0;
 int g_aprgMaskB = 0;
@@ -282,9 +286,16 @@ int g_aprgCommanderHeroIndex = -1;
 int g_aprgMissionLayer = 1;
 int g_aprgMissionFlags = 0;
 int g_aprgFastPhase = 0;
+// Engine of Destruction's map intentionally protects Loki (unit 835) until
+// a player enters the small Loki Aggro region. Keep that staging, but recover
+// if its region trigger does not remove the protection after contact.
+bool g_aprgLokiReached = false;
+fixed g_aprgLokiReachedTime = -1.0;
+fixed g_aprgNextLokiProtectionCheck = 0.0;
 fixed g_aprgNextVoidEntityReconcileTime = 0.0;
 fixed g_aprgNextBoonCombatStatsTime = 0.0;
 fixed g_aprgNextNewBoonStatsTime = 0.0;
+fixed g_aprgNextAberrationHealTime = 0.0;
 int g_aprgProgressionFlags = 0;
 int g_aprgSpearEnergyRegenStacks = 0;
 int g_aprgMercenaryUpgradePacked = 0;
@@ -296,6 +307,12 @@ bool g_aprgGodMode = false;
 bool g_aprgGodModeCatalogApplied = false;
 bool g_aprgAllInSawEnemyStructure = false;
 bool g_aprgAllInVictoryTriggered = false;
+// Devil's Playground early-victory fallback tracks ONLY initially present,
+// vulnerable enemy Zerg structures, not mission helpers or later Slay spawns.
+bool g_aprgDevilsZergBaselineCaptured = false;
+bool g_aprgDevilsZergVictoryTriggered = false;
+int g_aprgDevilsZergBaselineCount = 0;
+unitgroup g_aprgDevilsOriginalZergStructures;
 fixed g_aprgNextHellionRunByTime = -1.0;
 int g_aprgHellionRunByWave = 0;
 unitgroup g_aprgDiamondbackWanderers;
@@ -401,6 +418,8 @@ fixed[2] g_aprgPotionQueueStarted;
 point[2] g_aprgPotionQueuePoint;
 unitgroup g_aprgPotionAutoUnits;
 unitgroup g_aprgPotionAutoSpellcasters;
+unitgroup g_aprgPotionAutoLeviathans;
+trigger g_aprgPotionLeviathanSpawnTrigger;
 int g_aprgPotionAutoCursor = 0;
 fixed g_aprgPotionAutoNextRetarget = 0.0;
 
@@ -419,8 +438,29 @@ fixed g_aprgShopKerriganDeathTime = -1.0;
 point g_aprgShopKerriganDeathPoint = null;
 point g_aprgShopKerriganRespawnPoint = null;
 bool g_aprgShopKerriganPositioned = false;
+// A successful UnitCreate or UnitRevive is not enough: native campaign triggers
+// can remove the hero on the next update. Confirm before clearing the timer.
+fixed g_aprgShopKerriganVerifyAt = -1.0;
+fixed g_aprgShopKerriganNextRetryAt = -1.0;
+// Meat Grinder production is distributed across fast ticks, preserving all five Marines.
+int[1024] g_aprgMeatGrinderOwner;
+string[1024] g_aprgMeatGrinderType;
+point[1024] g_aprgMeatGrinderPoint;
+fixed[1024] g_aprgMeatGrinderFacing;
+int[1024] g_aprgMeatGrinderRemaining;
+int g_aprgMeatGrinderHead = 0;
+int g_aprgMeatGrinderTail = 0;
+int g_aprgMeatGrinderQueued = 0;
+int g_aprgCloneRetargetRemaining = 0;
+// Shared target snapshots for a single retarget batch. Without these each
+// autonomous Marine rebuilt the entire enemy building and mobile groups.
+bool g_aprgCloneTargetCacheActive = false;
+unitgroup g_aprgCloneTargetBuildings;
+unitgroup g_aprgCloneTargetMobile;
+
+
 bool g_aprgStarted = false;
-bool g_aprgEffectsSummaryDisplayed = false;
+bool g_aprgEffectsSummaryAfterBaseDisplayed = false;
 bool g_aprgLowQualityApplied = false;
 bool g_aprgInvestorsGiven = false;
 bool g_aprgMultiClassGiven = false;
@@ -551,9 +591,9 @@ unitgroup g_aprgEnergyOverloadProcessed;
 unitgroup g_aprgEliteProcessed;
 unitgroup g_aprgJuggernautProcessed;
 revealer g_aprgFarseerRevealer;
-unit[64] g_aprgAlwaysVisibleUnits;
-region[64] g_aprgAlwaysVisibleRegions;
-revealer[64] g_aprgAlwaysVisibleRevealers;
+unit[128] g_aprgAlwaysVisibleUnits;
+region[128] g_aprgAlwaysVisibleRegions;
+revealer[128] g_aprgAlwaysVisibleRevealers;
 int g_aprgAlwaysVisibleCount = 0;
 bool g_aprgEffectsActivated = false;
 bool g_aprgSpecialistsGiven = false;
@@ -565,6 +605,8 @@ unitgroup g_aprgBanelingStreamUnits;
 fixed g_aprgNextBanelingStreamRetargetTime = 20.0;
 fixed g_aprgActivationTime = 0.0;
 bool g_aprgMacroBaseReady = false;
+bool g_aprgLabRatHordeMineralsGiven = false;
+bool g_aprgSmashGrabExtraWorkersGiven = false;
 int g_aprgLabRatMineralsCollectedStart = -1;
 int g_aprgLabRatCompletedSupplyProvidersStart = -1;
 fixed g_aprgLabRatSupplyCompletedTime = -1.0;
@@ -578,6 +620,7 @@ unit[32] g_aprgGeneratedHeroes;
 bool[32] g_aprgGeneratedHeroDied;
 int g_aprgGeneratedHeroCount = 0;
 fixed g_aprgNextGeneratedHeroAbilityTime = 0.0;
+fixed g_aprgNextEnemyZagaraFatalCheckTime = 0.0;
 fixed g_aprgNextFriendlyAutonomousAbilityTime = 0.0;
 int g_aprgFriendlyAirAbilityCursor = 0;
 int g_aprgFriendlyCloneAbilityCursor = 0;
@@ -747,6 +790,7 @@ actor[32] g_aprgPurifierWarpActor;
 unit[32] g_aprgPurifierWarpUnit;
 bool[32] g_aprgPurifierWarpEscort;
 trigger g_aprgFastBoonTrigger;
+trigger g_aprgAberrationDebugTrigger;
 bool g_aprgReaperBlitzBusy = false;
 
 unit g_aprgPurifierAlliance = null;
@@ -761,7 +805,9 @@ fixed g_aprgPurifierAllianceBeamStopTime = -1.0;
 
 bool g_aprgAssemblyCatalogApplied = false;
 bool g_aprgHordeCatalogApplied = false;
+bool g_aprgMutationCatalogApplied = false;
 bool g_aprgUnlimitedPowerCatalogApplied = false;
+fixed g_aprgNextMercenaryCooldownWatchTime = 0.0;
 bool g_aprgMercenaryCatalogApplied = false;
 bool g_aprgMercenaryDamageBusy = false;
 unitgroup g_aprgMercenaryHpProcessed;
@@ -774,6 +820,8 @@ int g_aprgBurrowedZerglingAttempts = 0;
 unitgroup g_aprgBurrowedZerglings;
 bool g_aprgSniperThorSpawned = false;
 int g_aprgSniperThorRetries = 0;
+unit g_aprgSniperThor = null;
+bool g_aprgSniperThorDefenseAttackOrdered = false;
 fixed g_aprgNextTowerDefenseTime = 0.0;
 int g_aprgTowerDefenseAttempts = 0;
 unitgroup g_aprgTowerDefenseProbes;
@@ -791,6 +839,7 @@ unitgroup g_aprgCombatWorkersProcessed;
 unitgroup g_aprgGlassCannonsProcessed;
 bool g_aprgLurkerDefenseGiven = false;
 bool g_aprgOdinGiven = false;
+fixed g_aprgNextPlayerOdinNukeCheckTime = 0.0;
 fixed g_aprgNextEnemyRapidEvolutionTime = 0.0;
 fixed g_aprgNextAlliedTargetRotationTime = 0.0;
 bool g_aprgMiraMercenariesSpawned = false;
@@ -1548,6 +1597,17 @@ bool APRG_IsCreepTumorType(string unitType) {
     return unitType != "" && StringContains(unitType, "CreepTumor", c_stringAnywhere, c_stringNoCase);
 }
 
+// Spider Mines (including AP/variant IDs) are units, even on maps/catalogs
+// where the Structure target filter happens to select them. They must never
+// become targets or sources for Slay's structure-only blessing effects.
+bool APRG_IsSpiderMineType(string unitType) {
+    return unitType != "" && StringContains(unitType, "SpiderMine", c_stringAnywhere, c_stringNoCase);
+}
+
+bool APRG_IsSlayStructureEffectEligibleType(string unitType) {
+    return unitType != "" && !APRG_IsCreepTumorType(unitType) && !APRG_IsSpiderMineType(unitType);
+}
+
 bool APRG_IsScriptedPurifier(unit u) {
     string unitType;
     if (u == null) { return false; }
@@ -1576,7 +1636,7 @@ unitgroup APRG_PlayerStructures(int player) {
     );
     for (i = UnitGroupCount(result, c_unitCountAlive); i > 0; i -= 1) {
         u = UnitGroupUnitFromEnd(result, i);
-        if (u != null && APRG_IsCreepTumorType(UnitGetType(u))) { UnitGroupRemove(result, u); }
+        if (u != null && !APRG_IsSlayStructureEffectEligibleType(UnitGetType(u))) { UnitGroupRemove(result, u); }
     }
     return result;
 }
@@ -1599,7 +1659,7 @@ unitgroup APRG_EnemyStructures(int player) {
     );
     for (i = UnitGroupCount(result, c_unitCountAlive); i > 0; i -= 1) {
         u = UnitGroupUnitFromEnd(result, i);
-        if (u != null && APRG_IsCreepTumorType(UnitGetType(u))) { UnitGroupRemove(result, u); }
+        if (u != null && !APRG_IsSlayStructureEffectEligibleType(UnitGetType(u))) { UnitGroupRemove(result, u); }
     }
     return result;
 }
@@ -1762,6 +1822,50 @@ int APRG_CountCompletedNonTownHallSupplyProviders(int player) {
     return count;
 }
 
+// Gameplay effect schedules use the completed player macro base as their clock.
+// Intentional mission-clock exceptions are kept in their individual handlers:
+// 10 Minutes Until Destruction, Tal'darim Reinforcements, Invasion Fleet,
+// and Purifier Alliance (whose descriptions specify mission-time milestones).
+fixed APRG_TimeSinceMacroBase(fixed now) {
+    if (g_aprgMacroReadyTime < 0.0) { return 0.0; }
+    if (now < g_aprgMacroReadyTime) { return 0.0; }
+    return now - g_aprgMacroReadyTime;
+}
+
+void APRG_StartMacroRelativeEffectClocks(fixed established) {
+    // Spawn waves / patrol escalation.
+    g_aprgNextWraithTime = established + 120.0;
+    g_aprgNextVikingRaidTime = established + 180.0;
+    g_aprgNextDarkTemplarTime = established + 300.0;
+    g_aprgNextOccasionalThorTime = established + 60.0;
+    g_aprgNextOccasionalUltraliskTime = established + 60.0;
+    g_aprgNextOccasionalColossusTime = established + 60.0;
+    g_aprgNextHeroesOfStormPatrolTime = established + 300.0;
+    g_aprgNextHeroesOfStormDefenseAttackTime = established + 900.0;
+    g_aprgNextGorgonMutationTime = established + 180.0;
+    g_aprgNextTowerDefenseTime = established + 30.0;
+    g_aprgNextJetpackWaveTime = established + 240.0;
+    g_aprgNextZagaraBanelingTime = 600.0; // Explicit "at the 10 minute mark": mission clock.
+    g_aprgNextMineralThiefTime = established + RandomFixed(1.0, 30.0);
+    g_aprgNextActiveEnemyScanTime = established + 5.0;
+    // Recurring player blessings and passive mutation effects.
+    g_aprgNextAirSupportTime = established + 60.0;
+    g_aprgNextLostVikingTime = established + 60.0;
+    g_aprgNextWarfieldTime = established + 30.0;
+    g_aprgNextWarfieldBurstTime = established + 60.0;
+    g_aprgNextRapidEvolutionTime = established + 5.0;
+    g_aprgNextEnemyRapidEvolutionTime = established + 5.0;
+    g_aprgNextEnemyRegenerationTime = established + 1.0;
+    g_aprgNextCompoundTime = established + 30.0;
+    g_aprgNextEnergyLeakTime = established + 3.0;
+    g_aprgNextDecayTime = established + 1.0;
+    g_aprgNextArmsRaceTime = established + 120.0;
+    g_aprgNextZagaraAidTime = established + 600.0;
+    g_aprgNextGorgonBlessingTime = established + 60.0;
+    g_aprgNextHordeLarvaTime = established + 33.0;
+    g_aprgNextInflatableTime = established + 12.0;
+}
+
 void APRG_UpdateMacroBaseReady(int player) {
     unitgroup workers;
     unitgroup structures;
@@ -1820,6 +1924,7 @@ void APRG_UpdateMacroBaseReady(int player) {
             g_aprgMacroBaseReady = true;
             g_aprgMacroPlayer = player;
             g_aprgMacroReadyTime = GameGetMissionTime();
+            APRG_StartMacroRelativeEffectClocks(g_aprgMacroReadyTime);
         }
     }
     else {
@@ -1932,6 +2037,16 @@ void APRG_RegisterAlwaysVisibleUnit(unit u, int player) {
     if (u == null || !UnitIsAlive(u)) { return; }
     for (i = 0; i < g_aprgAlwaysVisibleCount; i += 1) {
         if (g_aprgAlwaysVisibleUnits[i] == u) { return; }
+        // A Torrasque can die many times in one mission. Reuse a dead unit's
+        // existing revealer slot rather than exhausting the finite registry.
+        if (g_aprgAlwaysVisibleUnits[i] == null || !UnitIsAlive(g_aprgAlwaysVisibleUnits[i])) {
+            if (g_aprgAlwaysVisibleRegions[i] != null && g_aprgAlwaysVisibleRevealers[i] != null) {
+                g_aprgAlwaysVisibleUnits[i] = u;
+                RegionSetCenter(g_aprgAlwaysVisibleRegions[i], UnitGetPosition(u));
+                VisRevealerUpdate(g_aprgAlwaysVisibleRevealers[i]);
+                return;
+            }
+        }
     }
     if (g_aprgAlwaysVisibleCount >= APRG_MAX_ALWAYS_VISIBLE) { return; }
     r = RegionCircle(UnitGetPosition(u), 4.0);
@@ -2318,6 +2433,14 @@ string APRG_PlayerSpawnCatalogTypeForPlayer(string unitType, int player) {
     string apType;
     if (unitType == "") { return unitType; }
 
+    // Purification is Slay's default *player-spawned* Colossus variant.
+    // Use the AP catalog where available; keep the original unit as a last
+    // compatibility fallback on missions lacking the Purifier dependencies.
+    if (unitType == "Colossus") {
+        if (APRG_PlayerSpawnCandidateHealthy(player, "AP_ColossusPurifier", false)) { return "AP_ColossusPurifier"; }
+        if (APRG_PlayerSpawnCandidateHealthy(player, "ColossusPurifier", false)) { return "ColossusPurifier"; }
+    }
+
     if (
         StringContains(unitType, "AP_", c_stringAnywhere, c_stringCase) &&
         APRG_PlayerSpawnCandidateHealthy(player, unitType, false)
@@ -2623,6 +2746,7 @@ unit APRG_NearestPathableEnemyStructureFromGroup(unit mover, int player, unitgro
 unit APRG_RandomPlayerStructure(int player);
 void APRG_StripVoidEntityGroup(unitgroup group);
 void APRG_RegisterMutationEnemyGroup(unitgroup group);
+bool APRG_TryPotionLeviathanSummon(unit leviathan, int player, string keyword, fixed now);
 
 bool APRG_OrderStandardMove(unit mover, point destination) {
     order moveOrder;
@@ -2654,10 +2778,19 @@ bool APRG_OrderAttackPlayer(unit mover, int player) {
     return APRG_OrderAttackMove(mover, UnitGetPosition(target));
 }
 
+point APRG_GroundSafePatrolDestination(unit mover, int player, fixed clearance);
+
 bool APRG_OrderPatrolMap(unit mover, int player, bool requireGround) {
     point destination;
+    fixed clearance;
     if (mover == null || !UnitIsAlive(mover)) { return false; }
-    destination = APRG_RandomFixedPatrolPointForUnit(mover, player, requireGround);
+    if (requireGround && StringContains(UnitGetType(mover), "Archon", c_stringAnywhere, c_stringNoCase) &&
+        APRG_TimeSinceMacroBase(GameGetMissionTime()) < 720.0) {
+        clearance = 20.0;
+        if (APRG_TimeSinceMacroBase(GameGetMissionTime()) >= 480.0) { clearance = 10.0; }
+        destination = APRG_GroundSafePatrolDestination(mover, player, clearance);
+    }
+    else { destination = APRG_RandomFixedPatrolPointForUnit(mover, player, requireGround); }
     if (destination == null) { return false; }
     return APRG_OrderAttackMove(mover, destination);
 }
@@ -2714,7 +2847,7 @@ void APRG_ApplyLowQualityMinerals() {
 }
 
 fixed APRG_CongaRatePerMinute(fixed missionTime) {
-    fixed accelerationMinutes = (missionTime - 120.0) / 60.0;
+    fixed accelerationMinutes = (APRG_TimeSinceMacroBase(missionTime) - 120.0) / 60.0;
     if (accelerationMinutes < 0.0) {
         accelerationMinutes = 0.0;
     }
@@ -2901,11 +3034,51 @@ void APRG_GiveInvestorsIfReady(int player) {
     g_aprgInvestorsGiven = true;
 }
 
+// Only Smash and Grab: add three workers of the player's actual starting
+// worker type. Wait for the normal macro-base establishment gate, which also
+// avoids spawning workers in cinematic/protected opening areas.
+void APRG_GiveSmashGrabExtraWorkersIfReady(int player) {
+    unitgroup workers;
+    unitgroup created;
+    unit base;
+    unit worker;
+    point spawnPoint;
+    string workerType = "";
+    string candidateType;
+    int i;
+
+    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_SMASH_AND_GRAB_EXTRA_WORKERS) == 0 ||
+        g_aprgSmashGrabExtraWorkersGiven || !APRG_PlayerMacroBaseReady(player)) { return; }
+    base = APRG_FindPlayerHomeStructure(player);
+    workers = APRG_PlayerWorkers(player);
+    if (base == null || UnitGroupCount(workers, c_unitCountAlive) == 0) { return; }
+    // Prefer the worker family over transient worker-tagged units such as MULEs.
+    for (i = UnitGroupCount(workers, c_unitCountAlive); i > 0; i -= 1) {
+        worker = UnitGroupUnitFromEnd(workers, i);
+        if (worker == null || !UnitIsAlive(worker)) { continue; }
+        candidateType = UnitGetType(worker);
+        if (workerType == "") { workerType = candidateType; }
+        if (StringContains(candidateType, "SCV", c_stringAnywhere, c_stringNoCase) ||
+            StringContains(candidateType, "Drone", c_stringAnywhere, c_stringNoCase) ||
+            StringContains(candidateType, "Probe", c_stringAnywhere, c_stringNoCase)) {
+            workerType = candidateType;
+            break;
+        }
+    }
+    if (workerType == "" || !CatalogEntryIsValid(c_gameCatalogUnit, workerType)) { return; }
+    spawnPoint = APRG_FindGroundPointNear(UnitGetPosition(base), 4.0, 9.0);
+    if (spawnPoint == null) { return; }
+    created = APRG_CreatePlayerUnitsSafe(3, workerType, player, spawnPoint, libNtve_gf_RandomAngle());
+    if (UnitGroupCount(created, c_unitCountAlive) > 0) {
+        g_aprgSmashGrabExtraWorkersGiven = true;
+    }
+}
+
 void APRG_GiveMultiClassIfReady(int player) {
     unit base;
     point spawnPoint;
 
-    if (g_aprgMultiClassGiven || GameGetMissionTime() < 30.0 || !APRG_PlayerMacroBaseReady(player)) {
+    if (g_aprgMultiClassGiven || !APRG_PlayerMacroBaseReady(player) || APRG_TimeSinceMacroBase(GameGetMissionTime()) < 30.0) {
         return;
     }
     base = APRG_FindPlayerHomeStructure(player);
@@ -2977,6 +3150,27 @@ bool APRG_GoldenPatrolRouteSafe(point start, point destination, int player, fixe
     return true;
 }
 
+// SC2 pathing can bend around terrain, so a long path is not guaranteed to
+// follow the straight-line samples. Use small connected hops, sample every
+// 2 range, and reselect frequently. All checks use player/allied buildings
+// excluding creep tumors.
+point APRG_GroundSafePatrolDestination(unit mover, int player, fixed clearance) {
+    point origin;
+    point candidate;
+    int attempt;
+    if (mover == null || !UnitIsAlive(mover)) { return null; }
+    origin = UnitGetPosition(mover);
+    if (origin == null) { return null; }
+    for (attempt = 0; attempt < 40; attempt += 1) {
+        candidate = PointWithOffsetPolar(origin, RandomFixed(3.0, 8.0), libNtve_gf_RandomAngle());
+        if (candidate == null || !RegionContainsPoint(RegionPlayableMap(), candidate)) { continue; }
+        if (!PointPathingPassable(candidate) || !UnitPathableToPoint(mover, candidate, 2.0, 100000.0)) { continue; }
+        if (!APRG_GoldenPatrolRouteSafe(origin, candidate, player, clearance)) { continue; }
+        return candidate;
+    }
+    return null;
+}
+
 point APRG_FindGoldenSafeAirPoint(int player, fixed spawnClearance) {
     int attempt;
     point candidate;
@@ -3033,24 +3227,25 @@ point APRG_GoldenSafePatrolDestination(point origin, int player, int startIndex,
 void APRG_RetargetGoldenArmada(int player) {
     point destination;
     unit anchor;
+    fixed clearance;
     if (!g_aprgGoldenSpawned || UnitGroupCount(g_aprgGoldenFleet, c_unitCountAlive) <= 0) { return; }
     anchor = APRG_FirstLivingUnitInGroup(g_aprgGoldenFleet);
     if (anchor == null) { return; }
 
-    if (GameGetMissionTime() < 240.0) {
-        // The normal fleet spreads a few range from its path center: leave a 4-range
-        // formation margin so individual aircraft remain about 20 range away.
-        destination = APRG_GoldenSafePatrolDestination(UnitGetPosition(anchor), player, g_aprgGoldenPatrolIndex, 24.0);
+    // Workbook: 24 range until 6m, 12 until 12m, then unrestricted.
+    if (APRG_TimeSinceMacroBase(GameGetMissionTime()) < 720.0) {
+        clearance = 24.0;
+        if (APRG_TimeSinceMacroBase(GameGetMissionTime()) >= 360.0) { clearance = 12.0; }
+        destination = APRG_GoldenSafePatrolDestination(UnitGetPosition(anchor), player, g_aprgGoldenPatrolIndex, clearance);
         if (destination == null) { return; }
     }
     else {
-        if (g_aprgFixedPatrolPointCount <= 0) { return; }
-        if (g_aprgGoldenPatrolIndex < 0 || g_aprgGoldenPatrolIndex >= g_aprgFixedPatrolPointCount) { g_aprgGoldenPatrolIndex = 0; }
-        destination = g_aprgFixedPatrolPoints[g_aprgGoldenPatrolIndex];
+        // After twelve minutes, choose across the *whole* map, including the base.
+        destination = RegionRandomPoint(RegionPlayableMap());
         if (destination == null) { return; }
     }
 
-    if (GameGetMissionTime() < 240.0) {
+    if (APRG_TimeSinceMacroBase(GameGetMissionTime()) < 720.0) {
         UnitGroupIssueOrder(g_aprgGoldenFleet, OrderTargetingPoint(AbilityCommand("move", 0), destination), c_orderQueueReplace);
     }
     else {
@@ -3134,9 +3329,10 @@ void APRG_OrderTrueGoldenAtPlayerBase(int player) {
 void APRG_RetargetTrueGoldenArmada(int player) {
     point destination;
     unit anchor;
+    fixed clearance;
     if (!g_aprgTrueGoldenSpawned || UnitGroupCount(g_aprgTrueGoldenFleet, c_unitCountAlive) <= 0) { return; }
     if (g_aprgTrueGoldenMothership == null || !UnitIsAlive(g_aprgTrueGoldenMothership)) {
-        if (GameGetMissionTime() >= 240.0) {
+        if (APRG_TimeSinceMacroBase(GameGetMissionTime()) >= 1200.0) {
             g_aprgTrueGoldenAttackingBase = true;
             APRG_OrderTrueGoldenAtPlayerBase(player);
             return;
@@ -3147,25 +3343,29 @@ void APRG_RetargetTrueGoldenArmada(int player) {
     }
     else { anchor = g_aprgTrueGoldenMothership; }
 
-    if (GameGetMissionTime() < 600.0) {
-        destination = APRG_GoldenSafePatrolDestination(UnitGetPosition(anchor), player, g_aprgTrueGoldenPatrolIndex, 40.0);
+    if (APRG_TimeSinceMacroBase(GameGetMissionTime()) < 1200.0) {
+        // 40 range until 10m, 30 until 15m, 20 until 20m.
+        clearance = 40.0;
+        if (APRG_TimeSinceMacroBase(GameGetMissionTime()) >= 600.0) { clearance = 30.0; }
+        if (APRG_TimeSinceMacroBase(GameGetMissionTime()) >= 900.0) { clearance = 20.0; }
+        destination = APRG_GoldenSafePatrolDestination(UnitGetPosition(anchor), player, g_aprgTrueGoldenPatrolIndex, clearance);
         if (destination == null) { return; }
     }
     else {
-        // After ten minutes the Armada is no longer constrained to enemy-side
+        // After twenty minutes the Armada is no longer constrained to enemy-side
         // patrol anchors. Pick anywhere in the playable map and attack-move there;
         // this deliberately allows routes through the player's base.
         destination = RegionRandomPoint(RegionPlayableMap());
         if (destination == null) { return; }
     }
 
-    if (GameGetMissionTime() < 600.0) {
+    if (APRG_TimeSinceMacroBase(GameGetMissionTime()) < 1200.0) {
         UnitGroupIssueOrder(g_aprgTrueGoldenFleet, OrderTargetingPoint(AbilityCommand("move", 0), destination), c_orderQueueReplace);
     }
     else {
         UnitGroupIssueOrder(g_aprgTrueGoldenFleet, OrderTargetingPoint(AbilityCommand("attack", 0), destination), c_orderQueueReplace);
     }
-    if (GameGetMissionTime() < 600.0 && g_aprgFixedPatrolPointCount > 0) {
+    if (APRG_TimeSinceMacroBase(GameGetMissionTime()) < 1200.0 && g_aprgFixedPatrolPointCount > 0) {
         g_aprgTrueGoldenPatrolIndex = (g_aprgTrueGoldenPatrolIndex + 1) % g_aprgFixedPatrolPointCount;
     }
 }
@@ -3187,6 +3387,7 @@ void APRG_TickTrueGoldenPhoenixes(int player, fixed now) {
     int count;
     int i;
     fixed angle;
+    fixed clearance;
     if (now < g_aprgNextTrueGoldenPhoenixOrbitTime) { return; }
     g_aprgNextTrueGoldenPhoenixOrbitTime = now + 1.5;
     if (g_aprgTrueGoldenAttackingBase) { return; }
@@ -3201,7 +3402,10 @@ void APRG_TickTrueGoldenPhoenixes(int player, fixed now) {
         angle = IntToFixed((i * 360 / count)) + now * 18.0;
         destination = PointWithOffsetPolar(center, 10.0 + IntToFixed(i % 3) * 2.0, angle);
         if (destination != null && RegionContainsPoint(RegionPlayableMap(), destination)) {
-            if (now < 600.0 && !APRG_GoldenPatrolRouteSafe(UnitGetPosition(phoenix), destination, player, 40.0)) { continue; }
+            clearance = 40.0;
+            if (APRG_TimeSinceMacroBase(now) >= 600.0) { clearance = 30.0; }
+            if (APRG_TimeSinceMacroBase(now) >= 900.0) { clearance = 20.0; }
+            if (APRG_TimeSinceMacroBase(now) < 1200.0 && !APRG_GoldenPatrolRouteSafe(UnitGetPosition(phoenix), destination, player, clearance)) { continue; }
             UnitIssueOrder(phoenix, OrderTargetingPoint(AbilityCommand("move", 0), destination), c_orderQueueReplace);
         }
     }
@@ -3265,8 +3469,8 @@ void APRG_TickTrueGoldenOracles(int player, fixed now) {
     int i;
     // Revelation orders can cause Oracles to follow a player unit across an
     // otherwise safe patrol route; disable proactive casting until the Armada
-    // finishes its special 10-minute enemy-territory patrol phase.
-    if (now < 600.0 || now < g_aprgNextTrueGoldenOracleTime) { return; }
+    // completes both restricted patrol phases (10m full + 5m half buffer).
+    if (APRG_TimeSinceMacroBase(now) < 1200.0 || now < g_aprgNextTrueGoldenOracleTime) { return; }
     g_aprgNextTrueGoldenOracleTime = now + 2.0;
     for (i = UnitGroupCount(g_aprgTrueGoldenOracles, c_unitCountAlive); i > 0; i -= 1) {
         oracle = UnitGroupUnitFromEnd(g_aprgTrueGoldenOracles, i);
@@ -3369,7 +3573,7 @@ void APRG_TickTrueGoldenArmada(int player, fixed now) {
         APRG_TrySpawnTrueGoldenArmada(player);
         return;
     }
-    if ((g_aprgTrueGoldenMothership == null || !UnitIsAlive(g_aprgTrueGoldenMothership)) && now >= 240.0) {
+    if ((g_aprgTrueGoldenMothership == null || !UnitIsAlive(g_aprgTrueGoldenMothership)) && APRG_TimeSinceMacroBase(now) >= 900.0) {
         if (!g_aprgTrueGoldenAttackingBase || now >= g_aprgNextTrueGoldenRetargetTime) {
             g_aprgTrueGoldenAttackingBase = true;
             APRG_OrderTrueGoldenAtPlayerBase(player);
@@ -3425,6 +3629,39 @@ unitgroup APRG_PlayerAllUnits(int player) {
     return result;
 }
 
+// In Purification, NullCircuit / NullCircuitActivated are mission-scripted
+// objectives. Their health, death and activation state belong to the map,
+// not Slay's generic enemy-wide mutations/boons. Do not replace or heal them.
+bool APRG_IsCampaignNullCircuit(unit u) {
+    string unitType;
+    if (u == null) { return false; }
+    unitType = UnitGetType(u);
+    return StringContains(unitType, "NullCircuit", c_stringAnywhere, c_stringNoCase);
+}
+
+// A native AoE effect cannot exclude one victim via Galaxy's effect command.
+// Suppress Slay-created scripted AoE if it would overlap a Null Circuit; native
+// campaign weapon/projectile damage and mission effects are never altered.
+bool APRG_SlayEffectOverlapsNullCircuit(point p, fixed radius) {
+    unitgroup nearby;
+    int i;
+    unit u;
+    if (p == null || radius <= 0.0) { return false; }
+    nearby = UnitGroup(null, c_playerAny, RegionCircle(p, radius),
+        UnitFilter(0, 0, 0, (1 << (c_targetFilterDead - 32))), 0);
+    for (i = UnitGroupCount(nearby, c_unitCountAlive); i > 0; i -= 1) {
+        u = UnitGroupUnitFromEnd(nearby, i);
+        if (u != null && UnitIsAlive(u) && APRG_IsCampaignNullCircuit(u)) { return true; }
+    }
+    return false;
+}
+
+void APRG_CreateObjectiveSafeSlayEffect(int owner, string effectType, point p, fixed radius) {
+    if (p == null || effectType == "" || !CatalogEntryIsValid(c_gameCatalogEffect, effectType)) { return; }
+    if (APRG_SlayEffectOverlapsNullCircuit(p, radius)) { return; }
+    PlayerCreateEffectPoint(owner, effectType, p);
+}
+
 unitgroup APRG_EnemyAllUnits(int player) {
     unitgroup result;
     int i;
@@ -3435,7 +3672,7 @@ unitgroup APRG_EnemyAllUnits(int player) {
     );
     for (i = UnitGroupCount(result, c_unitCountAlive); i > 0; i -= 1) {
         u = UnitGroupUnitFromEnd(result, i);
-        if (u != null && (APRG_IsCreepTumorType(UnitGetType(u)) || APRG_IsRakShirObjectiveUnit(u))) { UnitGroupRemove(result, u); }
+        if (u != null && (APRG_IsCreepTumorType(UnitGetType(u)) || APRG_IsRakShirObjectiveUnit(u) || APRG_IsCampaignNullCircuit(u))) { UnitGroupRemove(result, u); }
     }
     return result;
 }
@@ -3474,7 +3711,7 @@ unitgroup APRG_EnemyTargetableStructures(int player) {
     );
     for (i = UnitGroupCount(result, c_unitCountAlive); i > 0; i -= 1) {
         u = UnitGroupUnitFromEnd(result, i);
-        if (u != null && APRG_IsCreepTumorType(UnitGetType(u))) { UnitGroupRemove(result, u); }
+        if (u != null && !APRG_IsSlayStructureEffectEligibleType(UnitGetType(u))) { UnitGroupRemove(result, u); }
     }
     return result;
 }
@@ -3537,7 +3774,7 @@ unitgroup APRG_EnemyTargetableGroundStructures(int player) {
     );
     for (i = UnitGroupCount(structures, c_unitCountAlive); i > 0; i -= 1) {
         u = UnitGroupUnitFromEnd(structures, i);
-        if (u != null && APRG_IsCreepTumorType(UnitGetType(u))) { UnitGroupRemove(structures, u); }
+        if (u != null && !APRG_IsSlayStructureEffectEligibleType(UnitGetType(u))) { UnitGroupRemove(structures, u); }
     }
     return structures;
 }
@@ -3565,6 +3802,8 @@ void APRG_RotateAlliedTargetBlacklist() {
 bool APRG_PointNearPlayerOrAlliedBuilding(point candidate, int player, fixed radius) {
     unit nearestPlayerStructure;
     unitgroup alliedStructures;
+    int i;
+    unit allied;
     if (candidate == null) { return true; }
     nearestPlayerStructure = APRG_NearestPlayerStructure(candidate, player);
     if (nearestPlayerStructure != null && DistanceBetweenPoints(candidate, UnitGetPosition(nearestPlayerStructure)) <= radius) { return true; }
@@ -3575,6 +3814,13 @@ bool APRG_PointNearPlayerOrAlliedBuilding(point candidate, int player, fixed rad
         UnitFilter((1 << c_targetFilterStructure), 0, (1 << c_targetFilterMissile), (1 << (c_targetFilterDead - 32))),
         0
     );
+    // Creep tumors and Spider Mines must not reserve building clearance.
+    for (i = UnitGroupCount(alliedStructures, c_unitCountAlive); i > 0; i -= 1) {
+        allied = UnitGroupUnitFromEnd(alliedStructures, i);
+        if (allied != null && !APRG_IsSlayStructureEffectEligibleType(UnitGetType(allied))) {
+            UnitGroupRemove(alliedStructures, allied);
+        }
+    }
     return UnitGroupCount(alliedStructures, c_unitCountAlive) > 0;
 }
 
@@ -3875,12 +4121,14 @@ point APRG_RandomHeroesOfStormPatrolPoint(unit hero) {
     point sample;
     if (hero == null || !UnitIsAlive(hero)) { return null; }
     player = APRG_GetPrimaryPlayer();
-    protectedPeriod = GameGetMissionTime() < 240.0;
+    protectedPeriod = APRG_TimeSinceMacroBase(GameGetMissionTime()) < 900.0;
     current = UnitGetPosition(hero);
     for (attempt = 0; attempt < 32; attempt += 1) {
         candidate = RegionRandomPoint(RegionPlayableMap());
         if (candidate == null) { continue; }
-        if (DistanceBetweenPoints(current, candidate) < 12.0) { continue; }
+        if (DistanceBetweenPoints(current, candidate) < 4.0) { continue; }
+        // During the protected phase, only choose short route sections.
+        if (protectedPeriod && DistanceBetweenPoints(current, candidate) > 12.0) { continue; }
         if (!UnitPathableToPoint(hero, candidate, 3.0, 100000.0)) { continue; }
         if (protectedPeriod) {
             // Protect the whole proposed path, not just its destination. Sample
@@ -4550,6 +4798,8 @@ void APRG_TrySpawnEnemyDrill(int player) {
     int owner;
     string drillType;
     unitgroup created;
+    // Do not activate the mutation until three minutes after base established.
+    if (!APRG_PlayerMacroBaseReady(player) || APRG_TimeSinceMacroBase(GameGetMissionTime()) < 180.0) { return; }
     if (g_aprgDrillSpawned || g_aprgDrillRetries >= APRG_STATIC_SPAWN_MAX_RETRIES) {
         return;
     }
@@ -4572,6 +4822,8 @@ void APRG_TrySpawnEnemyDrill(int player) {
     if (UnitGroupCount(created, c_unitCountAlive) > 0) {
         g_aprgDrillSpawned = true;
         g_aprgEnemyMutationDrill = UnitGroupUnitFromEnd(created, 1);
+        APRG_RegisterAlwaysVisibleUnit(g_aprgEnemyMutationDrill, player);
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText("The Drakken Laser Drill is Operational"));
         g_aprgEnemyDrillNextInterrupt = GameGetMissionTime() + 9.0;
         g_aprgEnemyDrillResumeTime = -1.0;
     }
@@ -4703,6 +4955,8 @@ void APRG_ApplyFragileWorkers(int player) {
     }
 }
 
+bool APRG_IsWorkerTypeForDeath(string unitType);
+
 int APRG_FindDecaySlot(unit u, fixed now) {
     int i;
     int freeSlot = -1;
@@ -4740,7 +4994,7 @@ void APRG_TickDecay(int player, fixed now) {
     units = APRG_PlayerMobileUnits(player);
     for (i = UnitGroupCount(units, c_unitCountAlive); i > 0; i -= 1) {
         u = UnitGroupUnitFromEnd(units, i);
-        if (u == null || !UnitIsAlive(u)) { continue; }
+        if (u == null || !UnitIsAlive(u) || APRG_IsWorkerTypeForDeath(UnitGetType(u))) { continue; }
         slot = APRG_FindDecaySlot(u, now);
         if (slot < 0) { continue; }
         if (now >= g_aprgDecayNextStackTime[slot]) {
@@ -4795,28 +5049,50 @@ fixed APRG_LeviathanNextInterval(fixed now) {
 }
 
 point APRG_FindLeviathanDropPoint(int player) {
+    // Pick a random *unit or building* belonging to the player or an allied
+    // player instead of aiming at the home base or an unrelated map point.
+    // Exclude creep tumors and non-gameplay helper units, like other Slay
+    // player/allied-structure targeting helpers do.
+    unitgroup targets = APRG_PlayerAllUnits(player);
+    unitgroup allies;
+    int i;
     int attempt;
-    point p;
-    unit home = APRG_FindPlayerHomeStructure(player);
+    unit candidate;
     unit target;
-    unitgroup mobile;
-    if (!APRG_GroundSpawnsNeedPlayerPathing()) { return APRG_FindRandomGroundPoint(); }
+    unit home = APRG_FindPlayerHomeStructure(player);
+    point p;
+    bool connectedOnly = APRG_GroundSpawnsNeedPlayerPathing();
+
+    allies = UnitGroupAlliance(
+        player, c_unitAllianceAlly, RegionPlayableMap(),
+        UnitFilter(0, 0, (1 << c_targetFilterMissile),
+            (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))), 0
+    );
+    for (i = UnitGroupCount(allies, c_unitCountAlive); i > 0; i -= 1) {
+        candidate = UnitGroupUnitFromEnd(allies, i);
+        if (candidate == null || UnitGetOwner(candidate) == player ||
+            APRG_IsCreepTumorType(UnitGetType(candidate)) ||
+            APRG_IsRakShirObjectiveUnit(candidate)) { continue; }
+        UnitGroupAdd(targets, candidate);
+    }
+
+    if (UnitGroupCount(targets, c_unitCountAlive) <= 0) { return null; }
+    // Some air units can be above impassable terrain. Retry different random
+    // targets, and find the nearest valid landing spot around each one.
+    for (attempt = 0; attempt < 48; attempt += 1) {
+        target = UnitGroupRandomUnit(targets, c_unitCountAlive);
+        if (target == null || !UnitIsAlive(target)) { continue; }
+        p = APRG_FindGroundPointNear(UnitGetPosition(target), 0.0, 4.0);
+        if (p == null) { p = APRG_FindGroundPointNear(UnitGetPosition(target), 4.0, 10.0); }
+        if (p == null) { continue; }
+        if (connectedOnly && home != null &&
+            !PointPathingIsConnected(p, UnitGetPosition(home))) { continue; }
+        return p;
+    }
+    // Last resort is still near an actual player building, never a random
+    // location elsewhere on the map.
     if (home == null) { return null; }
-    if (RandomInt(0, 1) == 1) {
-        mobile = APRG_PlayerMobileUnits(player);
-        if (UnitGroupCount(mobile, c_unitCountAlive) > 0) {
-            target = UnitGroupRandomUnit(mobile, c_unitCountAlive);
-            if (target != null) {
-                p = APRG_FindGroundPointNear(UnitGetPosition(target), 0.0, 4.0);
-                if (p != null && (!APRG_GroundSpawnsNeedPlayerPathing() || PointPathingIsConnected(p, UnitGetPosition(home)))) { return p; }
-            }
-        }
-    }
-    for (attempt = 0; attempt < APRG_MAX_POINT_ATTEMPTS; attempt += 1) {
-        p = APRG_FindRandomGroundPoint();
-        if (p != null && (!APRG_GroundSpawnsNeedPlayerPathing() || PointPathingIsConnected(p, UnitGetPosition(home)))) { return p; }
-    }
-    return APRG_FindGroundPointNear(UnitGetPosition(home), 18.0, 40.0);
+    return APRG_FindGroundPointNear(UnitGetPosition(home), 0.0, 5.0);
 }
 
 void APRG_SpawnLeviathanRaid(int player) {
@@ -5922,6 +6198,9 @@ void APRG_TickEnemyCombatAbilities(int player, fixed now) {
         index = ((g_aprgEnemyAbilityCursor + processed) % count) + 1;
         enemy = UnitGroupUnitFromEnd(enemies, index);
         if (enemy == null || !UnitIsAlive(enemy)) { continue; }
+        // Do not let autonomous hero casting start the Leviathan's native
+        // Mutalisk/Brood Lord abilities before its timed approach finishes.
+        if (enemy == g_aprgBaseLeviathan && !g_aprgBaseLeviathanPositioned) { continue; }
         if (APRG_IsScriptedPurifier(enemy) || APRG_IsRakShirObjectiveUnit(enemy)) { continue; }
         if (
             !g_aprgDestructionStarted &&
@@ -6030,7 +6309,8 @@ void APRG_TickGeneratedHeroNoRevive() {
         if (u == null) { continue; }
         if (UnitIsAlive(u)) {
             APRG_DisableGeneratedHeroRevive(u);
-            if ((UnitGetType(u) == "ZaGara" || UnitGetType(u) == "Zagara") && UnitGetPropertyFixed(u, c_unitPropLife, c_unitPropCurrent) <= 3.1) {
+            if (StringContains(UnitGetType(u), "Zagara", c_stringAnywhere, c_stringNoCase) &&
+                UnitGetPropertyFixed(u, c_unitPropLife, c_unitPropCurrent) <= 6.0) {
                 UnitKill(u);
                 if (UnitIsAlive(u)) { UnitRemove(u); }
             }
@@ -6040,6 +6320,33 @@ void APRG_TickGeneratedHeroNoRevive() {
         }
         else if (g_aprgGeneratedHeroDied[i] && UnitIsAlive(u)) {
             UnitRemove(u);
+        }
+    }
+}
+
+// Some campaign Zagara variants stop taking lethal damage with a few HP.
+// Check both hostile and player-owned commander Zagara, independently of
+// max HP changes or the generated enemy-hero tracker.
+// Keep this bounded instead of scanning every game tick.
+void APRG_TickEnemyZagaraFatalHp(int player, fixed now) {
+    unitgroup candidates;
+    unit zagara;
+    int i;
+    int pass;
+    if (now < g_aprgNextEnemyZagaraFatalCheckTime) { return; }
+    g_aprgNextEnemyZagaraFatalCheckTime = now + 0.5;
+    for (pass = 0; pass < 2; pass += 1) {
+        if (pass == 0) { candidates = APRG_EnemyAllUnits(player); }
+        else { candidates = APRG_PlayerAllUnits(player); }
+        for (i = UnitGroupCount(candidates, c_unitCountAlive); i > 0; i -= 1) {
+            zagara = UnitGroupUnitFromEnd(candidates, i);
+            if (zagara == null || !UnitIsAlive(zagara)) { continue; }
+            if (!StringContains(UnitGetType(zagara), "Zagara", c_stringAnywhere, c_stringNoCase)) { continue; }
+            if (UnitGetPropertyFixed(zagara, c_unitPropLife, c_unitPropCurrent) > 6.0) { continue; }
+            // Do not strip the player's normal commander-revival logic.
+            if (pass == 0) { APRG_DisableGeneratedHeroRevive(zagara); }
+            UnitKill(zagara);
+            if (UnitIsAlive(zagara)) { UnitRemove(zagara); }
         }
     }
 }
@@ -6063,6 +6370,15 @@ string APRG_VorazunHeroType() {
     return "";
 }
 
+// The controllable LotV Artanis is ArtanisVoid (Twilight Blades), not
+// Wings of Liberty's hero mothership "Artanis". Never substitute a random
+// commander when that catalog is unavailable on the current map.
+string APRG_ArtanisHeroType() {
+    if (CatalogEntryIsValid(c_gameCatalogUnit, "ArtanisVoid")) { return "ArtanisVoid"; }
+    if (CatalogEntryIsValid(c_gameCatalogUnit, "AP_ArtanisVoid")) { return "AP_ArtanisVoid"; }
+    return "";
+}
+
 string APRG_HeroCandidate(int index) {
     if (index == 0) { return "RaynorCommando"; }
     if (index == 1) { return ""; }
@@ -6073,7 +6389,7 @@ string APRG_HeroCandidate(int index) {
     if (index == 6) { return ""; }
     if (index == 7) { return "Zeratul"; }
     if (index == 8) { return "ZeratulVoid"; }
-    if (index == 9) { return "ArtanisVoid"; }
+    if (index == 9) { return APRG_ArtanisHeroType(); }
     if (index == 10) { return APRG_AlarakHeroType(); }
     if (index == 11) { return APRG_AlarakHeroType(); }
     if (index == 12) { return APRG_AlarakHeroType(); }
@@ -6177,7 +6493,7 @@ string APRG_CommanderFallbackCandidate(int slot) {
     if (slot == 0) { return "RaynorCommando"; }
     if (slot == 1) { return "Swann"; }
     if (slot == 2) { return "Zeratul"; }
-    if (slot == 3) { return "ArtanisVoid"; }
+    if (slot == 3) { return APRG_ArtanisHeroType(); }
     if (slot == 4) { return APRG_AlarakHeroType(); }
     if (slot == 5) { return "Mohandar"; }
     if (slot == 6) { return "Selendis"; }
@@ -6210,6 +6526,9 @@ string APRG_FindValidCommanderHeroType() {
 
 string APRG_FindValidHeroTypeFromIndex(int preferredIndex) {
     string candidate;
+    // Explicit Artanis rolls must never turn into Urun (or another random
+    // fallback) merely because the native Void dependency was not loaded.
+    if (preferredIndex == 9) { return APRG_ArtanisHeroType(); }
     if ((preferredIndex == 0 || preferredIndex == 1) && CatalogEntryIsValid(c_gameCatalogUnit, "RaynorCommando")) {
         return "RaynorCommando";
     }
@@ -6288,7 +6607,7 @@ void APRG_GiveGeneralIfReady(int player) {
         if (base == null) { return; }
         p = APRG_FindGroundPointNear(UnitGetPosition(base), 4.0, 9.0);
         if (p == null) { p = UnitGetPosition(base); }
-        if (g_aprgCommanderHeroType == "Nova" || g_aprgCommanderHeroType == "RaynorCommando") {
+        if (g_aprgCommanderHeroType == "Nova" || g_aprgCommanderHeroType == "RaynorCommando" || g_aprgCommanderHeroType == "ArtanisVoid") {
             created = APRG_CreatePlayerUnitsVanillaSafe(1, g_aprgCommanderHeroType, player, p, libNtve_gf_RandomAngle());
         }
         else {
@@ -6312,10 +6631,16 @@ void APRG_GiveGeneralIfReady(int player) {
     if (p == null) { return; }
     heroType = APRG_FindValidHeroTypeFromIndex(g_aprgCommanderHeroIndex);
     if (heroType == "") {
+        if (g_aprgCommanderHeroIndex == 9) {
+            UIDisplayMessage(
+                PlayerGroupSingle(player), c_messageAreaChat,
+                StringToText("Slay: Artanis could not spawn (LotV hero catalog unavailable on this mission).")
+            );
+        }
         g_aprgGeneralGiven = true;
         return;
     }
-    if (heroType == "Nova" || heroType == "RaynorCommando") {
+    if (heroType == "Nova" || heroType == "RaynorCommando" || heroType == "ArtanisVoid") {
         created = APRG_CreatePlayerUnitsVanillaSafe(1, heroType, player, p, libNtve_gf_RandomAngle());
     }
     else {
@@ -6657,9 +6982,9 @@ void APRG_GiveFireSquadIfReady(int player) {
     else {
         APRG_CreatePlayerUnitsSafe(2, "Hellion", player, p, libNtve_gf_RandomAngle());
     }
-    if (CatalogEntryIsValid(c_gameCatalogUnit, "ColossusPurifier")) { colossusType = "ColossusPurifier"; }
-    else if (CatalogEntryIsValid(c_gameCatalogUnit, "PurifierColossus")) { colossusType = "PurifierColossus"; }
-    else if (CatalogEntryIsValid(c_gameCatalogUnit, "Colossus")) { colossusType = "Colossus"; }
+    if (APRG_PlayerSpawnCandidateHealthy(player, "AP_ColossusPurifier", false)) { colossusType = "AP_ColossusPurifier"; }
+    else if (APRG_PlayerSpawnCandidateHealthy(player, "ColossusPurifier", false)) { colossusType = "ColossusPurifier"; }
+    // Do not silently replace the Purification Colossus with the Aiur/default model.
     if (colossusType != "") { APRG_CreatePlayerUnitsSafe(1, colossusType, player, p, libNtve_gf_RandomAngle()); }
     g_aprgFireSquadGiven = true;
 }
@@ -7133,6 +7458,9 @@ void APRG_DealExplosiveArmorDamage(point p, int player, fixed damage, fixed radi
         UnitFilter(0, 0, (1 << c_targetFilterMissile), (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))), 0);
     for (i = UnitGroupCount(enemies, c_unitCountAlive); i > 0; i -= 1) {
         target = UnitGroupUnitFromEnd(enemies, i); if (target == null) { break; }
+        // Campaign objective death must be registered by the native mission.
+        // Slay's explosive armor is a scripted property subtraction/UnitKill.
+        if (APRG_IsCampaignNullCircuit(target)) { continue; }
         remaining = damage;
         shields = UnitGetPropertyFixed(target, c_unitPropShields, c_unitPropCurrent);
         if (shields > 0.0) { if (shields >= remaining) { UnitSetPropertyFixed(target, c_unitPropShields, shields - remaining); remaining = 0.0; } else { UnitSetPropertyFixed(target, c_unitPropShields, 0.0); remaining -= shields; } }
@@ -7249,16 +7577,23 @@ string APRG_CanonicalProtossReinforcementType(string requested) {
 actor APRG_CreateWarpVisual(unit u, point at) {
     actor fx;
     if (u == null || at == null) { return null; }
-    // AP's LotV campaign missions attach the actual ProtossGenericWarpInOut
-    // model at Ref_Center/Ref_Origin. The previous point-only FastWarpinMarker
-    // could exist without ever driving a unit's warp-in visual. Use the shipped
-    // model directly so its animated flash is visible alongside the 5s fade.
+    // The native LotV Purifier warp script attaches this model with inherited
+    // visibility at Ref_Origin (not Ref_Center). Both hostile Nexus Shields /
+    // Purifier waves and allied For Aiur waves use this same helper.
     if (CatalogEntryIsValid(c_gameCatalogModel, "ProtossGenericWarpInOut")) {
-        libNtve_gf_AttachModelToUnit(u, "ProtossGenericWarpInOut", "Ref_Center");
-        fx = libNtve_gf_ActorLastCreated();
+        fx = libNtve_gf_AttachModelToUnitInheritVisibility(u, "ProtossGenericWarpInOut", "Ref_Origin");
         if (fx != null) { return fx; }
     }
-    // Older campaign dependencies may not contain the generic model.
+    // Some WoL/HotS mission catalogs do not provide the LotV generic model.
+    // A real, native Protoss teleport-in MODEL from the Liberty campaign is a
+    // visible fallback; the marker actor alone is not a full warp animation.
+    if (CatalogEntryIsValid(c_gameCatalogModel, "MothershipTeleportIn")) {
+        fx = libNtve_gf_AttachModelToUnitInheritVisibility(u, "MothershipTeleportIn", "Ref_Origin");
+        if (fx != null) {
+            ActorSend(fx, libNtve_gf_SetScale(0.45, 0.45, 0.45, 0.0));
+            return fx;
+        }
+    }
     return libNtve_gf_CreateActorAtPoint("ProtossFastWarpinMarker", at);
 }
 
@@ -7567,7 +7902,7 @@ void APRG_NuclearWorkerDeath(point p, int player) {
     if (p == null || !CatalogEntryIsValid(c_gameCatalogEffect, "NukeDamage")) { return; }
     owner = APRG_FindHostileOwnerNearPoint(player, p);
     if (owner < 0) { return; }
-    PlayerCreateEffectPoint(owner, "NukeDamage", p);
+    APRG_CreateObjectiveSafeSlayEffect(owner, "NukeDamage", p, 12.0);
 }
 
 bool APRG_IsWorkerTypeForDeath(string unitType) {
@@ -7857,7 +8192,7 @@ void APRG_ProcessZombieSpawnQueue(int player) {
 
 void APRG_NuclearStructureDeath(point p, int player) {
     if (p == null || !CatalogEntryIsValid(c_gameCatalogEffect, "NukeDamage")) { return; }
-    PlayerCreateEffectPoint(player, "NukeDamage", p);
+    APRG_CreateObjectiveSafeSlayEffect(player, "NukeDamage", p, 12.0);
 }
 
 string APRG_RichGasStructureReplacement(string unitType) {
@@ -8061,7 +8396,7 @@ void APRG_TickDeadManSwitchNukes(int player, fixed now) {
     if (!APRG_HasExtension4(APRG_EXT4_BOON_DEAD_MAN_SWITCH)) { return; }
     for (i = 0; i < APRG_MAX_DEAD_MAN_NUKES; i += 1) {
         if (g_aprgDeadManNukeState[i] != 1 || now < g_aprgDeadManNukeTime[i]) { continue; }
-        PlayerCreateEffectPoint(player, "NukeDamage", g_aprgDeadManNukePoint[i]);
+        APRG_CreateObjectiveSafeSlayEffect(player, "NukeDamage", g_aprgDeadManNukePoint[i], 12.0);
         if (g_aprgDeadManNukeIndicator[i] != null) { ActorSend(g_aprgDeadManNukeIndicator[i], "Destroy"); }
         g_aprgDeadManNukeState[i] = 0;
         g_aprgDeadManNukePoint[i] = null;
@@ -8099,6 +8434,10 @@ bool APRG_Death_Func(bool testConds, bool runActions) {
     }
     p = UnitGetPosition(dead);
     player = APRG_GetPrimaryPlayer();
+    // Before the macro base is established, do not fire mutation death
+    // spawns, nuclear detonations, or hostile revival queues.
+    // Player blessing death effects likewise begin with the run's gameplay.
+    if (!APRG_PlayerMacroBaseReady(player)) { return true; }
     owner = UnitGetOwner(dead);
     unitType = UnitGetType(dead);
     deathSpawnExcluded = APRG_DeathSpawnExcluded(dead, unitType);
@@ -8133,15 +8472,15 @@ bool APRG_Death_Func(bool testConds, bool runActions) {
     ) {
         APRG_QueueNoDeathsUltralisk(dead, p);
     }
-    if (APRG_HasExtension(APRG_EXT_MUT_NUCLEAR_WORKERS) && owner == player && APRG_IsWorkerTypeForDeath(unitType)) {
+    if ((APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_NUCLEAR_WORKERS)) && owner == player && APRG_IsWorkerTypeForDeath(unitType)) {
         APRG_NuclearWorkerDeath(p, player);
     }
     if (
-        APRG_HasExtension3(APRG_EXT3_MUT_NUCLEAR_STRUCTURES) &&
+        (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension3(APRG_EXT3_MUT_NUCLEAR_STRUCTURES)) &&
         owner >= 0 &&
         libNtve_gf_PlayerIsEnemy(owner, player, libNtve_ge_PlayerRelation_Enemy) &&
         UnitTypeTestAttribute(unitType, c_unitAttributeStructure) &&
-        !APRG_IsCreepTumorType(unitType)
+        APRG_IsSlayStructureEffectEligibleType(unitType)
     ) {
         APRG_NuclearStructureDeath(p, player);
     }
@@ -8178,8 +8517,16 @@ bool APRG_Death_Func(bool testConds, bool runActions) {
         APRG_QueueRealDropPod(APRG_DROP_KIND_ACIDIC_LANDING, player, p, null);
     }
     if (owner == player && APRG_HasExtension4(APRG_EXT4_BOON_RECYCLED_ARMOR) && APRG_IsInfantryBoonType(unitType, player)) {
-        PlayerModifyPropertyInt(player, c_playerPropMinerals, c_playerPropOperSetTo, PlayerGetPropertyInt(player, c_playerPropMinerals) + 25);
-        PlayerModifyPropertyInt(player, c_playerPropVespene, c_playerPropOperSetTo, PlayerGetPropertyInt(player, c_playerPropVespene) + 10);
+        // Pay less for any Slay-made uncommandable infantry, independent of which boon spawned it.
+        // The shared marker is set by APRG_MakeGroupUncommandable for Cloning Technology,
+        // Meat Grinder, Warfield pods, and other autonomous player-owned support units.
+        if (DataTableGetBool(true, "APRG_Uncommandable_" + IntToString(UnitGetTag(dead)))) {
+            PlayerModifyPropertyInt(player, c_playerPropMinerals, c_playerPropOperSetTo, PlayerGetPropertyInt(player, c_playerPropMinerals) + 8);
+            PlayerModifyPropertyInt(player, c_playerPropVespene, c_playerPropOperSetTo, PlayerGetPropertyInt(player, c_playerPropVespene) + 2);
+        } else {
+            PlayerModifyPropertyInt(player, c_playerPropMinerals, c_playerPropOperSetTo, PlayerGetPropertyInt(player, c_playerPropMinerals) + 25);
+            PlayerModifyPropertyInt(player, c_playerPropVespene, c_playerPropOperSetTo, PlayerGetPropertyInt(player, c_playerPropVespene) + 10);
+        }
     }
     if (
         owner == player && APRG_HasExtension4(APRG_EXT4_BOON_DEAD_MAN_SWITCH) &&
@@ -8217,7 +8564,7 @@ bool APRG_Death_Func(bool testConds, bool runActions) {
             PlayerModifyPropertyInt(player, c_playerPropVespene, c_playerPropOperSetTo, PlayerGetPropertyInt(player, c_playerPropVespene) + 3);
         }
     }
-    if (APRG_HasExtension3(APRG_EXT3_MUT_COMBAT_PAY)) {
+    if ((APRG_PlayerMacroBaseReady(player) && APRG_HasExtension3(APRG_EXT3_MUT_COMBAT_PAY))) {
         killer = libNtve_gf_KillingPlayer();
         if (killer == player && owner >= 0 && libNtve_gf_PlayerIsEnemy(owner, player, libNtve_ge_PlayerRelation_Enemy)) {
             PlayerModifyPropertyInt(
@@ -8387,9 +8734,10 @@ fixed APRG_WraithRaidNextInterval(fixed now) {
     fixed progress;
     fixed minimum;
     fixed maximum;
-    if (now <= 60.0) { return RandomFixed(10.0, 60.0); }
-    if (now >= 720.0) { return RandomFixed(2.0, 10.0); }
-    progress = (now - 60.0) / 660.0;
+    now = APRG_TimeSinceMacroBase(now);
+    if (now <= 120.0) { return RandomFixed(10.0, 60.0); }
+    if (now >= 780.0) { return RandomFixed(2.0, 10.0); }
+    progress = (now - 120.0) / 660.0;
     minimum = 10.0 - (8.0 * progress);
     maximum = 60.0 - (50.0 * progress);
     return RandomFixed(minimum, maximum);
@@ -8433,6 +8781,13 @@ point APRG_FindPlayerMineralLinePoint(int player) {
     return UnitGetPosition(nearest);
 }
 
+fixed APRG_VikingRaidIntervalMinimum(fixed now) {
+    // Every three minutes after base establishment the minimum increases 3s.
+    fixed elapsed = APRG_TimeSinceMacroBase(now);
+    int completedPhases = FixedToInt(elapsed / 180.0);
+    return MinF(180.0, 20.0 + 3.0 * IntToFixed(completedPhases));
+}
+
 void APRG_SpawnVikingRaid(int player) {
     point spawnPoint;
     point mineralLine;
@@ -8449,7 +8804,7 @@ void APRG_SpawnVikingRaid(int player) {
     if (spawnPoint == null || mineralLine == null) { return; }
     owner = APRG_FindHostileOwnerNearPoint(player, spawnPoint);
     if (owner < 0) { return; }
-    minutes = FixedToInt(GameGetMissionTime() / 60.0);
+    minutes = FixedToInt(APRG_TimeSinceMacroBase(GameGetMissionTime()) / 60.0);
     lower = 1 + (minutes / 3);
     upper = 3 + (minutes / 2);
     if (upper < lower) { upper = lower; }
@@ -8529,7 +8884,10 @@ unitgroup APRG_CreateVoidThrasher(int owner, point p) {
 }
 
 unitgroup APRG_PlayerTargetableStructures(int player) {
-    return UnitGroup(
+    unitgroup result;
+    unit u;
+    int i;
+    result = UnitGroup(
         null,
         player,
         RegionPlayableMap(),
@@ -8540,7 +8898,11 @@ unitgroup APRG_PlayerTargetableStructures(int player) {
             (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32)) | (1 << (c_targetFilterInvulnerable - 32))
         ),
         0
-    );
+    );    for (i = UnitGroupCount(result, c_unitCountAlive); i > 0; i -= 1) {
+        u = UnitGroupUnitFromEnd(result, i);
+        if (u != null && !APRG_IsSlayStructureEffectEligibleType(UnitGetType(u))) { UnitGroupRemove(result, u); }
+    }
+    return result;
 }
 
 void APRG_RegisterVoidThrasherMapVision(unit thrasher, int owner, int player) {
@@ -8697,7 +9059,7 @@ bool APRG_ForcedVariety_Func(bool testConds, bool runActions) {
     fixed gasCost;
     int player;
 
-    if (!runActions || !g_aprgStarted || !APRG_HasMutation(APRG_MUT_FORCED_VARIETY)) { return true; }
+    if (!runActions || !g_aprgStarted || !APRG_HasMutation(APRG_MUT_FORCED_VARIETY) || !APRG_PlayerMacroBaseReady(APRG_GetPrimaryPlayer())) { return true; }
     player = APRG_GetPrimaryPlayer();
     if (EventPlayer() != player) { return true; }
     unitType = libNtve_gf_TriggeringProgressUnitType();
@@ -8918,7 +9280,7 @@ void APRG_ApplyOccasionalEnemyReplacement(int player, string replacementType) {
         replacement = UnitGroupUnitFromEnd(created, 1);
         if (replacement != null && g_aprgOccasionalRaidCount < 128) {
             slot = g_aprgOccasionalRaidCount; g_aprgOccasionalRaidUnits[slot] = replacement;
-            g_aprgOccasionalRaidTimes[slot] = GameGetMissionTime() + 300.0; g_aprgOccasionalRaidCount += 1;
+            g_aprgOccasionalRaidTimes[slot] = GameGetMissionTime() + 360.0; g_aprgOccasionalRaidCount += 1;
         }
     }
 }
@@ -9114,27 +9476,63 @@ unit APRG_NearestEnemyGroundMobile(point fromPoint, int player) {
     return UnitGroupClosestToPoint(units, fromPoint);
 }
 
+// Do not use APRG_OrderAttackMove here: its general-purpose support-unit
+// fallback issues a plain move if the attack command is invalid. A Baneling
+// must never silently switch to movement-only orders.
+bool APRG_OrderBanelingStreamAttackMove(unit u, point destination) {
+    order attackOrder;
+    if (u == null || !UnitIsAlive(u) || destination == null) { return false; }
+    attackOrder = OrderTargetingPoint(AbilityCommand("attack", 0), destination);
+    if (!UnitOrderIsValid(u, attackOrder)) { return false; }
+    UnitIssueOrder(u, attackOrder, c_orderQueueReplace);
+    return true;
+}
+
+// Prefer actual reachable enemy buildings instead of retargeting at roaming
+// defenders. The 6-point reach tolerance accounts for unpathable building
+// footprints; ground connectivity is still required for island missions.
+unit APRG_BanelingStreamBuildingTarget(unit u, int player) {
+    unitgroup structures;
+    unit candidate;
+    unit closest = null;
+    int i;
+    fixed distance;
+    fixed closestDistance = 999999.0;
+    if (u == null || !UnitIsAlive(u)) { return null; }
+    structures = APRG_EnemyTargetableStructures(player);
+    for (i = UnitGroupCount(structures, c_unitCountAlive); i > 0; i -= 1) {
+        candidate = UnitGroupUnitFromEnd(structures, i);
+        if (candidate == null || !UnitIsAlive(candidate) || UnitTestState(candidate, c_unitStateInvulnerable)) { continue; }
+        if (!UnitPathableToPoint(u, UnitGetPosition(candidate), 6.0, 100000.0)) { continue; }
+        distance = DistanceBetweenPoints(UnitGetPosition(u), UnitGetPosition(candidate));
+        if (distance < closestDistance) { closest = candidate; closestDistance = distance; }
+    }
+    return closest;
+}
+
 void APRG_OrderBanelingStreamUnit(unit u, int player) {
-    unit target;
     unit building;
+    unit target;
     point destination;
     if (u == null || !UnitIsAlive(u)) { return; }
-    // Prefer mobile ground units for a suicide unit, but attack-move TOWARD
-    // the target (not a unit-target attack command that can stop on the way).
+
+    // Baneling Stream promises to attack the enemy BASE. Prioritize a
+    // reachable hostile structure, not an arbitrary roaming ground unit.
+    building = APRG_BanelingStreamBuildingTarget(u, player);
+    if (building != null) {
+        destination = UnitGetPosition(building);
+        if (APRG_OrderBanelingStreamAttackMove(u, destination)) { return; }
+    }
+
+    // When no structure can be reached (e.g. an island or an all-unit map),
+    // attack-move toward a ground enemy before falling back to patrol.
     target = APRG_NearestEnemyGroundMobile(UnitGetPosition(u), player);
-    if (RandomInt(0, 1) == 0 || target == null) {
-        building = APRG_NearestPathableEnemyStructure(u, player);
-        if (building != null) { target = building; }
-    }
-    if (target != null && !UnitPathableToPoint(u, UnitGetPosition(target), 3.0, 100000.0)) { target = null; }
-    if (target != null) {
+    if (target != null && UnitPathableToPoint(u, UnitGetPosition(target), 3.0, 100000.0)) {
         destination = UnitGetPosition(target);
-        if (APRG_OrderAttackMove(u, destination)) { return; }
+        if (APRG_OrderBanelingStreamAttackMove(u, destination)) { return; }
     }
-    // No target or temporarily unavailable attack ability: keep looking for
-    // targets along a pathable attack-move patrol instead of standing idle.
     destination = APRG_RandomFixedPatrolPointForUnit(u, player, true);
-    if (destination != null) { APRG_OrderAttackMove(u, destination); }
+    if (destination != null) { APRG_OrderBanelingStreamAttackMove(u, destination); }
 }
 
 void APRG_TickBanelingStream(int player, fixed now) {
@@ -9142,6 +9540,7 @@ void APRG_TickBanelingStream(int player, fixed now) {
     unit base;
     point p;
     unitgroup created;
+    if (!APRG_PlayerMacroBaseReady(player)) { return; }
 
     APRG_RegisterBanelingSources(player, now);
     for (i = 0; i < APRG_MAX_CONGA_SOURCES; i += 1) {
@@ -9316,7 +9715,7 @@ void APRG_TickNuclearAnnihilation(int player, fixed now) {
         g_aprgNukeFinalWarningShown = true;
     }
     if (g_aprgNukePending && now >= g_aprgNukeDetonateTime) {
-        PlayerCreateEffectPoint(g_aprgPendingNukeOwner, "NukeDamage", g_aprgPendingNukePoint);
+        APRG_CreateObjectiveSafeSlayEffect(g_aprgPendingNukeOwner, "NukeDamage", g_aprgPendingNukePoint, 12.0);
         if (g_aprgNukeIndicator != null) {
             ActorSend(g_aprgNukeIndicator, "Destroy");
         }
@@ -9338,7 +9737,7 @@ void APRG_EnforceNotEnoughEnergy(int player) {
     unit u;
     fixed energy;
     fixed now = GameGetMissionTime();
-    if (now < g_aprgNextEnergyLeakTime) { return; }
+    if (!APRG_PlayerMacroBaseReady(player) || now < g_aprgNextEnergyLeakTime) { return; }
     g_aprgNextEnergyLeakTime = now + 3.0;
     units = APRG_PlayerAllUnits(player);
     for (i = UnitGroupCount(units, c_unitCountAlive); i > 0; i -= 1) {
@@ -9440,11 +9839,11 @@ void APRG_SpawnEnemyGorgon(int player) {
 }
 
 void APRG_TickGorgons(int player, fixed now) {
-    if (APRG_HasExtension(APRG_EXT_BLESS_ANOTHER_GORGON) && now >= g_aprgNextGorgonBlessingTime) {
+    if (APRG_HasExtension(APRG_EXT_BLESS_ANOTHER_GORGON) && APRG_PlayerMacroBaseReady(player) && now >= g_aprgNextGorgonBlessingTime) {
         APRG_SpawnAlliedGorgon(player); g_aprgNextGorgonBlessingTime = now + 60.0;
     }
     if (APRG_HasExtension(APRG_EXT_MUT_ANOTHER_GORGON) && APRG_PlayerMacroBaseReady(player)) {
-        if (g_aprgMacroReadyTime >= 0.0 && g_aprgNextGorgonMutationTime < g_aprgMacroReadyTime + 120.0) { g_aprgNextGorgonMutationTime = g_aprgMacroReadyTime + 120.0; }
+        if (g_aprgMacroReadyTime >= 0.0 && g_aprgNextGorgonMutationTime < g_aprgMacroReadyTime + 180.0) { g_aprgNextGorgonMutationTime = g_aprgMacroReadyTime + 180.0; }
         if (now >= g_aprgNextGorgonMutationTime) { APRG_SpawnEnemyGorgon(player); g_aprgNextGorgonMutationTime = now + 60.0; }
     }
 }
@@ -9626,6 +10025,7 @@ point APRG_FindSniperThorPoint(int player) {
         p = PointWithOffsetPolar(homePoint, RandomFixed(30.0, 50.0), libNtve_gf_RandomAngle());
         if (p == null || !RegionContainsPoint(RegionPlayableMap(), p) || !PointPathingPassable(p)) { continue; }
         if (APRG_PointNearRakShirDuel(p, 24.0)) { continue; }
+        if (APRG_PointNearPlayerOrAlliedBuilding(p, player, 20.0)) { continue; }
         distance = DistanceBetweenPoints(p, homePoint);
         if (distance < 30.0 || distance > 50.0) { continue; }
         if (APRG_GroundSpawnsNeedPlayerPathing() && !PointPathingIsConnected(p, homePoint)) { continue; }
@@ -9666,7 +10066,16 @@ void APRG_TrySpawnSniperThor(int player) {
         rangeStacks = MaxI(1, FixedToInt(RoundI(bestThorRange * 8.0)));
         UnitBehaviorAdd(thor, "APRogueSniperThorRangeQuarter", thor, rangeStacks);
     }
+    g_aprgSniperThor = thor;
     g_aprgSniperThorSpawned = true;
+}
+
+void APRG_TickSniperThorDefenseAttack(int player, fixed now) {
+    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_TIMED_DEFENSE) == 0 || APRG_TimeSinceMacroBase(now) < 960.0) { return; }
+    if (g_aprgSniperThorDefenseAttackOrdered || g_aprgSniperThor == null || !UnitIsAlive(g_aprgSniperThor)) { return; }
+    if (APRG_OrderAttackPlayer(g_aprgSniperThor, player)) {
+        g_aprgSniperThorDefenseAttackOrdered = true;
+    }
 }
 
 point APRG_TowerDefenseFrontPoint(point enemyHome, point playerHome, int attempt) {
@@ -10259,21 +10668,41 @@ int APRG_MercenaryUpgradeStacks(int slot) {
     return (packed / divisor) % 32;
 }
 
+// Applied both during Slay's own Repeat Contractor reduction and by the
+// periodic mercenary-building watchdog. AP upgrades can modify a player's
+// ability catalog without going through Repeat Contractor, so never depend on
+// that one modification path alone.
+void APRG_ClampMercenaryCooldownField(int player, string abilityType, string field) {
+    fixed value;
+    fixed unmodified;
+    if (abilityType == "" || field == "") { return; }
+    value = StringToFixed(CatalogFieldValueGet(c_gameCatalogAbil, abilityType, field, player));
+    if (value > 500.0) {
+        // Preserve the existing overflow recovery instead of clamping a bad
+        // thousands-of-seconds value to one second.
+        CatalogFieldValueSet(c_gameCatalogAbil, abilityType, field, player, "10");
+        return;
+    }
+    // TimeStart=0 and unused cooldown slots are legitimate. Only enforce the
+    // one-second minimum on positive timers, or a timer reduced to <=0 whose
+    // original (neutral-player) catalog duration was positive. In particular,
+    // do NOT force a currently ready *instance* cooldown to one second.
+    unmodified = StringToFixed(CatalogFieldValueGet(c_gameCatalogAbil, abilityType, field, 0));
+    if ((value > 0.0 && value < 1.0) || (value <= 0.0 && unmodified > 0.0)) {
+        CatalogFieldValueSet(c_gameCatalogAbil, abilityType, field, player, "1");
+    }
+}
+
 void APRG_ReduceMercenaryCooldownField(int player, string abilityType, string field, fixed reduction) {
     fixed value;
     if (abilityType == "" || field == "") { return; }
+    // Sanitize the incoming AP/campaign value before applying Slay reductions.
+    APRG_ClampMercenaryCooldownField(player, abilityType, field);
     value = StringToFixed(CatalogFieldValueGet(c_gameCatalogAbil, abilityType, field, player));
-    // Some campaign mercenary abilities can surface a wrapped/sentinel timer as
-    // a many-thousand-second cooldown after catalog edits. No Slay mercenary
-    // cooldown is intended to exceed 500 seconds, so treat that as invalid.
-    if (value > 500.0) {
-        CatalogFieldValueSet(c_gameCatalogAbil, abilityType, field, player, "0");
-        return;
-    }
     if (reduction > 0.0 && value > 0.0) {
         CatalogFieldValueSet(
             c_gameCatalogAbil, abilityType, field, player,
-            FixedToString(MaxF(0.0, value - reduction), c_fixedPrecisionAny)
+            FixedToString(MaxF(1.0, value - reduction), c_fixedPrecisionAny)
         );
     }
 }
@@ -10346,12 +10775,12 @@ void APRG_ClearSuspiciousMercenaryTimerLink(unit structure, int player, string a
 
     remaining = UnitAbilityGetCooldown(structure, abilityType, link);
     if (remaining > 500.0) {
-        UnitModifyCooldown(structure, link, 0.0, c_cooldownOperationSet);
+        UnitModifyCooldown(structure, link, 10.0, c_cooldownOperationSet);
     }
 
     remaining = UnitAbilityGetChargeRegen(structure, abilityType, link);
     if (remaining > 500.0) {
-        UnitAbilityAddChargeRegen(structure, abilityType, link, -remaining);
+        UnitAbilityAddChargeRegen(structure, abilityType, link, 10.0 - remaining);
     }
 }
 
@@ -10372,6 +10801,14 @@ void APRG_SanitizeContractStructureTimers(unit structure, int player) {
         abilityType = UnitAbilityGet(structure, abilityIndex);
         if (abilityType == "" || !APRG_IsMercenaryRecruitAbility(abilityType, player)) { continue; }
 
+        APRG_ReduceMercenaryCooldownField(player, abilityType, "Cooldown.TimeUse", 0.0);
+        APRG_ReduceMercenaryCooldownField(player, abilityType, "Cooldown.TimeStart", 0.0);
+        APRG_ReduceMercenaryCooldownField(player, abilityType, "Charge.TimeUse", 0.0);
+        APRG_ReduceMercenaryCooldownField(player, abilityType, "Charge.TimeStart", 0.0);
+        APRG_ReduceMercenaryCooldownField(player, abilityType, "Cost.Cooldown.TimeUse", 0.0);
+        APRG_ReduceMercenaryCooldownField(player, abilityType, "Cost.Cooldown.TimeStart", 0.0);
+        APRG_ReduceMercenaryCooldownField(player, abilityType, "Cost.Charge.TimeUse", 0.0);
+        APRG_ReduceMercenaryCooldownField(player, abilityType, "Cost.Charge.TimeStart", 0.0);
         APRG_ClearSuspiciousMercenaryTimerLink(structure, player, abilityType, "Cooldown.Link");
         APRG_ClearSuspiciousMercenaryTimerLink(structure, player, abilityType, "Charge.Link");
         APRG_ClearSuspiciousMercenaryTimerLink(structure, player, abilityType, "Cost.Cooldown.Link");
@@ -10380,6 +10817,10 @@ void APRG_SanitizeContractStructureTimers(unit structure, int player) {
         costCount = MinI(8, CatalogFieldValueCount(c_gameCatalogAbil, abilityType, "Cost", player));
         for (costIndex = 0; costIndex < costCount; costIndex += 1) {
             costPath = "Cost[" + IntToString(costIndex) + "]";
+            APRG_ReduceMercenaryCooldownField(player, abilityType, costPath + ".Cooldown.TimeUse", 0.0);
+            APRG_ReduceMercenaryCooldownField(player, abilityType, costPath + ".Cooldown.TimeStart", 0.0);
+            APRG_ReduceMercenaryCooldownField(player, abilityType, costPath + ".Charge.TimeUse", 0.0);
+            APRG_ReduceMercenaryCooldownField(player, abilityType, costPath + ".Charge.TimeStart", 0.0);
             APRG_ClearSuspiciousMercenaryTimerLink(structure, player, abilityType, costPath + ".Cooldown.Link");
             APRG_ClearSuspiciousMercenaryTimerLink(structure, player, abilityType, costPath + ".Charge.Link");
         }
@@ -10388,6 +10829,14 @@ void APRG_SanitizeContractStructureTimers(unit structure, int player) {
         for (infoIndex = 0; infoIndex < infoCount; infoIndex += 1) {
             if (!APRG_MercenaryCommandProducesUnit(abilityType, infoIndex, player)) { continue; }
             basePath = "InfoArray[" + IntToString(infoIndex) + "]";
+            APRG_ReduceMercenaryCooldownField(player, abilityType, basePath + ".Cooldown.TimeUse", 0.0);
+            APRG_ReduceMercenaryCooldownField(player, abilityType, basePath + ".Cooldown.TimeStart", 0.0);
+            APRG_ReduceMercenaryCooldownField(player, abilityType, basePath + ".Charge.TimeUse", 0.0);
+            APRG_ReduceMercenaryCooldownField(player, abilityType, basePath + ".Charge.TimeStart", 0.0);
+            APRG_ReduceMercenaryCooldownField(player, abilityType, basePath + ".Cost.Cooldown.TimeUse", 0.0);
+            APRG_ReduceMercenaryCooldownField(player, abilityType, basePath + ".Cost.Cooldown.TimeStart", 0.0);
+            APRG_ReduceMercenaryCooldownField(player, abilityType, basePath + ".Cost.Charge.TimeUse", 0.0);
+            APRG_ReduceMercenaryCooldownField(player, abilityType, basePath + ".Cost.Charge.TimeStart", 0.0);
             APRG_ClearSuspiciousMercenaryTimerLink(structure, player, abilityType, basePath + ".Cooldown.Link");
             APRG_ClearSuspiciousMercenaryTimerLink(structure, player, abilityType, basePath + ".Charge.Link");
             APRG_ClearSuspiciousMercenaryTimerLink(structure, player, abilityType, basePath + ".Cost.Cooldown.Link");
@@ -10395,6 +10844,10 @@ void APRG_SanitizeContractStructureTimers(unit structure, int player) {
             costCount = MinI(8, CatalogFieldValueCount(c_gameCatalogAbil, abilityType, basePath + ".Cost", player));
             for (costIndex = 0; costIndex < costCount; costIndex += 1) {
                 costPath = basePath + ".Cost[" + IntToString(costIndex) + "]";
+                APRG_ReduceMercenaryCooldownField(player, abilityType, costPath + ".Cooldown.TimeUse", 0.0);
+                APRG_ReduceMercenaryCooldownField(player, abilityType, costPath + ".Cooldown.TimeStart", 0.0);
+                APRG_ReduceMercenaryCooldownField(player, abilityType, costPath + ".Charge.TimeUse", 0.0);
+                APRG_ReduceMercenaryCooldownField(player, abilityType, costPath + ".Charge.TimeStart", 0.0);
                 APRG_ClearSuspiciousMercenaryTimerLink(structure, player, abilityType, costPath + ".Cooldown.Link");
                 APRG_ClearSuspiciousMercenaryTimerLink(structure, player, abilityType, costPath + ".Charge.Link");
             }
@@ -10704,7 +11157,7 @@ void APRG_DealDirectDamage(unit target, fixed damage) {
     fixed shields;
     fixed life;
     fixed remaining;
-    if (target == null || !UnitIsAlive(target) || damage <= 0.0) { return; }
+    if (target == null || !UnitIsAlive(target) || damage <= 0.0 || APRG_IsCampaignNullCircuit(target)) { return; }
     remaining = damage;
     shields = UnitGetPropertyFixed(target, c_unitPropShields, c_unitPropCurrent);
     if (shields > 0.0) {
@@ -11080,7 +11533,17 @@ void APRG_HordeHalveAbilityField(int player, string abilityType, string fieldPat
     fixed value;
     value = StringToFixed(CatalogFieldValueGet(c_gameCatalogAbil, abilityType, fieldPath, player));
     if (value > 0.0) {
-        CatalogFieldValueSet(c_gameCatalogAbil, abilityType, fieldPath, player, FixedToString(value * 0.5, c_fixedPrecisionAny));
+        // Mercenary recruitment cooldowns must never underflow below 1 second,
+        // even when Horde Mode and AP reductions are both present.
+        if (APRG_IsMercenaryRecruitAbility(abilityType, player) && (
+            StringContains(fieldPath, ".Cooldown.Time", c_stringAnywhere, c_stringNoCase) ||
+            StringContains(fieldPath, ".Charge.Time", c_stringAnywhere, c_stringNoCase) ||
+            StringContains(fieldPath, "Cooldown.Time", c_stringAnywhere, c_stringNoCase) ||
+            StringContains(fieldPath, "Charge.Time", c_stringAnywhere, c_stringNoCase)
+        )) {
+            CatalogFieldValueSet(c_gameCatalogAbil, abilityType, fieldPath, player, FixedToString(MaxF(1.0, value * 0.5), c_fixedPrecisionAny));
+        }
+        else { CatalogFieldValueSet(c_gameCatalogAbil, abilityType, fieldPath, player, FixedToString(value * 0.5, c_fixedPrecisionAny)); }
     }
 }
 
@@ -11640,7 +12103,7 @@ void APRG_TickJetpackAttackWaves(int player, fixed now) {
     point destination;
     int cap;
 
-    if (now < g_aprgNextJetpackWaveTime) { return; }
+    if (!APRG_PlayerMacroBaseReady(player) || now < g_aprgNextJetpackWaveTime) { return; }
     cap = 50 * (g_aprgJetpackWaveIndex + 1);
     if (cap > 1000) { cap = 1000; }
     targetValue = IntToFixed(cap);
@@ -11666,7 +12129,7 @@ void APRG_TickJetpackAttackWaves(int player, fixed now) {
         UnitGroupIssueOrder(attackers, OrderTargetingPoint(AbilityCommand("attack", 0), destination), c_orderQueueReplace);
     }
     g_aprgJetpackWaveIndex += 1;
-    if (g_aprgJetpackWaveIndex == 1) { g_aprgNextJetpackWaveTime = 240.0; }
+    if (g_aprgJetpackWaveIndex == 1) { g_aprgNextJetpackWaveTime = g_aprgMacroReadyTime + 360.0; }
     else { g_aprgNextJetpackWaveTime += 60.0; }
 }
 
@@ -12062,6 +12525,77 @@ void APRG_EnsureProtossResearchStructures(int player) {
     }
 }
 
+// Player Odins (including the blessing and bottled consumable) should never
+// have a nuclear strike.  Do not alter the enemy Odin mutation.
+void APRG_RemovePlayerOdinNuclearStrike(unit odin, int player) {
+    string unitType;
+    string abilityType;
+    string path;
+    string face;
+    string command;
+    int abilityIndex;
+    int cardIndex;
+    int buttonIndex;
+    int cardCount;
+    int buttonCount;
+    if (odin == null || !UnitIsAlive(odin) || UnitGetOwner(odin) != player) { return; }
+    unitType = UnitGetType(odin);
+    if (!StringContains(unitType, "Odin", c_stringAnywhere, c_stringNoCase) ||
+        StringContains(unitType, "Wreckage", c_stringAnywhere, c_stringNoCase)) { return; }
+
+    // Strip the native campaign ability explicitly, then handle possible
+    // AP/mission variants by inspecting the unit's actual ability list.
+    if (UnitAbilityExists(odin, "OdinNuclearStrike")) {
+        UnitAbilityShow(odin, "OdinNuclearStrike", false);
+        UnitAbilityEnable(odin, "OdinNuclearStrike", false);
+        UnitAbilityRemove(odin, "OdinNuclearStrike");
+    }
+    for (abilityIndex = MinI(64, UnitAbilityCount(odin)); abilityIndex > 0; abilityIndex -= 1) {
+        abilityType = UnitAbilityGet(odin, abilityIndex);
+        if (abilityType == "" ||
+            (!StringContains(abilityType, "Nuke", c_stringAnywhere, c_stringNoCase) &&
+             !StringContains(abilityType, "Nuclear", c_stringAnywhere, c_stringNoCase))) { continue; }
+        UnitAbilityShow(odin, abilityType, false);
+        UnitAbilityEnable(odin, abilityType, false);
+        UnitAbilityRemove(odin, abilityType);
+    }
+
+    // Hide command-card buttons as well as removing the abilities, using the
+    // owning player's catalog scope only.  Never modify enemy Odin cards.
+    cardCount = MinI(8, CatalogFieldValueCount(c_gameCatalogUnit, unitType, "CardLayouts", player));
+    if (cardCount < 1) { cardCount = 1; }
+    for (cardIndex = 0; cardIndex < cardCount; cardIndex += 1) {
+        path = "CardLayouts[" + IntToString(cardIndex) + "].LayoutButtons";
+        buttonCount = MinI(64, CatalogFieldValueCount(c_gameCatalogUnit, unitType, path, player));
+        for (buttonIndex = 0; buttonIndex < buttonCount; buttonIndex += 1) {
+            face = CatalogFieldValueGet(c_gameCatalogUnit, unitType, path + "[" + IntToString(buttonIndex) + "].Face", player);
+            command = CatalogFieldValueGet(c_gameCatalogUnit, unitType, path + "[" + IntToString(buttonIndex) + "].AbilCmd", player);
+            if (!StringContains(face, "Nuke", c_stringAnywhere, c_stringNoCase) &&
+                !StringContains(face, "Nuclear", c_stringAnywhere, c_stringNoCase) &&
+                !StringContains(command, "Nuke", c_stringAnywhere, c_stringNoCase) &&
+                !StringContains(command, "Nuclear", c_stringAnywhere, c_stringNoCase)) { continue; }
+            CatalogFieldValueSet(c_gameCatalogUnit, unitType, path + "[" + IntToString(buttonIndex) + "].Face", player, "");
+            CatalogFieldValueSet(c_gameCatalogUnit, unitType, path + "[" + IntToString(buttonIndex) + "].Type", player, "");
+            CatalogFieldValueSet(c_gameCatalogUnit, unitType, path + "[" + IntToString(buttonIndex) + "].AbilCmd", player, "");
+        }
+    }
+}
+
+void APRG_TickPlayerOdinNoNukes(int player, fixed now) {
+    unitgroup owned;
+    unit candidate;
+    int i;
+    if (now < g_aprgNextPlayerOdinNukeCheckTime) { return; }
+    g_aprgNextPlayerOdinNukeCheckTime = now + 3.0;
+    owned = APRG_PlayerAllUnits(player);
+    for (i = UnitGroupCount(owned, c_unitCountAlive); i > 0; i -= 1) {
+        candidate = UnitGroupUnitFromEnd(owned, i);
+        if (candidate == null || !UnitIsAlive(candidate)) { continue; }
+        if (!StringContains(UnitGetType(candidate), "Odin", c_stringAnywhere, c_stringNoCase)) { continue; }
+        APRG_RemovePlayerOdinNuclearStrike(candidate, player);
+    }
+}
+
 void APRG_GiveOdinIfReady(int player) {
     unit home;
     point p;
@@ -12073,6 +12607,7 @@ void APRG_GiveOdinIfReady(int player) {
     p = APRG_PlayerBuildingSpawnPoint(player, UnitGetPosition(home), 5.0, 12.0);
     if (p == null) { return; }
     created = APRG_CreatePlayerUnitsSafe(1, "Odin", player, p, libNtve_gf_RandomAngle());
+    APRG_RemovePlayerOdinNuclearStrike(UnitGroupUnitFromEnd(created, 1), player);
     APRG_RegisterGeneratedHeroGroup(created);
     g_aprgOdinGiven = true;
 }
@@ -12097,7 +12632,7 @@ void APRG_ApplyBuildingOvercharge(int player) {
     for (slot = 0; slot < g_aprgBuildingOverchargeCount; slot += 1) {
         u = g_aprgBuildingOverchargeSource[slot];
         proxy = g_aprgBuildingOverchargeProxy[slot];
-        if (u != null && UnitIsAlive(u) && APRG_IsWidowMineType(UnitGetType(u))) {
+        if (u != null && UnitIsAlive(u) && (APRG_IsWidowMineType(UnitGetType(u)) || APRG_IsSpiderMineType(UnitGetType(u)))) {
             if (proxy != null && UnitIsAlive(proxy)) { UnitRemove(proxy); }
             UnitGroupRemove(g_aprgBuildingOverchargeProcessed, u);
             g_aprgBuildingOverchargeSource[slot] = null;
@@ -12129,7 +12664,7 @@ void APRG_ApplyBuildingOvercharge(int player) {
     for (; i > 0; i -= 1) {
         u = UnitGroupUnitFromEnd(structures, i);
         if (u == null) { break; }
-        if (APRG_IsWidowMineType(UnitGetType(u))) { continue; }
+        if ((APRG_IsWidowMineType(UnitGetType(u)) || APRG_IsSpiderMineType(UnitGetType(u)))) { continue; }
         if (UnitGroupHasUnit(g_aprgBuildingOverchargeProcessed, u)) { continue; }
         if (g_aprgBuildingOverchargeCount >= 256) { return; }
         p = UnitGetPosition(u);
@@ -12459,7 +12994,7 @@ void APRG_TickInflatableSoldiers(int player, fixed now) {
     int i;
     unit u;
     int slot;
-    if (now < g_aprgNextInflatableTime) { return; }
+    if (!APRG_PlayerMacroBaseReady(player) || now < g_aprgNextInflatableTime) { return; }
     g_aprgNextInflatableTime = now + 12.0;
     units = APRG_PlayerMobileUnits(player);
     for (i = UnitGroupCount(units, c_unitCountAlive); i > 0; i -= 1) {
@@ -12655,7 +13190,7 @@ unit APRG_FindMineralThiefTarget(int player) {
 }
 
 fixed APRG_MineralThiefMaxCooldown(fixed now) {
-    fixed maximum = 30.0 - 3.0 * IntToFixed(FixedToInt(now / 60.0));
+    fixed maximum = 30.0 - 3.0 * IntToFixed(FixedToInt(APRG_TimeSinceMacroBase(now) / 60.0));
     return MaxF(2.0, maximum);
 }
 
@@ -12711,7 +13246,10 @@ void APRG_AssignActiveEnemyPatrol(unit u) {
     point origin;
     if (u == null || !UnitIsAlive(u)) { return; }
     AISetUnitScriptControlled(u, false);
-    destination = APRG_FindRandomGroundPoint();
+    if (APRG_TimeSinceMacroBase(GameGetMissionTime()) < 360.0) {
+        destination = APRG_GroundSafePatrolDestination(u, APRG_GetPrimaryPlayer(), 15.0);
+    }
+    else { destination = APRG_FindRandomGroundPoint(); }
     if (destination == null) { return; }
     origin = UnitGetPosition(u);
     UnitIssueOrder(u, OrderTargetingPoint(AbilityCommand("attack", 0), destination), c_orderQueueReplace);
@@ -12728,7 +13266,7 @@ void APRG_TickActiveEnemies(int player, fixed now) {
     int chosenSlot = -1;
     unit u;
     fixed speed;
-    if (!APRG_PlayerMacroBaseReady(player) || now < g_aprgMacroReadyTime + 120.0) { return; }
+    if (!APRG_PlayerMacroBaseReady(player) || now < g_aprgMacroReadyTime + 180.0) { return; }
 
     if (now >= g_aprgNextActiveEnemyScanTime) {
         g_aprgNextActiveEnemyScanTime = now + 5.0;
@@ -12857,7 +13395,7 @@ void APRG_SpawnMiraMercenaries(int player) {
     APRG_AddMiraMercenaryType(owner, "DevilDog", 5, campPoint, player);
     APRG_AddMiraMercenaryType(owner, "DuskWing", 2, campPoint, player);
     g_aprgMiraMercenariesSpawned = true;
-    g_aprgNextMiraAttackTime = GameGetMissionTime() + 60.0;
+    g_aprgNextMiraAttackTime = g_aprgMacroReadyTime + 180.0;
 }
 
 void APRG_TickMiraMercenaries(int player) {
@@ -13087,9 +13625,9 @@ void APRG_SpawnDehakaPackHero(int player) {
 }
 
 fixed APRG_DehakaPackInterval(fixed elapsed) {
-    if (elapsed >= 720.0) { return 6.0; }
-    if (elapsed >= 540.0) { return 8.0; }
-    if (elapsed >= 360.0) { return 12.0; }
+    if (elapsed >= 780.0) { return 6.0; }
+    if (elapsed >= 600.0) { return 8.0; }
+    if (elapsed >= 420.0) { return 12.0; }
     return 20.0;
 }
 
@@ -13107,9 +13645,9 @@ void APRG_TickDehakasPack(int player, fixed now) {
     fixed interval;
     if (!APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0) { return; }
     elapsed = now - g_aprgMacroReadyTime;
-    if (g_aprgNextDehakaPackTime < 0.0) { g_aprgNextDehakaPackTime = g_aprgMacroReadyTime + 180.0; }
-    if (g_aprgNextDehakaRetargetTime < 0.0) { g_aprgNextDehakaRetargetTime = g_aprgMacroReadyTime + 180.0; }
-    if (g_aprgNextDehakaHeroCheckTime < 0.0) { g_aprgNextDehakaHeroCheckTime = g_aprgMacroReadyTime + 300.0; }
+    if (g_aprgNextDehakaPackTime < 0.0) { g_aprgNextDehakaPackTime = g_aprgMacroReadyTime + 240.0; }
+    if (g_aprgNextDehakaRetargetTime < 0.0) { g_aprgNextDehakaRetargetTime = g_aprgMacroReadyTime + 240.0; }
+    if (g_aprgNextDehakaHeroCheckTime < 0.0) { g_aprgNextDehakaHeroCheckTime = g_aprgMacroReadyTime + 360.0; }
     if (now >= g_aprgNextDehakaPackTime) {
         APRG_SpawnDehakaPackWave(player);
         interval = APRG_DehakaPackInterval(elapsed);
@@ -13337,7 +13875,7 @@ void APRG_TickRaynorsRaiders(int player, fixed now) {
         AISetUnitScriptControlled(g_aprgRaynorHyperion, true);
         g_aprgRaynorHomePoint = p;
         g_aprgRaynorSafePoint = p;
-        g_aprgRaynorNextFlybyTime = now + 300.0;
+        g_aprgRaynorNextFlybyTime = g_aprgMacroReadyTime + 390.0;
         g_aprgRaynorEarliestNextFlybyTime = g_aprgRaynorNextFlybyTime;
         g_aprgRaynorNextRepairDropTime = -1.0;
         g_aprgRaynorSafeArriveTime = now;
@@ -13695,16 +14233,23 @@ bool APRG_PurifierNearPlayerStructure(unit purifier, int player, fixed radius) {
     return DistanceBetweenPoints(UnitGetPosition(purifier), UnitGetPosition(nearest)) <= radius;
 }
 
-// WoL Purifier has InvulnerabilityShield in its base CUnit BehaviorArray.
-// Safe Haven removes it from the scripted boss during its encounter, but
-// Slay's separately spawned mutation Purifier never receives that mission event.
-// Never touch the map's own gv_purifier or the allied Purifier Alliance boon.
-void APRG_RemoveMutationPurifierInvulnerability(unit purifier) {
+// The WoL Purifier unit type begins with InvulnerabilityShield in its base
+// catalog. Only the separate, Slay-created mutation/boon units should lose it.
+// Never modify the map's scripted Safe Haven Purifier: its shield must remain
+// until the native Nexus objective removes it, including on runs where no
+// Purifier effect is selected.
+void APRG_RemoveSlayPurifierInvulnerability(unit purifier) {
     if (purifier == null || !UnitIsAlive(purifier)) { return; }
+    if (purifier == g_aprgPurifier) {
+        if (!APRG_HasExtension3(APRG_EXT3_MUT_PURIFIER)) { return; }
+    }
+    else if (purifier == g_aprgPurifierAlliance) {
+        if (!APRG_HasExtension4(APRG_EXT4_BOON_PURIFIER_ALLIANCE)) { return; }
+    }
+    else { return; } // Never strip the mission-owned Purifier.
     if (UnitBehaviorCount(purifier, "InvulnerabilityShield") > 0) {
         UnitBehaviorRemove(purifier, "InvulnerabilityShield", c_unitBehaviorCountAll);
     }
-    // Keep our mutation unit vulnerable if another campaign effect sets the unit state.
     UnitSetState(purifier, c_unitStateInvulnerable, false);
 }
 
@@ -13735,7 +14280,7 @@ void APRG_TickPurifier(int player, fixed now) {
         g_aprgPurifier = UnitGroupUnitFromEnd(created, 1);
         if (g_aprgPurifier == null) { return; }
         APRG_StripVoidEntityBehavior(g_aprgPurifier);
-        APRG_RemoveMutationPurifierInvulnerability(g_aprgPurifier);
+        APRG_RemoveSlayPurifierInvulnerability(g_aprgPurifier);
         AISetUnitScriptControlled(g_aprgPurifier, true);
         speed = UnitGetPropertyFixed(g_aprgPurifier, c_unitPropMovementSpeed, c_unitPropCurrent);
         if (speed != 0.25) { UnitSetPropertyFixed(g_aprgPurifier, c_unitPropMovementSpeed, 0.25); }
@@ -13745,9 +14290,9 @@ void APRG_TickPurifier(int player, fixed now) {
         g_aprgPurifierCrackerIssued = false;
         g_aprgPurifierHalfHealthWarped = false;
         g_aprgPurifierBeamStopTime = -1.0;
-        g_aprgNextPurifierEscortTime = now + 50.0;
-        g_aprgNextPurifierGroundWaveTime = now + 120.0;
-        g_aprgNextPurifierMoveRefreshTime = now;
+        g_aprgNextPurifierEscortTime = g_aprgMacroReadyTime + 120.0 + 50.0;
+        g_aprgNextPurifierGroundWaveTime = g_aprgMacroReadyTime + 120.0 + 120.0;
+        g_aprgNextPurifierMoveRefreshTime = g_aprgMacroReadyTime + 120.0;
         MinimapPing(PlayerGroupSingle(player), UnitGetPosition(g_aprgPurifier), 6.0, Color(100.00, 60.00, 0.00));
         UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText("[Slay] The Purifier is approaching your base."));
     }
@@ -13755,12 +14300,13 @@ void APRG_TickPurifier(int player, fixed now) {
     if (g_aprgPurifier == null || !UnitIsAlive(g_aprgPurifier)) { return; }
     // Safe Haven's regular boss is independent; ensure only our mutation unit
     // remains vulnerable even if a campaign trigger restores its starting buff.
-    APRG_RemoveMutationPurifierInvulnerability(g_aprgPurifier);
+    APRG_RemoveSlayPurifierInvulnerability(g_aprgPurifier);
     UnitSetPropertyFixed(g_aprgPurifier, c_unitPropMovementSpeed, 0.25);
     if (g_aprgPurifierRevealRegion != null && g_aprgPurifierRevealer != null) {
         RegionSetCenter(g_aprgPurifierRevealRegion, UnitGetPosition(g_aprgPurifier));
         VisRevealerUpdate(g_aprgPurifierRevealer);
     }
+    if (now < g_aprgMacroReadyTime + 120.0) { return; }
     APRG_PurifierKeepEscortClose();
 
     if (!g_aprgPurifierHalfHealthWarped) {
@@ -13860,6 +14406,7 @@ void APRG_TickPurifierAlliance(int player, fixed now) {
         if (created == null || UnitGroupCount(created, c_unitCountAlive) <= 0) { return; }
         g_aprgPurifierAlliance = UnitGroupUnitFromEnd(created, 1);
         if (g_aprgPurifierAlliance == null) { return; }
+        APRG_RemoveSlayPurifierInvulnerability(g_aprgPurifierAlliance);
         APRG_MakeGroupUncommandable(created);
         AISetUnitScriptControlled(g_aprgPurifierAlliance, true);
         UnitSetPropertyFixed(g_aprgPurifierAlliance, c_unitPropMovementSpeed, 0.3);
@@ -13875,6 +14422,7 @@ void APRG_TickPurifierAlliance(int player, fixed now) {
     }
 
     if (g_aprgPurifierAlliance == null || !UnitIsAlive(g_aprgPurifierAlliance)) { return; }
+    APRG_RemoveSlayPurifierInvulnerability(g_aprgPurifierAlliance);
     UnitSetPropertyFixed(g_aprgPurifierAlliance, c_unitPropMovementSpeed, 0.3);
     current = UnitGetPosition(g_aprgPurifierAlliance);
 
@@ -14121,6 +14669,9 @@ void APRG_SpawnTorrasque(int player) {
         UnitBehaviorAdd(g_aprgTorrasque, "APRogueTorrasqueArmor", g_aprgTorrasque, 1);
     }
     UnitSetScale(g_aprgTorrasque, scale, scale, scale);
+    // Keep the hostile Torrasque visible on the main map and minimap while
+    // roaming, across every death/respawn cycle.
+    APRG_RegisterAlwaysVisibleUnit(g_aprgTorrasque, player);
     APRG_OrderTorrasqueAtPlayerBase(player);
     g_aprgTorrasqueNextRetargetTime = GameGetMissionTime() + 10.0;
     g_aprgTorrasqueProgressPoint = UnitGetPosition(g_aprgTorrasque);
@@ -14134,7 +14685,7 @@ void APRG_TickTorrasque(int player, fixed now) {
     point targetPoint;
     fixed targetDistance;
     if (!APRG_PlayerMacroBaseReady(player)) { return; }
-    if (g_aprgTorrasqueFirstTime < 0.0) { g_aprgTorrasqueFirstTime = g_aprgMacroReadyTime + 180.0; }
+    if (g_aprgTorrasqueFirstTime < 0.0) { g_aprgTorrasqueFirstTime = g_aprgMacroReadyTime + 240.0; }
     if (g_aprgTorrasque == null) {
         if (now >= g_aprgTorrasqueFirstTime && (g_aprgTorrasqueRespawnTime < 0.0 || now >= g_aprgTorrasqueRespawnTime)) {
             APRG_SpawnTorrasque(player);
@@ -14807,7 +15358,7 @@ void APRG_ApplyBoonCombatStats(int player) {
                     value = StringToFixed(CatalogFieldValueGet(c_gameCatalogEffect, effectType, "Amount", player));
                     priorBonus = DataTableGetFixed(true, key);
                     baseValue = value - priorBonus;
-                    desiredBonus = baseValue * 0.3 * IntToFixed(g_aprgDeadlyWeaponsStacks);
+                    desiredBonus = baseValue * 0.25 * IntToFixed(g_aprgDeadlyWeaponsStacks);
                     delta = desiredBonus - priorBonus;
                     if (delta > 0.001 || delta < -0.001) {
                         CatalogFieldValueModify(c_gameCatalogEffect, effectType, "Amount", player, FixedToString(delta, c_fixedPrecisionAny), c_upgradeOperationAdd);
@@ -15026,7 +15577,8 @@ unit APRG_CloneAttackTarget(unit clone, int player) {
     clonePoint = UnitGetPosition(clone);
     groundClone = UnitTestPlane(clone, c_planeGround);
 
-    candidates = APRG_EnemyTargetableStructures(player);
+    if (g_aprgCloneTargetCacheActive) { candidates = g_aprgCloneTargetBuildings; }
+    else { candidates = APRG_EnemyTargetableStructures(player); }
     for (i = UnitGroupCount(candidates, c_unitCountAlive); i > 0; i -= 1) {
         candidate = UnitGroupUnitFromEnd(candidates, i);
         if (candidate == null || !UnitIsAlive(candidate)) { continue; }
@@ -15036,7 +15588,8 @@ unit APRG_CloneAttackTarget(unit clone, int player) {
     }
     if (best != null) { return best; }
 
-    candidates = APRG_EnemyMobileUnits(player);
+    if (g_aprgCloneTargetCacheActive) { candidates = g_aprgCloneTargetMobile; }
+    else { candidates = APRG_EnemyMobileUnits(player); }
     for (i = UnitGroupCount(candidates, c_unitCountAlive); i > 0; i -= 1) {
         candidate = UnitGroupUnitFromEnd(candidates, i);
         if (candidate == null || !UnitIsAlive(candidate)) { continue; }
@@ -15092,32 +15645,74 @@ void APRG_TryGoliathsOnlineProducedUnit(unit produced, int player) {
     if (extra != null) { UnitSetState(extra, c_unitStateUsingSupply, false); }
 }
 
-void APRG_TryMeatGrinderProducedUnit(unit produced, int player) {
+// Each production event queues the exact same five automatic Marines.  A 0.1s
+// fast tick processes up to two Marines globally, avoiding stacked UnitCreate,
+// command-card filtering, and autonomous AI work in a single production event.
+void APRG_SpawnMeatGrinderExtra(string unitType, int player, point p, fixed facing);
+void APRG_EnqueueMeatGrinderMarines(unit produced, int player) {
+    int slot;
+    if (g_aprgMeatGrinderQueued >= 1024) {
+        // At extreme backlog, preserve all five Marines instead of dropping
+        // a purchased boon effect. This path is exceptional (>5120 queued).
+        APRG_SpawnMeatGrinderExtra(UnitGetType(produced), player, UnitGetPosition(produced), UnitGetFacing(produced));
+        APRG_SpawnMeatGrinderExtra(UnitGetType(produced), player, UnitGetPosition(produced), UnitGetFacing(produced));
+        APRG_SpawnMeatGrinderExtra(UnitGetType(produced), player, UnitGetPosition(produced), UnitGetFacing(produced));
+        APRG_SpawnMeatGrinderExtra(UnitGetType(produced), player, UnitGetPosition(produced), UnitGetFacing(produced));
+        APRG_SpawnMeatGrinderExtra(UnitGetType(produced), player, UnitGetPosition(produced), UnitGetFacing(produced));
+        return;
+    }
+    slot = g_aprgMeatGrinderTail;
+    g_aprgMeatGrinderOwner[slot] = player;
+    g_aprgMeatGrinderType[slot] = UnitGetType(produced);
+    g_aprgMeatGrinderPoint[slot] = UnitGetPosition(produced);
+    g_aprgMeatGrinderFacing[slot] = UnitGetFacing(produced);
+    g_aprgMeatGrinderRemaining[slot] = 5;
+    g_aprgMeatGrinderTail = (slot + 1) % 1024;
+    g_aprgMeatGrinderQueued += 1;
+}
+
+void APRG_SpawnMeatGrinderExtra(string unitType, int player, point p, fixed facing) {
     unitgroup created;
     unit extra;
+    created = APRG_CreatePlayerUnitsAtPoint(1, unitType, player, p, facing);
+    extra = UnitGroupUnitFromEnd(created, 1);
+    if (extra == null) { return; }
+    // Preserve the exact supply/controllability/AI behavior of the old batch.
+    APRG_MakeGroupUncommandable(created);
+    UnitSetState(extra, c_unitStateUsingSupply, false);
+    UnitGroupAdd(g_aprgClonedUnits, extra);
+    DataTableSetBool(true, "APRG_MeatGrinderHandled_" + IntToString(UnitGetTag(extra)), true);
+    APRG_OrderGroupTowardNearestEnemyStructure(created, p, player);
+}
+
+void APRG_ProcessMeatGrinderQueue() {
+    int count = 0;
+    int slot;
+    // Two creations per 0.1 game seconds: ten times fewer in one tick than
+    // two simultaneous original Marine completions (5 each).
+    while (g_aprgMeatGrinderQueued > 0 && count < 2) {
+        slot = g_aprgMeatGrinderHead;
+        APRG_SpawnMeatGrinderExtra(g_aprgMeatGrinderType[slot], g_aprgMeatGrinderOwner[slot],
+            g_aprgMeatGrinderPoint[slot], g_aprgMeatGrinderFacing[slot]);
+        g_aprgMeatGrinderRemaining[slot] -= 1;
+        count += 1;
+        if (g_aprgMeatGrinderRemaining[slot] <= 0) {
+            g_aprgMeatGrinderPoint[slot] = null;
+            g_aprgMeatGrinderType[slot] = "";
+            g_aprgMeatGrinderHead = (slot + 1) % 1024;
+            g_aprgMeatGrinderQueued -= 1;
+        }
+    }
+}
+
+void APRG_TryMeatGrinderProducedUnit(unit produced, int player) {
     string key;
-    string unitType;
-    point p;
-    int i;
     if (!APRG_HasExtension4(APRG_EXT4_BOON_MEAT_GRINDER) || !APRG_ProductionBoonUnitEligible(produced, player)) { return; }
-    unitType = UnitGetType(produced);
-    if (!APRG_IsMarineBoonType(unitType)) { return; }
+    if (!APRG_IsMarineBoonType(UnitGetType(produced))) { return; }
     key = "APRG_MeatGrinderHandled_" + IntToString(UnitGetTag(produced));
     if (DataTableGetBool(true, key)) { return; }
     DataTableSetBool(true, key, true);
-    p = UnitGetPosition(produced);
-    created = APRG_CreatePlayerUnitsAtPoint(5, unitType, player, p, UnitGetFacing(produced));
-    if (created == null) { return; }
-    APRG_MakeGroupUncommandable(created);
-    for (i = UnitGroupCount(created, c_unitCountAlive); i > 0; i -= 1) {
-        extra = UnitGroupUnitFromEnd(created, i);
-        if (extra != null) {
-            UnitSetState(extra, c_unitStateUsingSupply, false);
-            UnitGroupAdd(g_aprgClonedUnits, extra);
-            DataTableSetBool(true, "APRG_MeatGrinderHandled_" + IntToString(UnitGetTag(extra)), true);
-        }
-    }
-    APRG_OrderGroupTowardNearestEnemyStructure(created, p, player);
+    APRG_EnqueueMeatGrinderMarines(produced, player);
 }
 
 void APRG_ApplyTrainedUnitShieldBoon(unit produced, int player) {
@@ -15195,14 +15790,41 @@ bool APRG_ProductionCreated_Func(bool testConds, bool runActions) {
 
 void APRG_RetargetClonedUnits(int player, fixed now) {
     int i;
+    int work = 0;
+    int currentAlive;
     unit clone;
-    if (now < g_aprgNextCloneRetargetTime) { return; }
-    g_aprgNextCloneRetargetTime = now + 10.0;
-    for (i = UnitGroupCount(g_aprgClonedUnits, c_unitCountAlive); i > 0; i -= 1) {
+    // A large Meat Grinder / Cloning Technology army previously repathed every
+    // unit in the same tick. Spread work over normal 1-second mission ticks;
+    // each unit still gets the same structure-first/pathable target AI.
+    if (g_aprgCloneRetargetRemaining <= 0) {
+        if (now < g_aprgNextCloneRetargetTime) { return; }
+        g_aprgCloneRetargetRemaining = UnitGroupCount(g_aprgClonedUnits, c_unitCountAlive);
+        if (g_aprgCloneRetargetRemaining <= 0) {
+            g_aprgNextCloneRetargetTime = now + 10.0;
+            return;
+        }
+    }
+    currentAlive = UnitGroupCount(g_aprgClonedUnits, c_unitCountAlive);
+    // Reuse the same target groups for all units handled this tick, while
+    // retaining per-Marine closest/pathable-target selection.
+    g_aprgCloneTargetBuildings = APRG_EnemyTargetableStructures(player);
+    g_aprgCloneTargetMobile = APRG_EnemyMobileUnits(player);
+    g_aprgCloneTargetCacheActive = true;
+    while (g_aprgCloneRetargetRemaining > 0 && work < 40) {
+        i = g_aprgCloneRetargetRemaining;
+        // Units can die between ticks: clamp the cursor to the living group.
+        i = MinI(i, currentAlive);
+        if (i <= 0) { g_aprgCloneRetargetRemaining = 0; break; }
         clone = UnitGroupUnitFromEnd(g_aprgClonedUnits, i);
+        g_aprgCloneRetargetRemaining = i - 1;
         if (clone == null || !UnitIsAlive(clone)) { continue; }
         APRG_OrderCloneTowardValidTarget(clone, player);
+        work += 1;
     }
+    g_aprgCloneTargetCacheActive = false;
+    g_aprgCloneTargetBuildings = UnitGroupEmpty();
+    g_aprgCloneTargetMobile = UnitGroupEmpty();
+    if (g_aprgCloneRetargetRemaining <= 0) { g_aprgNextCloneRetargetTime = now + 10.0; }
 }
 
 bool APRG_ArchonCannons_Func(bool testConds, bool runActions) {
@@ -15318,7 +15940,7 @@ bool APRG_HydraStorms_Func(bool testConds, bool runActions) {
     if (owner < 0 || !libNtve_gf_PlayerIsEnemy(owner, player, libNtve_ge_PlayerRelation_Enemy)) { return true; }
     if (!CatalogEntryIsValid(c_gameCatalogEffect, "PsiStormPersistent")) { return true; }
     impactPoint = UnitGetPosition(victim);
-    PlayerCreateEffectPoint(player, "PsiStormPersistent", impactPoint);
+    APRG_CreateObjectiveSafeSlayEffect(player, "PsiStormPersistent", impactPoint, 5.0);
     return true;
 }
 
@@ -15863,6 +16485,16 @@ bool APRG_IsShopKerriganType(string unitType) {
     return true;
 }
 
+bool APRG_KerriganSpawnPresent(unit u, int player) {
+    point p;
+    if (u == null || !UnitIsAlive(u) || UnitGetOwner(u) != player) { return false; }
+    if (!APRG_IsShopKerriganType(UnitGetType(u))) { return false; }
+    // An alive, off-screen mission actor is not a controllable respawn.
+    if (!UnitTestState(u, c_unitStateSelectable)) { return false; }
+    p = UnitGetPosition(u);
+    return p != null && RegionContainsPoint(RegionPlayableMap(), p);
+}
+
 unit APRG_FindShopKerrigan(int player) {
     unitgroup units;
     int i;
@@ -15870,7 +16502,7 @@ unit APRG_FindShopKerrigan(int player) {
     units = APRG_PlayerAllUnits(player);
     for (i = UnitGroupCount(units, c_unitCountAlive); i > 0; i -= 1) {
         u = UnitGroupUnitFromEnd(units, i);
-        if (u != null && APRG_IsShopKerriganType(UnitGetType(u))) { return u; }
+        if (APRG_KerriganSpawnPresent(u, player)) { return u; }
     }
     return null;
 }
@@ -16027,8 +16659,25 @@ void APRG_ApplyKerriganShopUpgrades(unit u) {
     }
 }
 
+// Only acknowledge a respawn after the unit survives at least a full game
+// second inside the playable map. Do not restart the death timer on failure.
+void APRG_ConfirmShopKerriganRespawn(int player) {
+    g_aprgShopKerriganType = UnitGetType(g_aprgShopKerrigan);
+    g_aprgShopKerriganDeathTime = -1.0;
+    g_aprgShopKerriganDeathPoint = null;
+    g_aprgShopKerriganRespawnPoint = null;
+    g_aprgShopKerriganVerifyAt = -1.0;
+    g_aprgShopKerriganNextRetryAt = -1.0;
+    g_aprgShopKerriganPositioned = true;
+    APRG_ApplyPrimalKerriganAppearance(g_aprgShopKerrigan);
+    APRG_ApplyKerriganShopUpgrades(g_aprgShopKerrigan);
+    APRG_RemoveKerriganReviveCocoons(player);
+    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText("Kerrigan has respawned"));
+}
+
 void APRG_TickShopKerrigan(int player, fixed now) {
     unit fresh;
+    unit home;
     bool replacingTrackedKerrigan;
     fixed respawnDelay;
     fixed respawnElapsed;
@@ -16037,62 +16686,77 @@ void APRG_TickShopKerrigan(int player, fixed now) {
     respawnDelay = APRG_KerriganRespawnDelay();
 
     if (g_aprgShopKerriganDeathTime >= 0.0) {
-        respawnPoint = APRG_FindKerriganCocoonPoint(player);
-        if (respawnPoint != null) { g_aprgShopKerriganRespawnPoint = respawnPoint; }
         fresh = APRG_FindShopKerrigan(player);
         respawnElapsed = now - g_aprgShopKerriganDeathTime;
-
         if (respawnElapsed < respawnDelay) {
-            if (fresh != null && UnitIsAlive(fresh)) {
-                // HotS mission logic can start its native 60-second revive at the
-                // actual death frame, while Slay records death on its next hero
-                // tick. Accept a native replacement that arrives within two
-                // seconds of Slay's intended deadline instead of deleting it.
-                // A genuinely early native revive is still suppressed, which is
-                // required when Reckless upgrades intentionally extend the timer.
+            // Native HotS respawns can be up to two seconds ahead of this
+            // timer. Preserve their hero when close to the deadline, but do
+            // not announce it as respawned until it survives verification.
+            if (fresh != null) {
                 if (respawnElapsed >= respawnDelay - 2.0) {
                     g_aprgShopKerrigan = fresh;
                     g_aprgShopKerriganType = UnitGetType(fresh);
-                    g_aprgShopKerriganDeathTime = -1.0;
-                    g_aprgShopKerriganDeathPoint = null;
-                    g_aprgShopKerriganRespawnPoint = null;
-                    g_aprgShopKerriganPositioned = true;
-                    APRG_ApplyPrimalKerriganAppearance(g_aprgShopKerrigan);
-                    APRG_ApplyKerriganShopUpgrades(g_aprgShopKerrigan);
-                    APRG_RemoveKerriganReviveCocoons(player);
-                    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText("Kerrigan has respawned"));
-                    return;
                 }
-                if (g_aprgShopKerriganType == "") { g_aprgShopKerriganType = UnitGetType(fresh); }
-                UnitRemove(fresh);
-                if (fresh == g_aprgShopKerrigan) { g_aprgShopKerrigan = null; }
+                else {
+                    if (g_aprgShopKerriganType == "") { g_aprgShopKerriganType = UnitGetType(fresh); }
+                    UnitRemove(fresh);
+                    if (fresh == g_aprgShopKerrigan) { g_aprgShopKerrigan = null; }
+                }
             }
             return;
         }
 
-        respawnPoint = g_aprgShopKerriganRespawnPoint;
-        if (respawnPoint == null) { respawnPoint = g_aprgShopKerriganDeathPoint; }
-        if (fresh != null && UnitIsAlive(fresh)) {
+        if (g_aprgShopKerriganVerifyAt >= 0.0) {
+            if (APRG_KerriganSpawnPresent(g_aprgShopKerrigan, player)) {
+                if (now >= g_aprgShopKerriganVerifyAt) {
+                    APRG_ConfirmShopKerriganRespawn(player);
+                }
+                return;
+            }
+            // Campaign death/transform callbacks removed this attempt.
+            // Retry shortly; the original countdown is still complete.
+            g_aprgShopKerriganVerifyAt = -1.0;
+            g_aprgShopKerriganNextRetryAt = now + 2.0;
+            g_aprgShopKerrigan = null;
+        }
+        if (now < g_aprgShopKerriganNextRetryAt) { return; }
+
+        // A native respawn is preferred, but don't trust an off-map/invalid
+        // Kerrigan merely because UnitIsAlive returned true.
+        if (fresh != null && APRG_KerriganSpawnPresent(fresh, player)) {
             g_aprgShopKerrigan = fresh;
             g_aprgShopKerriganType = UnitGetType(fresh);
         }
         else {
-            if (g_aprgShopKerrigan != null) { UnitRevive(g_aprgShopKerrigan); }
-            if (g_aprgShopKerrigan == null || !UnitIsAlive(g_aprgShopKerrigan)) {
+            // Avoid UnitRevive on a dead mission hero: some native death
+            // triggers immediately kill/remove that handle again. Create a
+            // clean hero near the player's base, not in the enemy army that
+            // killed the previous one. Use last death/cocoon location only
+            // when the base cannot provide a spawn position.
+            g_aprgShopKerrigan = APRG_CreateShopKerriganAtHome(player, g_aprgShopKerriganType);
+            if (!APRG_KerriganSpawnPresent(g_aprgShopKerrigan, player)) {
+                respawnPoint = g_aprgShopKerriganRespawnPoint;
+                if (respawnPoint == null) { respawnPoint = g_aprgShopKerriganDeathPoint; }
                 g_aprgShopKerrigan = APRG_CreateShopKerriganAtPoint(player, g_aprgShopKerriganType, respawnPoint);
             }
         }
-        if (g_aprgShopKerrigan != null && UnitIsAlive(g_aprgShopKerrigan)) {
+        if (APRG_KerriganSpawnPresent(g_aprgShopKerrigan, player)) {
+            // Stabilize at full HP and verify the unit after mission triggers
+            // have had a full game second to process its creation.
             UnitSetPropertyFixed(g_aprgShopKerrigan, c_unitPropLifePercent, 100.0);
-            if (respawnPoint != null) { UnitSetPosition(g_aprgShopKerrigan, respawnPoint, true); }
-            g_aprgShopKerriganDeathTime = -1.0;
-            g_aprgShopKerriganDeathPoint = null;
-            g_aprgShopKerriganRespawnPoint = null;
-            g_aprgShopKerriganPositioned = true;
+            home = APRG_FindPlayerHomeStructure(player);
+            if (home != null && UnitIsAlive(home)) {
+                respawnPoint = APRG_FindGroundPointNear(UnitGetPosition(home), 4.0, 8.0);
+                if (respawnPoint != null) { UnitSetPosition(g_aprgShopKerrigan, respawnPoint, true); }
+            }
             APRG_ApplyPrimalKerriganAppearance(g_aprgShopKerrigan);
             APRG_ApplyKerriganShopUpgrades(g_aprgShopKerrigan);
-            APRG_RemoveKerriganReviveCocoons(player);
-            UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText("Kerrigan has respawned"));
+            g_aprgShopKerriganVerifyAt = now + 1.0;
+            g_aprgShopKerriganNextRetryAt = now + 2.0;
+        }
+        else {
+            g_aprgShopKerrigan = null;
+            g_aprgShopKerriganNextRetryAt = now + 2.0;
         }
         return;
     }
@@ -16117,10 +16781,12 @@ void APRG_TickShopKerrigan(int player, fixed now) {
         return;
     }
 
-    if (!UnitIsAlive(g_aprgShopKerrigan)) {
+    if (!APRG_KerriganSpawnPresent(g_aprgShopKerrigan, player)) {
         g_aprgShopKerriganDeathTime = now;
         g_aprgShopKerriganDeathPoint = UnitGetPosition(g_aprgShopKerrigan);
         g_aprgShopKerriganRespawnPoint = null;
+        g_aprgShopKerriganVerifyAt = -1.0;
+        g_aprgShopKerriganNextRetryAt = -1.0;
         UIDisplayMessage(
             PlayerGroupSingle(player), c_messageAreaChat,
             StringToText("[Slay] Kerrigan will respawn in " + IntToString(FixedToInt(respawnDelay)) + " seconds")
@@ -16141,8 +16807,13 @@ void APRG_TickShopKerrigan(int player, fixed now) {
 void APRG_TickContractStructures(int player) {
     fixed life;
     fixed maximum;
+    fixed now;
+    bool checkMercenaryCooldowns;
     unit existing;
     if (!APRG_PlayerMacroBaseReady(player)) { return; }
+    now = GameGetMissionTime();
+    checkMercenaryCooldowns = now >= g_aprgNextMercenaryCooldownWatchTime;
+    if (checkMercenaryCooldowns) { g_aprgNextMercenaryCooldownWatchTime = now + 3.0; }
 
     if (APRG_HasProgression(APRG_PROGRESSION_TERRAN_CONTRACTS)) {
         // Resolve each contract building only once per mission. A failed initial
@@ -16161,7 +16832,7 @@ void APRG_TickContractStructures(int player) {
 
     if (g_aprgTerranContractStructure != null && UnitIsAlive(g_aprgTerranContractStructure)) {
         APRG_FilterContractStructureCommandCard(player, UnitGetType(g_aprgTerranContractStructure));
-        APRG_SanitizeContractStructureTimers(g_aprgTerranContractStructure, player);
+        if (checkMercenaryCooldowns) { APRG_SanitizeContractStructureTimers(g_aprgTerranContractStructure, player); }
     }
 
     if (APRG_HasProgression(APRG_PROGRESSION_ZERG_CONTRACTS)) {
@@ -16178,7 +16849,7 @@ void APRG_TickContractStructures(int player) {
         }
         if (g_aprgZergContractStructure != null && UnitIsAlive(g_aprgZergContractStructure)) {
             APRG_FilterContractStructureCommandCard(player, UnitGetType(g_aprgZergContractStructure));
-            APRG_SanitizeContractStructureTimers(g_aprgZergContractStructure, player);
+            if (checkMercenaryCooldowns) { APRG_SanitizeContractStructureTimers(g_aprgZergContractStructure, player); }
         }
         if (g_aprgZergContractStructure != null && UnitIsAlive(g_aprgZergContractStructure) && !CreepIsPresent(UnitGetPosition(g_aprgZergContractStructure))) {
             life = UnitGetPropertyFixed(g_aprgZergContractStructure, c_unitPropLife, c_unitPropCurrent);
@@ -16363,6 +17034,24 @@ void APRG_ReleaseSpearCooldownsAtBase(unit caster, int player) {
     }
     DataTableSetBool(true, key, true);
 }
+
+// AP's autonomous Spear caster owns passive actions (including Reconstruction
+// Beam).  The pre-base gate disables its abilities too, but cooldown cleanup
+// belongs only to the controllable caster. Re-enable autonomous abilities
+// separately so passives recover when the player base is established.
+void APRG_ReleaseSpearAutonomousAbilitiesAtBase(unit caster) {
+    int abilityIndex;
+    int abilityCount;
+    string abilityType;
+    if (caster == null) { return; }
+    abilityCount = MinI(64, UnitAbilityCount(caster));
+    for (abilityIndex = 1; abilityIndex <= abilityCount; abilityIndex += 1) {
+        abilityType = UnitAbilityGet(caster, abilityIndex);
+        if (abilityType == "" || !CatalogEntryIsValid(c_gameCatalogAbil, abilityType)) { continue; }
+        UnitAbilityEnable(caster, abilityType, true);
+    }
+}
+
 void APRG_ReleaseSpearEnergyAtBase(unit caster) {
     string baseKey;
     string unlockedKey;
@@ -16406,6 +17095,7 @@ void APRG_TickSpearBaseGate(int player) {
     APRG_TickSpearEnergyBonus(autonomousCaster, now);
 
     APRG_ReleaseSpearCooldownsAtBase(caster, player);
+    APRG_ReleaseSpearAutonomousAbilitiesAtBase(autonomousCaster);
 }
 
 bool APRG_SpearGate_Func(bool testConds, bool runActions) {
@@ -16547,10 +17237,12 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     }
 
     g_aprgStarted = true;
-    g_aprgEffectsSummaryDisplayed = false;
+    g_aprgEffectsSummaryAfterBaseDisplayed = false;
     now = GameGetMissionTime();
     g_aprgActivationTime = now + 2.0;
     g_aprgMacroBaseReady = false;
+    g_aprgLabRatHordeMineralsGiven = false;
+    g_aprgSmashGrabExtraWorkersGiven = false;
     g_aprgLabRatMineralsCollectedStart = -1;
     g_aprgLabRatCompletedSupplyProvidersStart = -1;
     g_aprgLabRatSupplyCompletedTime = -1.0;
@@ -16561,6 +17253,10 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgZergContractStructure = null;
     g_aprgAllInSawEnemyStructure = false;
     g_aprgAllInVictoryTriggered = false;
+    g_aprgDevilsZergBaselineCaptured = false;
+    g_aprgDevilsZergVictoryTriggered = false;
+    g_aprgDevilsZergBaselineCount = 0;
+    g_aprgDevilsOriginalZergStructures = UnitGroupEmpty();
     g_aprgNextHellionRunByTime = -1.0;
     g_aprgHellionRunByWave = 0;
     g_aprgDiamondbackWanderersSpawned = false;
@@ -16655,6 +17351,8 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgPotionQueueStarted[1] = 0.0;
     g_aprgPotionAutoUnits = UnitGroupEmpty();
     g_aprgPotionAutoSpellcasters = UnitGroupEmpty();
+    g_aprgPotionAutoLeviathans = UnitGroupEmpty();
+    g_aprgPotionLeviathanSpawnTrigger = null;
     g_aprgPotionAutoCursor = 0;
     g_aprgPotionAutoNextRetarget = 0.0;
 
@@ -16666,7 +17364,17 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgShopKerriganDeathPoint = null;
     g_aprgShopKerriganRespawnPoint = null;
     g_aprgShopKerriganPositioned = false;
+    g_aprgShopKerriganVerifyAt = -1.0;
+    g_aprgShopKerriganNextRetryAt = -1.0;
+    g_aprgMeatGrinderHead = 0;
+    g_aprgMeatGrinderTail = 0;
+    g_aprgMeatGrinderQueued = 0;
+    g_aprgCloneRetargetRemaining = 0;
+    g_aprgCloneTargetCacheActive = false;
+    g_aprgCloneTargetBuildings = UnitGroupEmpty();
+    g_aprgCloneTargetMobile = UnitGroupEmpty();
     g_aprgNextGeneratedHeroAbilityTime = now + 3.0;
+    g_aprgNextEnemyZagaraFatalCheckTime = now + 0.5;
     g_aprgNextFriendlyAutonomousAbilityTime = now + 0.5;
     g_aprgFriendlyAirAbilityCursor = 0;
     g_aprgFriendlyCloneAbilityCursor = 0;
@@ -16805,9 +17513,12 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgLeviathanUsed = false;
     g_aprgLurkerDefenseGiven = false;
     g_aprgOdinGiven = false;
+    g_aprgNextPlayerOdinNukeCheckTime = 0.0;
     g_aprgAssemblyCatalogApplied = false;
     g_aprgHordeCatalogApplied = false;
+    g_aprgMutationCatalogApplied = false;
     g_aprgUnlimitedPowerCatalogApplied = false;
+    g_aprgNextMercenaryCooldownWatchTime = 0.0;
     g_aprgMercenaryCatalogApplied = false;
     g_aprgMercenaryDamageBusy = false;
     g_aprgConcussedShellsApplied = false;
@@ -16820,6 +17531,8 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgBurrowedZerglingAttempts = 0;
     g_aprgSniperThorSpawned = false;
     g_aprgSniperThorRetries = 0;
+    g_aprgSniperThor = null;
+    g_aprgSniperThorDefenseAttackOrdered = false;
     g_aprgTowerDefenseAttempts = 0;
 
     g_aprgNextDestructionTime = 600.0;
@@ -16855,7 +17568,7 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgNextCompoundTime = now + 30.0;
     g_aprgNextWraithTime = now + 60.0;
     g_aprgNextVoidThrasherTime = -1.0;
-    g_aprgNextVikingRaidTime = now + RandomFixed(20.0, 180.0);
+    g_aprgNextVikingRaidTime = now + RandomFixed(APRG_VikingRaidIntervalMinimum(now), 180.0);
     g_aprgResourcePickupsSpawned = false;
     g_aprgResourcePickupCount = 0;
     g_aprgMarauderKillTeamsSpawned = false;
@@ -17207,6 +17920,25 @@ bool APRG_NewBoonTrain_Func(bool testConds, bool runActions) {
     return true;
 }
 
+// Archipelago names its playable Swarm Queen AP_Queen.  Check both the
+// catalog link and the localized unit display name, and cache the latter so
+// long missions with many units don't repeatedly resolve the same strings.
+bool APRG_IsEnergizedQueenType(string unitType) {
+    string cacheKey;
+    string cached;
+    bool matches;
+    if (unitType == "") { return false; }
+    if (StringContains(unitType, "Queen", c_stringAnywhere, c_stringNoCase)) { return true; }
+    cacheKey = "APRG_EnergizedQueenType_" + unitType;
+    cached = DataTableGetString(true, cacheKey);
+    if (cached == "1") { return true; }
+    if (cached == "0") { return false; }
+    matches = StringContains(TextToString(UnitTypeGetName(unitType)), "Queen", c_stringAnywhere, c_stringNoCase);
+    if (matches) { DataTableSetString(true, cacheKey, "1"); }
+    else { DataTableSetString(true, cacheKey, "0"); }
+    return matches;
+}
+
 void APRG_TickEnergizedQueens(int player, fixed now) {
     unitgroup units;
     int i;
@@ -17224,7 +17956,7 @@ void APRG_TickEnergizedQueens(int player, fixed now) {
         u = UnitGroupUnitFromEnd(units, i);
         if (u == null || !UnitIsAlive(u)) { continue; }
         unitType = UnitGetType(u);
-        if (!StringContains(unitType, "SwarmQueen", c_stringAnywhere, c_stringNoCase) && !StringContains(unitType, "BroodQueen", c_stringAnywhere, c_stringNoCase)) { continue; }
+        if (!APRG_IsEnergizedQueenType(unitType)) { continue; }
         key = "APRG_EnergizedQueenLast_" + IntToString(UnitGetTag(u));
         lastTime = DataTableGetFixed(true, key);
         if (lastTime <= 0.0) { DataTableSetFixed(true, key, now); continue; }
@@ -17337,13 +18069,14 @@ void APRG_OrderMarauderKillTeamGroup(unitgroup team, int player) {
     int i;
     unit u;
     point destination;
+    bool restricted = APRG_TimeSinceMacroBase(GameGetMissionTime()) < 720.0;
     if (team == null || UnitGroupCount(team, c_unitCountAlive) <= 0) { return; }
-    destination = APRG_RandomFixedPatrolPoint(player, true);
-    if (destination == null) { return; }
     for (i = UnitGroupCount(team, c_unitCountAlive); i > 0; i -= 1) {
         u = UnitGroupUnitFromEnd(team, i);
         if (u == null || !UnitIsAlive(u)) { continue; }
-        APRG_OrderAttackMove(u, destination);
+        if (restricted) { destination = APRG_GroundSafePatrolDestination(u, player, 15.0); }
+        else { destination = APRG_RandomFixedPatrolPointForUnit(u, player, true); }
+        if (destination != null) { APRG_OrderAttackMove(u, destination); }
     }
 }
 
@@ -17399,13 +18132,12 @@ unitgroup APRG_SpawnOneMarauderKillTeam(int player) {
     UnitGroupAddUnitGroup(team, medics);
     UnitGroupAddUnitGroup(g_aprgMarauderKillTeamUnits, marauders);
     UnitGroupAddUnitGroup(g_aprgMarauderKillTeamUnits, medics);
+    APRG_RegisterAlwaysVisibleGroup(team, player);
     APRG_OrderMarauderKillTeamGroup(team, player);
-    MinimapPing(PlayerGroupSingle(player), p, 8.0, Color(100.0, 0.0, 0.0));
     return team;
 }
 
 void APRG_TickMarauderKillTeams(int player, fixed now) {
-    unit u;
     if (!APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0 || now < g_aprgMacroReadyTime + 300.0) { return; }
     if (!g_aprgMarauderKillTeamsSpawned) {
         g_aprgMarauderKillTeamOne = APRG_SpawnOneMarauderKillTeam(player);
@@ -17418,11 +18150,114 @@ void APRG_TickMarauderKillTeams(int player, fixed now) {
     g_aprgNextMarauderKillTeamRetargetTime = now + 30.0;
     APRG_OrderMarauderKillTeamGroup(g_aprgMarauderKillTeamOne, player);
     APRG_OrderMarauderKillTeamGroup(g_aprgMarauderKillTeamTwo, player);
-    u = UnitGroupUnitFromEnd(g_aprgMarauderKillTeamOne, 1);
-    if (u != null && UnitIsAlive(u)) { MinimapPing(PlayerGroupSingle(player), UnitGetPosition(u), 2.0, Color(100.0, 0.0, 0.0)); }
-    u = UnitGroupUnitFromEnd(g_aprgMarauderKillTeamTwo, 1);
-    if (u != null && UnitIsAlive(u)) { MinimapPing(PlayerGroupSingle(player), UnitGetPosition(u), 2.0, Color(100.0, 0.0, 0.0)); }
 }
+// A one-time LifeRegen property edit may not produce healing on campaign
+// Aberrations, and can disappear after unit state changes. Heal explicitly
+// once per game second instead, without stacking native regeneration.
+// The Archipelago/campaign unit link does not always contain the displayed
+// unit family name.  Resolve that name as a fallback (as for Energized Queens)
+// and cache by unit link.  This also works with Monstrous Resilience upgrades.
+bool APRG_IsRegenerativeAberrationType(string unitType) {
+    string key;
+    string cached;
+    string displayedName;
+    bool matches;
+    if (unitType == "") { return false; }
+    if (
+        StringContains(unitType, "Aberration", c_stringAnywhere, c_stringNoCase) ||
+        StringContains(unitType, "Abberation", c_stringAnywhere, c_stringNoCase)
+    ) { return true; }
+    key = "APRG_RegenerativeAberrationType_" + unitType;
+    cached = DataTableGetString(true, key);
+    if (cached == "1") { return true; }
+    if (cached == "0") { return false; }
+    displayedName = TextToString(UnitTypeGetName(unitType));
+    matches = StringContains(displayedName, "Aberration", c_stringAnywhere, c_stringNoCase) ||
+        StringContains(displayedName, "Abberation", c_stringAnywhere, c_stringNoCase);
+    if (matches) { DataTableSetString(true, key, "1"); }
+    else { DataTableSetString(true, key, "0"); }
+    return matches;
+}
+
+// Per-unit name overrides are possible even when the unit-type name does
+// not identify the family. In that case use the actual name shown in-game.
+bool APRG_IsRegenerativeAberrationUnit(unit u) {
+    string name;
+    if (u == null) { return false; }
+    if (APRG_IsRegenerativeAberrationType(UnitGetType(u))) { return true; }
+    name = TextToString(UnitGetName(u));
+    return StringContains(name, "Aberration", c_stringAnywhere, c_stringNoCase) ||
+        StringContains(name, "Abberation", c_stringAnywhere, c_stringNoCase);
+}
+
+void APRG_TickRegenerativeAberrations(int player, fixed now) {
+    unitgroup units;
+    unit u;
+    int i;
+    fixed current;
+    fixed maximum;
+    if (!APRG_HasExtension4(APRG_EXT4_BOON_REGENERATIVE_ABERRATIONS) || !APRG_PlayerMacroBaseReady(player)) { return; }
+    if (g_aprgNextAberrationHealTime <= 0.0) {
+        g_aprgNextAberrationHealTime = now + 1.0;
+        return;
+    }
+    if (now < g_aprgNextAberrationHealTime) { return; }
+    g_aprgNextAberrationHealTime = now + 1.0;
+    // Scan all owned units: a campaign/AP Aberration variant can have an
+    // unusual targeting/attribute setup and be excluded by the mobile filter.
+    units = APRG_PlayerAllUnits(player);
+    for (i = UnitGroupCount(units, c_unitCountAlive); i > 0; i -= 1) {
+        u = UnitGroupUnitFromEnd(units, i);
+        if (u == null || !UnitIsAlive(u) || !APRG_IsRegenerativeAberrationUnit(u)) { continue; }
+        current = UnitGetPropertyFixed(u, c_unitPropLife, c_unitPropCurrent);
+        maximum = UnitGetPropertyFixed(u, c_unitPropLifeMax, c_unitPropCurrent);
+        if (current > 0.0 && maximum > current) {
+            UnitSetPropertyFixed(u, c_unitPropLife, MinF(maximum, current + 10.0));
+        }
+    }
+}
+
+// Opt-in diagnostic: select an Aberration and enter ?SlayAberrationDebug in
+// in-game chat. Reports the actual catalog link, displayed name, detection
+// result, ownership, boon flag, and life so runtime reports are actionable.
+bool APRG_AberrationDebug_Func(bool testConds, bool runActions) {
+    int player;
+    unitgroup selected;
+    unit u;
+    string unitType;
+    string message;
+    string flag;
+    string base;
+    string match;
+    if (!runActions || !g_aprgStarted) { return true; }
+    player = APRG_GetPrimaryPlayer();
+    selected = UnitGroupSelected(player);
+    u = UnitGroupUnitFromEnd(selected, 1);
+    flag = "0";
+    base = "0";
+    if (APRG_HasExtension4(APRG_EXT4_BOON_REGENERATIVE_ABERRATIONS)) { flag = "1"; }
+    if (APRG_PlayerMacroBaseReady(player)) { base = "1"; }
+    message = "[Slay debug] Regenerative Abberations: active=" + flag + " baseReady=" + base;
+    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText(message));
+    if (u == null) {
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+            StringToText("[Slay debug] Select an Aberration and retry."));
+        return true;
+    }
+    unitType = UnitGetType(u);
+    match = "0";
+    if (APRG_IsRegenerativeAberrationUnit(u)) { match = "1"; }
+    message = "[Slay debug] type=" + unitType +
+        " name=" + TextToString(UnitGetName(u)) +
+        " owner=" + IntToString(UnitGetOwner(u)) +
+        " player=" + IntToString(player) +
+        " match=" + match +
+        " HP=" + FixedToString(UnitGetPropertyFixed(u, c_unitPropLife, c_unitPropCurrent), c_fixedPrecisionAny) +
+        "/" + FixedToString(UnitGetPropertyFixed(u, c_unitPropLifeMax, c_unitPropCurrent), c_fixedPrecisionAny);
+    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText(message));
+    return true;
+}
+
 void APRG_ApplyNewBoonStats(int player) {
     unitgroup units;
     unit u;
@@ -17444,17 +18279,6 @@ void APRG_ApplyNewBoonStats(int player) {
         if (u == null) { continue; }
         unitType = UnitGetType(u);
 
-        if (
-            APRG_HasExtension4(APRG_EXT4_BOON_REGENERATIVE_ABERRATIONS) &&
-            (StringContains(unitType, "Aberration", c_stringAnywhere, c_stringNoCase) ||
-             StringContains(unitType, "Abberation", c_stringAnywhere, c_stringNoCase))
-        ) {
-            key = "APRG_RegenerativeAberration_" + IntToString(UnitGetTag(u));
-            if (!DataTableGetBool(true, key)) {
-                UnitSetPropertyFixed(u, c_unitPropLifeRegen, UnitGetPropertyFixed(u, c_unitPropLifeRegen, c_unitPropCurrent) + 10.0);
-                DataTableSetBool(true, key, true);
-            }
-        }
         if (APRG_HasExtension4(APRG_EXT4_BOON_PERMANENT_STIMPACK) && APRG_IsInfantryBoonType(unitType, player)) {
             key = "APRG_PermanentStimType_" + IntToString(player) + "_" + unitType;
             if (!DataTableGetBool(true, key)) {
@@ -17577,7 +18401,7 @@ void APRG_TickInvasionFleet(int player, fixed now) {
             APRG_ResolvePlayerZergDrop(player, p, true);
         }
     }
-    g_aprgNextInvasionFleetDropTime = now + 1.0;
+    g_aprgNextInvasionFleetDropTime = now + 0.5; // Updated workbook: two drop pods per second.
 }
 
 void APRG_TickBaseLeviathanBurst(int player, fixed now);
@@ -17589,21 +18413,19 @@ bool APRG_FastBoonTick_Func(bool testConds, bool runActions) {
     if (!runActions || !g_aprgStarted) { return true; }
     player = APRG_GetPrimaryPlayer();
     now = GameGetMissionTime();
-    if (!g_aprgEffectsSummaryDisplayed && now >= g_aprgActivationTime + 1.0) {
-        APRG_DisplayActiveEffects(player);
-        g_aprgEffectsSummaryDisplayed = true;
-    }
 
-    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_LEVIATHAN_OUTSIDE_BASE) != 0) { APRG_TickBaseLeviathanBurst(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_LEVIATHAN_OUTSIDE_BASE) != 0) { APRG_TickBaseLeviathanBurst(player, now); }
     if (APRG_HasExtension2(APRG_EXT2_BOON_AIUR_RECRUITMENT)) { APRG_TickForAiurPending(player, now); }
     if (APRG_HasExtension4(APRG_EXT4_BOON_HIT_AND_RUN)) { APRG_TickHitAndRun(player); }
     if (
         APRG_HasExtension2(APRG_EXT2_BOON_AIUR_RECRUITMENT) ||
         APRG_HasExtension4(APRG_EXT4_BOON_PURIFIER_ALLIANCE)
     ) { APRG_ProcessAllyWarpQueue(player, now); }
-    if (APRG_HasExtension3(APRG_EXT3_MUT_PURIFIER) || APRG_HasExtension2(APRG_EXT2_MUT_NEXUS_SHIELD)) { APRG_ProcessPurifierHostileWarpQueue(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && (APRG_HasExtension3(APRG_EXT3_MUT_PURIFIER) || APRG_HasExtension2(APRG_EXT2_MUT_NEXUS_SHIELD))) { APRG_ProcessPurifierHostileWarpQueue(player, now); }
+    APRG_TickRegenerativeAberrations(player, now);
     APRG_TickInvasionFleet(player, now);
     APRG_TickPotionSpawnQueues(player, now);
+    if (g_aprgMeatGrinderQueued > 0) { APRG_ProcessMeatGrinderQueue(); }
     if (g_aprgZombieSpawnCount > 0) { APRG_ProcessZombieSpawnQueue(player); }
 
     if (g_aprgFastPhase == 0) { APRG_TickContractStructures(player); }
@@ -17650,6 +18472,7 @@ void APRG_ActivateEffects(int player) {
     g_aprgNextVoidEntityReconcileTime = 0.0;
     g_aprgNextBoonCombatStatsTime = 0.0;
     g_aprgNextNewBoonStatsTime = 0.0;
+    g_aprgNextAberrationHealTime = 0.0;
     g_aprgFastBoonTrigger = TriggerCreate("APRG_FastBoonTick_Func");
     TriggerAddEventTimePeriodic(g_aprgFastBoonTrigger, 0.1, c_timeGame);
 
@@ -17788,9 +18611,6 @@ void APRG_ActivateEffects(int player) {
         APRG_ApplyUnlimitedPowerCatalog(player);
     }
     if (APRG_HasExtension2(APRG_EXT2_BOON_ROACH_INFESTATION)) { APRG_ApplyRoachInfestation(player); }
-    if (APRG_HasMutation(APRG_MUT_RISING_GAS_PRICES)) {
-        APRG_ApplyRisingGasPrices(player);
-    }
     if (APRG_HasBlessing(APRG_BLESS_ASSEMBLY_LINE)) {
         APRG_ApplyAssemblyCatalog(player);
     }
@@ -17800,17 +18620,8 @@ void APRG_ActivateEffects(int player) {
     if (g_aprgMercenaryUpgradePacked > 0 || g_aprgMercenaryUpgradePacked2 > 0) {
         APRG_ApplyMercenaryRecruitCatalog(player);
     }
-    if (APRG_HasMutation(APRG_MUT_LOW_QUALITY_MINERALS)) {
-        APRG_ApplyLowQualityMinerals();
-    }
     if (APRG_HasBlessing(APRG_BLESS_FARSEERS)) {
         APRG_GiveFarseers(player);
-    }
-    if (APRG_HasExtension3(APRG_EXT3_MUT_RESOURCE_SWAP)) {
-        APRG_InitializeResourceSwap(player);
-        g_aprgResourceSwapTrigger = TriggerCreate("APRG_ResourceSwap_Func");
-        TriggerAddEventPlayerPropChange(g_aprgResourceSwapTrigger, player, c_playerPropMinerals);
-        TriggerAddEventPlayerPropChange(g_aprgResourceSwapTrigger, player, c_playerPropVespene);
     }
     if (APRG_HasExtension3(APRG_EXT3_BLESS_RICH_MINERALS) || APRG_HasExtension3(APRG_EXT3_BLESS_RICH_VESPENE)) {
         APRG_ApplyRichResources(
@@ -17872,7 +18683,7 @@ void APRG_SpawnHellionRunBy(int player, int bonusCount) {
     mineralLine = APRG_FindRandomPlayerMineralLinePoint(player);
     if (mineralLine == null) { return; }
     owner = UnitGetOwner(anchor);
-    count = RandomInt(1, 2) + MaxI(0, bonusCount);
+    count = 1 + MaxI(0, bonusCount);
     created = UnitCreate(count, "Hellion", c_unitCreateIgnorePlacement, owner, spawnPoint, libNtve_gf_RandomAngle());
     if (created == null) { return; }
     APRG_RegisterMutationEnemyGroup(created);
@@ -17882,11 +18693,11 @@ void APRG_SpawnHellionRunBy(int player, int bonusCount) {
 
 void APRG_TickHellionRunBy(int player, fixed now) {
     if (!APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0) { return; }
-    if (g_aprgNextHellionRunByTime < 0.0) { g_aprgNextHellionRunByTime = g_aprgMacroReadyTime + 45.0; }
+    if (g_aprgNextHellionRunByTime < 0.0) { g_aprgNextHellionRunByTime = g_aprgMacroReadyTime + 240.0; }
     if (now < g_aprgNextHellionRunByTime) { return; }
     APRG_SpawnHellionRunBy(player, g_aprgHellionRunByWave);
     g_aprgHellionRunByWave += 1;
-    g_aprgNextHellionRunByTime = now + 45.0;
+    g_aprgNextHellionRunByTime = now + 45.0 + 4.0 * IntToFixed(g_aprgHellionRunByWave);
 }
 
 void APRG_SpawnDiamondbackWanderers(int player) {
@@ -17921,8 +18732,8 @@ point APRG_DiamondbackWanderDestination(unit u, int player) {
     if (u == null || !UnitIsAlive(u)) { return null; }
     origin = UnitGetPosition(u);
 
-    // 60% of orders deliberately choose a connected point around an enemy-base area.
-    if (RandomInt(1, 100) <= 60) {
+    // Starts 90% enemy-base / 10% unrestricted, then loses 5% each minute.
+    if (RandomInt(1, 100) <= MaxI(0, 90 - 5 * FixedToInt(APRG_TimeSinceMacroBase(GameGetMissionTime()) / 60.0))) {
         anchor = APRG_RandomPathableHostileBaseAnchor(player);
         if (anchor != null) {
             for (attempt = 0; attempt < 24; attempt += 1) {
@@ -17943,7 +18754,7 @@ point APRG_DiamondbackWanderDestination(unit u, int player) {
         }
     }
 
-    // The other 40% can be any connected pathable point on the playable map.
+    // Remaining chance increases 5% per minute and permits any pathable point.
     // Enemy-base areas are intentionally allowed here too.
     for (attempt = 0; attempt < APRG_MAX_POINT_ATTEMPTS; attempt += 1) {
         candidate = RegionRandomPoint(RegionPlayableMap());
@@ -17961,7 +18772,7 @@ void APRG_TickDiamondbackWanderers(int player, fixed now) {
     unit u;
     point destination;
     if (!APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0) { return; }
-    if (!g_aprgDiamondbackWanderersSpawned && now >= g_aprgMacroReadyTime + 30.0) { APRG_SpawnDiamondbackWanderers(player); }
+    if (!g_aprgDiamondbackWanderersSpawned && now >= g_aprgMacroReadyTime + 60.0) { APRG_SpawnDiamondbackWanderers(player); }
     if (!g_aprgDiamondbackWanderersSpawned || now < g_aprgNextDiamondbackWanderTime) { return; }
     alive = UnitGroupCount(g_aprgDiamondbackWanderers, c_unitCountAlive);
     if (alive <= 0) { return; }
@@ -17998,6 +18809,29 @@ bool APRG_LeviathanMutationAbilityMatches(string abilityType, int owner, string 
     return false;
 }
 
+// Native spawn abilities must remain disabled while the Leviathan waits outside
+// the map.  The timed and damage-reactive spawns begin only after it stops near
+// a player building; this also prevents built-in autocasts during staging.
+void APRG_SetBaseLeviathanSpawnAbilitiesEnabled(unit leviathan, bool enabled) {
+    int owner;
+    int abilityCount;
+    int abilityIndex;
+    string abilityType;
+    if (leviathan == null || !UnitIsAlive(leviathan)) { return; }
+    owner = UnitGetOwner(leviathan);
+    abilityCount = MinI(64, UnitAbilityCount(leviathan));
+    for (abilityIndex = 1; abilityIndex <= abilityCount; abilityIndex += 1) {
+        abilityType = UnitAbilityGet(leviathan, abilityIndex);
+        if (
+            APRG_LeviathanMutationAbilityMatches(abilityType, owner, "Mutalisk") ||
+            APRG_LeviathanMutationAbilityMatches(abilityType, owner, "BroodLord") ||
+            APRG_LeviathanMutationAbilityMatches(abilityType, owner, "Brood Lord")
+        ) {
+            UnitAbilityEnable(leviathan, abilityType, enabled);
+        }
+    }
+}
+
 bool APRG_TryLeviathanMutationSpawn(unit leviathan, int player, string keyword, string fallbackType) {
     int abilityCount;
     int abilityIndex;
@@ -18007,7 +18841,7 @@ bool APRG_TryLeviathanMutationSpawn(unit leviathan, int player, string keyword, 
     order castOrder;
     point p;
     unitgroup created;
-    if (leviathan == null || !UnitIsAlive(leviathan)) { return false; }
+    if (leviathan == null || !UnitIsAlive(leviathan) || !g_aprgBaseLeviathanPositioned) { return false; }
     owner = UnitGetOwner(leviathan);
     // This mutation is defined around the Leviathan's native spawn abilities; keep
     // enough energy available for the scheduled and damage-triggered casts.
@@ -18074,7 +18908,7 @@ void APRG_TickBaseLeviathanBurst(int player, fixed now) {
     int casts = 0;
     fixed life;
     fixed maximum;
-    if (g_aprgBaseLeviathan == null || !UnitIsAlive(g_aprgBaseLeviathan)) { return; }
+    if (g_aprgBaseLeviathan == null || !UnitIsAlive(g_aprgBaseLeviathan) || !g_aprgBaseLeviathanPositioned) { return; }
 
     // Fast-tick these thresholds so the retaliation feels immediate rather than
     // waiting for the one-second main mutation tick.
@@ -18102,19 +18936,20 @@ void APRG_TickBaseLeviathanBurst(int player, fixed now) {
 fixed APRG_BaseLeviathanMutaliskInterval(fixed now) {
     fixed progress;
     if (g_aprgMacroReadyTime < 0.0) { return 20.0; }
-    progress = (now - (g_aprgMacroReadyTime + 240.0)) / 960.0;
+    // "the 20 minute mark" explicitly means mission-clock 20:00.
+    progress = (now - (g_aprgMacroReadyTime + 300.0)) / MaxF(1.0, 1200.0 - (g_aprgMacroReadyTime + 300.0));
     if (progress < 0.0) { progress = 0.0; }
     if (progress > 1.0) { progress = 1.0; }
-    return 20.0 - (18.0 * progress);
+    return 30.0 - (28.0 * progress);
 }
 
 fixed APRG_BaseLeviathanBroodLordInterval(fixed now) {
     fixed progress;
     if (g_aprgMacroReadyTime < 0.0) { return 45.0; }
-    progress = (now - (g_aprgMacroReadyTime + 240.0)) / 960.0;
+    progress = (now - (g_aprgMacroReadyTime + 300.0)) / MaxF(1.0, 1200.0 - (g_aprgMacroReadyTime + 300.0));
     if (progress < 0.0) { progress = 0.0; }
     if (progress > 1.0) { progress = 1.0; }
-    return 45.0 - (40.5 * progress);
+    return 55.0 - (50.5 * progress);
 }
 
 bool APRG_LeviathanDestructiveAbility(string abilityType, int owner) {
@@ -18174,8 +19009,6 @@ void APRG_TickBaseLeviathan(int player, fixed now) {
     unitgroup created;
     unit target;
     order stopOrder;
-    fixed life;
-    fixed maximum;
     if (!APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0) { return; }
     if (g_aprgBaseLeviathan == null || !UnitIsAlive(g_aprgBaseLeviathan)) {
         // The Leviathan is a one-life encounter. Do not recreate it after the player kills it.
@@ -18193,25 +19026,19 @@ void APRG_TickBaseLeviathan(int player, fixed now) {
         if (g_aprgBaseLeviathan == null) { return; }
         APRG_RegisterMutationEnemyGroup(created);
         APRG_RegisterAlwaysVisibleUnit(g_aprgBaseLeviathan, player);
-        AISetUnitScriptControlled(g_aprgBaseLeviathan, false);
+        // Keep native AI from moving or casting during the four-minute wait.
+        // This unit receives explicit movement orders after the base-ready timer.
+        AISetUnitScriptControlled(g_aprgBaseLeviathan, true);
+        APRG_SetBaseLeviathanSpawnAbilitiesEnabled(g_aprgBaseLeviathan, false);
         UnitSetPropertyFixed(g_aprgBaseLeviathan, c_unitPropEnergyMax, 1000.0);
         UnitSetPropertyFixed(g_aprgBaseLeviathan, c_unitPropEnergy, 1000.0);
         APRG_NormalizeMutationLeviathanCombatCooldown(g_aprgBaseLeviathan);
     }
 
-    life = UnitGetPropertyFixed(g_aprgBaseLeviathan, c_unitPropLife, c_unitPropCurrent);
-    maximum = UnitGetPropertyFixed(g_aprgBaseLeviathan, c_unitPropLifeMax, c_unitPropCurrent);
-    if (!g_aprgBaseLeviathanFirstDamageTriggered && maximum > 0.0 && life < maximum - 0.5) {
-        g_aprgBaseLeviathanFirstDamageTriggered = true;
-        APRG_TryLeviathanMutationSpawn(g_aprgBaseLeviathan, player, "Mutalisk", "Mutalisk");
-    }
-    if (!g_aprgBaseLeviathanHalfBurstTriggered && maximum > 0.0 && life <= maximum * 0.5) {
-        g_aprgBaseLeviathanHalfBurstTriggered = true;
-        g_aprgBaseLeviathanBurstRemaining = 20;
-        g_aprgNextBaseLeviathanBurstTime = now;
-    }
-
-    if (now < g_aprgMacroReadyTime + 240.0) { return; }
+    // The arrival gate applies to damage-triggered spawns as well as regular
+    // spawns.  The fast tick handles both triggers once the Leviathan stops.
+    // The four-minute delay is relative to base establishment, not mission start.
+    if (now < g_aprgMacroReadyTime + 300.0) { return; }
     if (!g_aprgBaseLeviathanPositioned) {
         target = APRG_NearestPlayerStructure(UnitGetPosition(g_aprgBaseLeviathan), player);
         if (target == null) { return; }
@@ -18219,11 +19046,13 @@ void APRG_TickBaseLeviathan(int player, fixed now) {
             UnitIssueOrder(g_aprgBaseLeviathan, OrderTargetingPoint(AbilityCommand("move", 0), UnitGetPosition(target)), c_orderQueueReplace);
             return;
         }
-        // Once it reaches 30 range it stops advancing permanently. From here the
-        // Leviathan only fights things that engage it while its spawnlings attack.
+        // Arrival is complete only when an actual stop order is issued within
+        // 30 range of a player building.  Then unlock all spawn mechanisms.
         stopOrder = Order(AbilityCommand("stop", 0));
-        if (UnitOrderIsValid(g_aprgBaseLeviathan, stopOrder)) { UnitIssueOrder(g_aprgBaseLeviathan, stopOrder, c_orderQueueReplace); }
+        if (!UnitOrderIsValid(g_aprgBaseLeviathan, stopOrder)) { return; }
+        UnitIssueOrder(g_aprgBaseLeviathan, stopOrder, c_orderQueueReplace);
         g_aprgBaseLeviathanPositioned = true;
+        APRG_SetBaseLeviathanSpawnAbilitiesEnabled(g_aprgBaseLeviathan, true);
         g_aprgNextBaseLeviathanMutaliskTime = now;
         g_aprgNextBaseLeviathanBroodLordTime = now;
     }
@@ -18353,9 +19182,9 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
         APRG_RegisterMutationEnemyGroup(created);
         AISetUnitScriptControlled(g_aprgTosh, false);
         g_aprgToshSpawned = true;
-        g_aprgNextToshPatrolTime = g_aprgMacroReadyTime + 180.0;
+        g_aprgNextToshPatrolTime = g_aprgMacroReadyTime + 240.0;
         g_aprgNextToshAbilityTime = g_aprgMacroReadyTime + 180.0;
-        g_aprgNextToshSpectreTime = g_aprgMacroReadyTime + 240.0;
+        g_aprgNextToshSpectreTime = g_aprgMacroReadyTime + 300.0;
     }
     // Previous spectres finish their attacks, but Tosh's death halts new spawns.
     if (g_aprgTosh != null && UnitIsAlive(g_aprgTosh)) {
@@ -18363,11 +19192,9 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
         // offensive target before using Tosh's personal protective shield.
         APRG_TryToshDefensiveShield(g_aprgTosh);
         if (now >= g_aprgNextToshPatrolTime) {
-            anchor = APRG_RandomPathableHostileBaseAnchor(player);
-            if (anchor != null) {
-                APRG_OrderAttackMove(g_aprgTosh, UnitGetPosition(anchor));
-            }
-            g_aprgNextToshPatrolTime = now + 35.0;
+            targetPoint = APRG_GroundSafePatrolDestination(g_aprgTosh, player, 30.0);
+            if (targetPoint != null) { APRG_OrderAttackMove(g_aprgTosh, targetPoint); }
+            g_aprgNextToshPatrolTime = now + 12.0;
         }
         if (now >= g_aprgNextToshAbilityTime) {
             APRG_TryGeneratedHeroAbility(g_aprgTosh, player);
@@ -18396,7 +19223,7 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
                         g_aprgToshSpectrePhase[slot] = 1;
                         g_aprgToshSpectreNukePoint[slot] = null;
                         g_aprgToshSpectreNukeTime[slot] = -1.0;
-                        g_aprgToshSpectreNextOrderTime[slot] = now;
+                        g_aprgToshSpectreNextOrderTime[slot] = now + 4.0;
                         g_aprgToshSpectreNukeIndicator[slot] = null;
                         AISetUnitScriptControlled(spec, false);
                         APRG_TryUnitAbilityKeyword(spec, "Cloak", null, null);
@@ -18418,45 +19245,45 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
             g_aprgToshSpectrePhase[i] = 3;
             continue;
         }
+        // An actual Spectre Nuke ability can appear order-valid but still
+        // consume no ammo (or fail silently) on some campaign dependencies.
+        // Use a scripted, visibly telegraphed nuke tied to a living Spectre;
+        // no enemy Ghost Academy or nuclear magazine is needed.
         if (g_aprgToshSpectrePhase[i] == 2) {
             if (now < g_aprgToshSpectreNukeTime[i]) { continue; }
             targetPoint = g_aprgToshSpectreNukePoint[i];
             if (targetPoint != null && CatalogEntryIsValid(c_gameCatalogEffect, "NukeDamage")) {
-                PlayerCreateEffectPoint(UnitGetOwner(spec), "NukeDamage", targetPoint);
+                APRG_CreateObjectiveSafeSlayEffect(UnitGetOwner(spec), "NukeDamage", targetPoint, 12.0);
             }
             if (g_aprgToshSpectreNukeIndicator[i] != null) { ActorSend(g_aprgToshSpectreNukeIndicator[i], "Destroy"); }
             g_aprgToshSpectreNukeIndicator[i] = null;
             g_aprgToshSpectrePhase[i] = 3;
+            AISetUnitScriptControlled(spec, false);
             target = APRG_NearestPathablePlayerStructure(spec, player);
             if (target != null) { APRG_OrderAttackMove(spec, UnitGetPosition(target)); }
             continue;
         }
-        if (g_aprgToshSpectrePhase[i] != 1) { continue; }
+        if (g_aprgToshSpectrePhase[i] != 1 || now < g_aprgToshSpectreNextOrderTime[i]) { continue; }
         target = APRG_NearestPathablePlayerStructure(spec, player);
-        if (target == null) { continue; }
-        if (g_aprgToshSpectreNukePoint[i] == null) {
-            g_aprgToshSpectreNukePoint[i] = PointWithOffsetPolar(UnitGetPosition(target), RandomFixed(0.0, 5.0), libNtve_gf_RandomAngle());
-        }
-        targetPoint = g_aprgToshSpectreNukePoint[i];
-        if (DistanceBetweenPoints(UnitGetPosition(spec), targetPoint) > 9.0) {
-            if (now >= g_aprgToshSpectreNextOrderTime[i]) {
-                APRG_OrderAttackMove(spec, targetPoint);
-                g_aprgToshSpectreNextOrderTime[i] = now + 4.0;
-            }
+        if (target == null || !CatalogEntryIsValid(c_gameCatalogEffect, "NukeDamage")) {
+            g_aprgToshSpectreNextOrderTime[i] = now + 4.0;
             continue;
         }
-        // First prefer the spectre's actual Nuke calldown. Some campaign
-        // dependencies require a Ghost Academy, so retain a telegraphed
-        // 12-second fallback that can be interrupted by killing the spectre.
-        if (APRG_TryUnitAbilityKeyword(spec, "Nuke", null, targetPoint)) {
-            g_aprgToshSpectrePhase[i] = 3;
-            continue;
-        }
+        // Aim within 5 range of a real player building (APRG_PlayerStructures
+        // already excludes creep tumors). Never march a cloaked Spectre into
+        // the player base merely to satisfy an unreliable native cast range.
+        targetPoint = PointWithOffsetPolar(UnitGetPosition(target), RandomFixed(0.0, 5.0), libNtve_gf_RandomAngle());
+        g_aprgToshSpectreNukePoint[i] = targetPoint;
         if (CatalogEntryIsValid(c_gameCatalogModel, "GhostNukeIndicator")) {
             g_aprgToshSpectreNukeIndicator[i] = libNtve_gf_CreateModelAtPoint("GhostNukeIndicator", targetPoint);
         }
+        PingCreate(PlayerGroupSingle(player), "PingWarning", targetPoint, ColorWithAlpha(100.0, 0.0, 0.0, 0.0), 12.0);
+        PingSetScale(PingLastCreated(), 1.5);
         g_aprgToshSpectreNukeTime[i] = now + 12.0;
         g_aprgToshSpectrePhase[i] = 2;
+        // Spectre channels for the warning duration. Destroying it cancels the
+        // strike; afterward, surviving Spectres resume their normal combat AI.
+        AISetUnitScriptControlled(spec, true);
         UnitIssueOrder(spec, Order(AbilityCommand("stop", 0)), c_orderQueueReplace);
     }
 }
@@ -18546,6 +19373,9 @@ void APRG_TickDelayedOdin(int player, fixed now) {
     bool barrageCast = false;
     if (!APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0) { return; }
 
+    // Workbook: Odin first appears 14 minutes after establishing a base.
+    // Spawn and assault are intentionally simultaneous.
+    if (now < g_aprgMacroReadyTime + 840.0) { return; }
     // Spawn exactly once. A killed Odin stays dead for the rest of the mission.
     if (!g_aprgDelayedOdinSpawned) {
         if (!CatalogEntryIsValid(c_gameCatalogUnit, "Odin")) { return; }
@@ -18565,7 +19395,7 @@ void APRG_TickDelayedOdin(int player, fixed now) {
         g_aprgDelayedOdinProgressTime = now;
     }
     if (g_aprgDelayedOdin == null || !UnitIsAlive(g_aprgDelayedOdin)) { return; }
-    if (now < g_aprgMacroReadyTime + 780.0) { return; }
+    if (now < g_aprgMacroReadyTime + 840.0) { return; }
 
     if (!g_aprgDelayedOdinAttacking) {
         g_aprgDelayedOdinAttacking = true;
@@ -18619,15 +19449,15 @@ void APRG_TickDelayedOdin(int player, fixed now) {
 
 void APRG_TickCombinedRaids(int player, fixed now) {
     if (!APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0) { return; }
-    if (g_aprgCombinedNextWraithTime < 0.0) { g_aprgCombinedNextWraithTime = g_aprgMacroReadyTime + 60.0; }
-    if (g_aprgCombinedNextVikingTime < 0.0) { g_aprgCombinedNextVikingTime = g_aprgMacroReadyTime + 20.0; }
-    if (g_aprgCombinedNextHellionTime < 0.0) { g_aprgCombinedNextHellionTime = g_aprgMacroReadyTime + 45.0; }
+    if (g_aprgCombinedNextWraithTime < 0.0) { g_aprgCombinedNextWraithTime = g_aprgMacroReadyTime + 120.0; }
+    if (g_aprgCombinedNextVikingTime < 0.0) { g_aprgCombinedNextVikingTime = g_aprgMacroReadyTime + 180.0; }
+    if (g_aprgCombinedNextHellionTime < 0.0) { g_aprgCombinedNextHellionTime = g_aprgMacroReadyTime + 240.0; }
     if (now >= g_aprgCombinedNextWraithTime) { APRG_SpawnWraithRaid(player); g_aprgCombinedNextWraithTime = now + APRG_WraithRaidNextInterval(now); }
-    if (now >= g_aprgCombinedNextVikingTime) { APRG_SpawnVikingRaid(player); g_aprgCombinedNextVikingTime = now + RandomFixed(20.0, 180.0); }
+    if (now >= g_aprgCombinedNextVikingTime) { APRG_SpawnVikingRaid(player); g_aprgCombinedNextVikingTime = now + RandomFixed(APRG_VikingRaidIntervalMinimum(now), 180.0); }
     if (now >= g_aprgCombinedNextHellionTime) {
         APRG_SpawnHellionRunBy(player, g_aprgCombinedHellionWave);
         g_aprgCombinedHellionWave += 1;
-        g_aprgCombinedNextHellionTime = now + 45.0;
+        g_aprgCombinedNextHellionTime = now + 45.0 + 4.0 * IntToFixed(g_aprgCombinedHellionWave);
     }
 }
 
@@ -18686,7 +19516,16 @@ void APRG_TickBrakkArmy(int player, fixed now) {
             created = UnitCreate(1, brakkType, c_unitCreateIgnorePlacement, owner, center, libNtve_gf_RandomAngle());
             APRG_AddCreatedToBrakkArmy(created);
             brakk = UnitGroupUnitFromEnd(created, 1);
-            if (brakk != null) { APRG_RegisterAlwaysVisibleUnit(brakk, player); }
+            if (brakk != null) {
+                // Only Brakk (not his pack or other instances of the unit type)
+                // receives the mutation boss's extra 1000 maximum/current HP.
+                UnitSetPropertyFixed(brakk, c_unitPropLifeMax, UnitGetPropertyFixed(brakk, c_unitPropLifeMax, c_unitPropCurrent) + 1000.0);
+                UnitSetPropertyFixed(brakk, c_unitPropLife, UnitGetPropertyFixed(brakk, c_unitPropLife, c_unitPropCurrent) + 1000.0);
+                if (CatalogEntryIsValid(c_gameCatalogBehavior, "APRogueBrakkArmor")) {
+                    UnitBehaviorAdd(brakk, "APRogueBrakkArmor", brakk, 1);
+                }
+                APRG_RegisterAlwaysVisibleUnit(brakk, player);
+            }
         }
         APRG_SpawnBrakkUnitGroup(APRG_DehakaPackType(3), 20, owner, center);
         APRG_SpawnBrakkUnitGroup(APRG_DehakaPackType(0), 40, owner, center);
@@ -18697,7 +19536,7 @@ void APRG_TickBrakkArmy(int player, fixed now) {
         APRG_SpawnBrakkUnitGroup(APRG_DehakaPackType(4), 10, owner, center);
         g_aprgBrakkArmySpawned = true;
     }
-    if (!g_aprgBrakkArmyAttacking && now >= g_aprgMacroReadyTime + 600.0) {
+    if (!g_aprgBrakkArmyAttacking && now >= g_aprgMacroReadyTime + 660.0) {
         home = APRG_FindPlayerHomeStructure(player);
         if (home != null) { UnitGroupIssueOrder(g_aprgBrakkArmy, OrderTargetingPoint(AbilityCommand("attack", 0), UnitGetPosition(home)), c_orderQueueReplace); }
         // After the timed assault begins, use the shared hostile-raider retargeting
@@ -19116,7 +19955,7 @@ void APRG_TickImmortalZergling(int player, fixed now) {
         g_aprgNextImmortalZerglingTargetTime = -1.0;
     }
     if (!g_aprgImmortalZerglingSpawned) {
-        if (now < g_aprgMacroReadyTime + 60.0) { return; }
+        if (now < g_aprgMacroReadyTime + 180.0) { return; }
         anchor = APRG_RandomPathableHostileBaseAnchor(player);
         if (anchor == null) { return; }
         spawnPoint = APRG_FindGroundPointNear(UnitGetPosition(anchor), 2.0, 10.0);
@@ -19594,8 +20433,8 @@ void APRG_TickPotionSpawnQueues(int player, fixed now) {
             }
             UnitSetState(spawned, c_unitStateUsingSupply, false);
             if (kind == 17 || kind == 18) {
-                // Only Mass Marines/Spellcasters are uncontrollable autopatrol
-                // waves. All named-unit consumables remain under player control.
+                // Only Mass Marines and Spellcasters enter the queued wave AI.
+                // Bottled Hyperion and Leviathan register separately on use.
                 APRG_MakeGroupUncommandable(created);
                 UnitGroupAdd(g_aprgPotionAutoUnits, spawned);
                 if (kind == 18) { UnitGroupAdd(g_aprgPotionAutoSpellcasters, spawned); }
@@ -19620,6 +20459,11 @@ void APRG_TickPotionSpawnQueues(int player, fixed now) {
         i = ((g_aprgPotionAutoCursor + n) % active) + 1;
         spawned = UnitGroupUnitFromEnd(g_aprgPotionAutoUnits, i);
         if (spawned == null || !UnitIsAlive(spawned)) { continue; }
+        if (UnitGroupHasUnit(g_aprgPotionAutoLeviathans, spawned)) {
+            // Never override the first native cast with another on this tick.
+            if (APRG_TryPotionLeviathanSummon(spawned, player, "Mutalisk", now)) { continue; }
+            if (APRG_TryPotionLeviathanSummon(spawned, player, "BroodLord", now)) { continue; }
+        }
         if (UnitGroupHasUnit(g_aprgPotionAutoSpellcasters, spawned)) {
             APRG_TryFriendlyAutonomousAbility(spawned, player);
         }
@@ -19629,6 +20473,133 @@ void APRG_TickPotionSpawnQueues(int player, fixed now) {
         if (target != null) { APRG_OrderAttackMove(spawned, UnitGetPosition(target)); }
     }
     g_aprgPotionAutoCursor = (g_aprgPotionAutoCursor + n) % active;
+}
+
+// The actual native Leviathan's Mutalisk / Brood Lord spawn abilities create
+// separate player-owned units. Only children of a bottled Leviathan are placed
+// under Slay attack AI; normal trained units and Leviathan boon children remain
+// player-commandable.
+bool APRG_PotionLeviathanSpawned_Func(bool testConds, bool runActions) {
+    int player;
+    unit creator;
+    unit child;
+    string type;
+    unitgroup group;
+    unit target;
+    if (!runActions || !g_aprgStarted) { return true; }
+    player = APRG_GetPrimaryPlayer();
+    creator = EventUnit();
+    child = EventUnitCreatedUnit();
+    if (creator == null || child == null || UnitGetOwner(child) != player ||
+        !UnitGroupHasUnit(g_aprgPotionAutoLeviathans, creator)) { return true; }
+    type = UnitGetType(child);
+    if (!APRG_LeviathanBoonSpawnUnitType(type)) { return true; }
+    group = UnitGroupEmpty();
+    UnitGroupAdd(group, child);
+    APRG_MakeGroupUncommandable(group);
+    UnitGroupAdd(g_aprgPotionAutoUnits, child);
+    target = APRG_NearestPathableEnemyStructure(child, player);
+    if (target == null) { target = APRG_NearestEligibleEnemyMobileUnit(UnitGetPosition(child), player); }
+    if (target != null) { APRG_OrderAttackMove(child, UnitGetPosition(target)); }
+    return true;
+}
+
+// Give the bottled Leviathan the same native spawn abilities as its boon,
+// with independent 60-second AI schedules for Mutalisks and Brood Lords.
+// Native cooldowns also remain set to 60 seconds by NormalizeLeviathanBoon.
+bool APRG_TryPotionLeviathanSummon(unit leviathan, int player, string keyword, fixed now) {
+    int i;
+    int cmd;
+    string ability;
+    string cooldownKey;
+    order castOrder;
+    order previous;
+    bool hadOrder;
+    if (leviathan == null || !UnitIsAlive(leviathan)) { return false; }
+    cooldownKey = "APRG_PotionLeviathan_" + keyword + "_" + IntToString(UnitGetTag(leviathan));
+    if (now < DataTableGetFixed(true, cooldownKey)) { return false; }
+    hadOrder = UnitOrderCount(leviathan) > 0;
+    if (hadOrder) { previous = UnitOrder(leviathan, 0); }
+    for (i = 1; i <= MinI(64, UnitAbilityCount(leviathan)); i += 1) {
+        ability = UnitAbilityGet(leviathan, i);
+        if (!APRG_LeviathanMutationAbilityMatches(ability, player, keyword) &&
+            !(keyword == "BroodLord" && APRG_LeviathanMutationAbilityMatches(ability, player, "Brood Lord"))) { continue; }
+        UnitAbilityEnable(leviathan, ability, true);
+        for (cmd = 0; cmd < 4; cmd += 1) {
+            TechTreeAbilityAllow(player, AbilityCommand(ability, cmd), true);
+            castOrder = Order(AbilityCommand(ability, cmd));
+            if (!UnitOrderIsValid(leviathan, castOrder)) {
+                castOrder = OrderTargetingPoint(AbilityCommand(ability, cmd), UnitGetPosition(leviathan));
+            }
+            if (!UnitOrderIsValid(leviathan, castOrder)) { continue; }
+            UnitIssueOrder(leviathan, castOrder, c_orderQueueReplace);
+            APRG_QueuePriorAutonomousOrder(leviathan, previous, hadOrder);
+            DataTableSetFixed(true, cooldownKey, now + 60.0);
+            return true;
+        }
+    }
+    // Retry briefly if the unit has no valid native cast yet; don't spend the
+    // full 60-second cooldown when the ability is unavailable or on cooldown.
+    DataTableSetFixed(true, cooldownKey, now + 3.0);
+    return false;
+}
+
+// Tosh's Miners must use the player's existing Archipelago building unlocks.
+// These are per-player overrides, so no additional tech is unlocked globally.
+void APRG_RestrictToshMinerSCVBuild(int player, unit scv) {
+    int a;
+    int i;
+    int abilityCount;
+    int infoCount;
+    int cardIndex;
+    int cardCount;
+    int buttonIndex;
+    int buttonCount;
+    int commandIndex;
+    string buttonPath;
+    string commandText;
+    string scvType;
+    string abilityType;
+    string path;
+    string targetType;
+    abilcmd command;
+    if (scv == null || !UnitIsAlive(scv)) { return; }
+    scvType = UnitGetType(scv);
+    abilityCount = MinI(64, UnitAbilityCount(scv));
+    for (a = 1; a <= abilityCount; a += 1) {
+        abilityType = UnitAbilityGet(scv, a);
+        if (abilityType == "" || !StringContains(abilityType, "Build", c_stringAnywhere, c_stringNoCase)) { continue; }
+        infoCount = MinI(128, CatalogFieldValueCount(c_gameCatalogAbil, abilityType, "InfoArray", player));
+        for (i = 0; i < infoCount; i += 1) {
+            path = "InfoArray[" + IntToString(i) + "].Unit";
+            targetType = CatalogFieldValueGet(c_gameCatalogAbil, abilityType, path, player);
+            if (targetType == "" || !CatalogEntryIsValid(c_gameCatalogUnit, targetType)) { continue; }
+            if (!UnitTypeTestAttribute(targetType, c_unitAttributeStructure)) { continue; }
+            if (APRG_ContractProducedUnitAllowed(player, targetType)) { continue; }
+            CatalogFieldValueSet(c_gameCatalogAbil, abilityType, path, player, "");
+        }
+    }
+    // The vanilla SCV's command card can expose commands whose production
+    // entries are disabled. Hide locked options as well as blocking execution.
+    cardCount = MinI(8, CatalogFieldValueCount(c_gameCatalogUnit, scvType, "CardLayouts", player));
+    for (cardIndex = 0; cardIndex < cardCount; cardIndex += 1) {
+        buttonPath = "CardLayouts[" + IntToString(cardIndex) + "].LayoutButtons";
+        buttonCount = MinI(64, CatalogFieldValueCount(c_gameCatalogUnit, scvType, buttonPath, player));
+        for (buttonIndex = 0; buttonIndex < buttonCount; buttonIndex += 1) {
+            path = buttonPath + "[" + IntToString(buttonIndex) + "]";
+            commandText = CatalogFieldValueGet(c_gameCatalogUnit, scvType, path + ".AbilCmd", player);
+            if (commandText == "") { continue; }
+            command = StringToAbilCmd(commandText);
+            abilityType = AbilityCommandGetAbility(command);
+            commandIndex = AbilityCommandGetCommand(command);
+            if (abilityType == "" || commandIndex < 0 || !StringContains(abilityType, "Build", c_stringAnywhere, c_stringNoCase)) { continue; }
+            targetType = CatalogFieldValueGet(c_gameCatalogAbil, abilityType, "InfoArray[" + IntToString(commandIndex) + "].Unit", player);
+            if (targetType == "" || !APRG_ContractProducedUnitAllowed(player, targetType)) {
+                CatalogFieldValueSet(c_gameCatalogUnit, scvType, path + ".AbilCmd", player, "");
+                CatalogFieldValueSet(c_gameCatalogUnit, scvType, path + ".Face", player, "");
+            }
+        }
+    }
 }
 
 bool APRG_PotionActivate(int player, int kind, point location, unit target) {
@@ -19655,8 +20626,8 @@ bool APRG_PotionActivate(int player, int kind, point location, unit target) {
     else if (kind == 3 || kind == 4 || kind == 5) {
         if (location == null) { return false; }
         unitType = "Odin";
-        // Reuse the exact boon unit selection. It is known to work in campaign
-        // missions; these heroes must be player-owned and player-commandable.
+        // Reuse the exact boon unit types, but only these bottled heroes become
+        // uncommandable autonomous attackers (unlike the normal boons).
         if (kind == 4) { unitType = APRG_LeviathanBoonType(); }
         if (kind == 5) { unitType = APRG_HyperionBoonType(); }
         if (unitType == "" || !CatalogEntryIsValid(c_gameCatalogUnit, unitType)) { return false; }
@@ -19667,15 +20638,31 @@ bool APRG_PotionActivate(int player, int kind, point location, unit target) {
         u = UnitGroupUnitFromEnd(created, 1);
         if (u == null || !UnitIsAlive(u)) { return false; }
         APRG_StripVoidEntityBehavior(u);
+        if (kind == 3) { APRG_RemovePlayerOdinNuclearStrike(u, player); }
         if (kind == 4) {
-            // Same 60-second native Mutalisk/Brood Lord ability cooldowns as the
-            // Leviathan boon. No duplicate periodic scripted unit spawns.
+            // Use the native WoL Leviathan's abilities, each on a 60-second
+            // cooldown. Do not create artificial scripted replacement units.
             APRG_NormalizeLeviathanBoon(u, player);
+            UnitSetPropertyFixed(u, c_unitPropEnergy,
+                UnitGetPropertyFixed(u, c_unitPropEnergyMax, c_unitPropCurrent));
+            if (g_aprgPotionLeviathanSpawnTrigger == null) {
+                g_aprgPotionLeviathanSpawnTrigger = TriggerCreate("APRG_PotionLeviathanSpawned_Func");
+                TriggerAddEventUnitCreated(g_aprgPotionLeviathanSpawnTrigger, null, null, null);
+            }
+            UnitGroupAdd(g_aprgPotionAutoLeviathans, u);
         }
         if (kind == 5) {
-            // Same resistance, durability, Yamato cost/cooldown and regeneration
-            // normalization as the Hyperion boon, not a separate weaker filter.
+            // Resistance normalization is an internal implementation detail.
+            // Keep player-only Yamato energy requirement and 15s cooldown.
             APRG_NormalizeHyperionBoon(u, player);
+        }
+        if (kind == 4 || kind == 5) {
+            // Only bottled heroes are uncontrollable: the ordinary Hyperion
+            // and Leviathan boons remain under normal player control.
+            APRG_MakeGroupUncommandable(created);
+            UnitGroupAdd(g_aprgPotionAutoUnits, u);
+            UnitGroupAdd(g_aprgPotionAutoSpellcasters, u);
+            APRG_OrderGroupTowardNearestEnemyStructure(created, location, player);
         }
     }
     else if (kind == 6) {
@@ -19704,7 +20691,7 @@ bool APRG_PotionActivate(int player, int kind, point location, unit target) {
     }
     else if (kind == 8) {
         if (location == null || !CatalogEntryIsValid(c_gameCatalogEffect, "NukeDamage")) { return false; }
-        PlayerCreateEffectPoint(player, "NukeDamage", location);
+        APRG_CreateObjectiveSafeSlayEffect(player, "NukeDamage", location, 12.0);
     }
     else if (kind == 9) {
         if (location == null || !CatalogEntryIsValid(c_gameCatalogUnit, "CommandCenterFlying")) { return false; }
@@ -19714,7 +20701,10 @@ bool APRG_PotionActivate(int player, int kind, point location, unit target) {
         // A flying command center does not have a transport cargo ability in
         // all campaigns. Deploy the five workers beside it instead of losing
         // the potion or invoking an unsupported cargo order.
-        APRG_CreatePlayerUnitsAtPoint(5, "SCV", player, location, 0.0);
+        created = APRG_CreatePlayerUnitsAtPoint(5, "SCV", player, location, 0.0);
+        for (i = UnitGroupCount(created, c_unitCountAlive); i > 0; i -= 1) {
+            APRG_RestrictToshMinerSCVBuild(player, UnitGroupUnitFromEnd(created, i));
+        }
     }
     else if (kind == 10) { g_aprgPotionStealthUntil = GameGetMissionTime() + 60.0; }
     else if (kind == 11) { g_aprgPotionStimUntil = GameGetMissionTime() + 60.0; g_aprgPotionStimDrainAt = GameGetMissionTime() + 1.0; }
@@ -20061,6 +21051,19 @@ void APRG_TickPotions(int player, fixed now) {
     APRG_TickPotionEffects(player, now);
 }
 
+void APRG_ActivateDeferredMutationCatalog(int player) {
+    if (g_aprgMutationCatalogApplied || !APRG_PlayerMacroBaseReady(player)) { return; }
+    g_aprgMutationCatalogApplied = true;
+    if (APRG_HasMutation(APRG_MUT_RISING_GAS_PRICES)) { APRG_ApplyRisingGasPrices(player); }
+    if (APRG_HasMutation(APRG_MUT_LOW_QUALITY_MINERALS)) { APRG_ApplyLowQualityMinerals(); }
+    if (APRG_HasExtension3(APRG_EXT3_MUT_RESOURCE_SWAP)) {
+        APRG_InitializeResourceSwap(player);
+        g_aprgResourceSwapTrigger = TriggerCreate("APRG_ResourceSwap_Func");
+        TriggerAddEventPlayerPropChange(g_aprgResourceSwapTrigger, player, c_playerPropMinerals);
+        TriggerAddEventPlayerPropChange(g_aprgResourceSwapTrigger, player, c_playerPropVespene);
+    }
+}
+
 void APRG_TickAllInEliminationVictory(int player) {
     unitgroup structures;
     if ((g_aprgMissionFlags & APRG_MISSION_FLAG_ALL_IN_ELIMINATION) == 0 || g_aprgAllInVictoryTriggered) { return; }
@@ -20077,6 +21080,110 @@ void APRG_TickAllInEliminationVictory(int player) {
     GameOver(player, c_gameOverVictory, true, false);
 }
 
+// Devil's Playground: the optional all-Zerg-structures clear normally
+// triggers a mission victory, but extra non-Zerg/mutator/helper structures
+// may make generic enemy-structure counts unreliable. Snapshot ONLY the
+// destroyable, non-cloaked, non-hidden, non-invulnerable enemy Zerg buildings
+// originally on the map, and never add newly spawned Slay actors to the set.
+// Preserve the ordinary 8000-mineral victory and the map's native triggers.
+void APRG_TickDevilsPlaygroundZergVictory(int player, fixed now) {
+    unitgroup candidates;
+    unit u;
+    string race;
+    int i;
+    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_DEVILS_PLAYGROUND_ZERG_ELIMINATION) == 0 ||
+        g_aprgDevilsZergVictoryTriggered) { return; }
+    // Wait for the native map's startup units, but snapshot independently of
+    // Slay's macro-base detection so later hostile summons cannot enter it.
+    if (!g_aprgDevilsZergBaselineCaptured && now >= g_aprgActivationTime + 3.0) {
+        g_aprgDevilsOriginalZergStructures = UnitGroupEmpty();
+        candidates = APRG_EnemyTargetableStructures(player);
+        for (i = UnitGroupCount(candidates, c_unitCountAlive); i > 0; i -= 1) {
+            u = UnitGroupUnitFromEnd(candidates, i);
+            if (u == null || !UnitIsAlive(u) || UnitTestState(u, c_unitStateInvulnerable)) { continue; }
+            race = CatalogFieldValueGet(c_gameCatalogUnit, UnitGetType(u), "Race", UnitGetOwner(u));
+            if (!StringContains(race, "Zerg", c_stringAnywhere, c_stringNoCase)) { continue; }
+            if (APRG_IsCreepTumorType(UnitGetType(u))) { continue; }
+            UnitGroupAdd(g_aprgDevilsOriginalZergStructures, u);
+            g_aprgDevilsZergBaselineCount += 1;
+        }
+        g_aprgDevilsZergBaselineCaptured = true;
+    }
+    if (!g_aprgDevilsZergBaselineCaptured || !APRG_PlayerMacroBaseReady(player) ||
+        g_aprgDevilsZergBaselineCount <= 0 ||
+        UnitGroupCount(g_aprgDevilsOriginalZergStructures, c_unitCountAlive) > 0) { return; }
+    g_aprgDevilsZergVictoryTriggered = true;
+    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+        StringToText("[Slay] All original enemy Zerg buildings destroyed"));
+    GameOver(player, c_gameOverVictory, true, false);
+}
+
+// Domination's API4 script reads this option every 0.25s when rebuilding
+// gv_militaryUnits for Baneling-nest pickups. Allow the original no-Kerrigan
+// ground-unit pickup rule after the map's startup has already decided whether
+// to spawn/show Kerrigan. The map is often packed, so never edit MapScript.
+void APRG_TickDominationAnyPicker(fixed now) {
+    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_DOMINATION_ANY_PICKER) == 0) { return; }
+    // Protect the map's initial Kerrigan unit and option setup, as well as the
+    // normal Archipelago hero-level chat packets sent during mission startup.
+    if (now < g_aprgActivationTime + 4.0) { return; }
+    if (libABFE498B_gv_aP_Triggers_Option_KerriganPresence != 0) {
+        libABFE498B_gv_aP_Triggers_Option_KerriganPresence = 0;
+    }
+}
+
+// Engine of Destruction: the original map makes the docked Loki (unit 835)
+// invulnerable, then undocks it and removes protection two seconds after a
+// player-owned unit enters region 23 ("Loki Aggro"). Under some gameplay
+// combinations that one-shot event can be missed. Poll only on this mission,
+// honor the original docked phase, then repair the transition if necessary.
+// This does not modify any packed Archipelago map or other Battlecruisers.
+void APRG_TickEngineOfDestructionLoki(int player, fixed now) {
+    unit loki;
+    unitgroup nearAggro;
+    unitgroup nearLoki;
+    fixed maxLife;
+
+    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_ENGINE_OF_DESTRUCTION_LOKI) == 0) { return; }
+    if (now < g_aprgActivationTime + 2.0) { return; }
+    loki = UnitFromId(835); // API4 ap_engine_of_destruction.SC2Map Loki
+    if (loki == null || !UnitIsAlive(loki) || UnitGetType(loki) != "Loki" || UnitGetOwner(loki) == player) { return; }
+
+    if (!g_aprgLokiReached) {
+        // Use the map's own trigger region, plus a modest near-Loki backup for
+        // ranged attackers that can engage without crossing the tiny region.
+        nearAggro = UnitGroup(null, player, RegionFromId(23),
+            UnitFilter(0, 0, (1 << c_targetFilterMissile),
+                (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))), 0);
+        nearLoki = UnitGroup(null, player, RegionCircle(UnitGetPosition(loki), 22.0),
+            UnitFilter(0, 0, (1 << c_targetFilterMissile),
+                (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))), 0);
+        if (UnitGroupCount(nearAggro, c_unitCountAlive) == 0 && UnitGroupCount(nearLoki, c_unitCountAlive) == 0) { return; }
+        g_aprgLokiReached = true;
+        g_aprgLokiReachedTime = now;
+        return;
+    }
+    // The original map has two seconds to run LokiUndock and unprotect it.
+    if (now < g_aprgLokiReachedTime + 2.5 || now < g_aprgNextLokiProtectionCheck) { return; }
+    g_aprgNextLokiProtectionCheck = now + 2.0;
+    if (!UnitTestState(loki, c_unitStateInvulnerable) && UnitBehaviorCount(loki, "InvulnerabilityShield") == 0) { return; }
+
+    // A normal health value is not the problem: preserve Loki's native HP.
+    // Only repair a corrupt/missing or absurd maximum-HP value.
+    maxLife = UnitGetPropertyFixed(loki, c_unitPropLifeMax, c_unitPropCurrent);
+    if (maxLife < 1.0 || maxLife > 100000.0) {
+        UnitSetPropertyFixed(loki, c_unitPropLifeMax, 2000.0);
+        UnitSetPropertyFixed(loki, c_unitPropLife, 2000.0);
+    }
+    if (UnitBehaviorCount(loki, "InvulnerabilityShield") > 0) {
+        UnitBehaviorRemove(loki, "InvulnerabilityShield", c_unitBehaviorCountAll);
+    }
+    libNtve_gf_MakeUnitInvulnerable(loki, false);
+    UnitSetState(loki, c_unitStateInvulnerable, false);
+    // If the original region event was missed, also release Loki's scripted AI.
+    AISetUnitScriptControlled(loki, false);
+}
+
 bool APRG_Tick_Func(bool testConds, bool runActions) {
     int player;
     fixed now;
@@ -20090,19 +21197,18 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     if (now < g_aprgActivationTime) {
         return true;
     }
-    if (!g_aprgEffectsSummaryDisplayed) {
-        APRG_DisplayActiveEffects(player);
-        g_aprgEffectsSummaryDisplayed = true;
-    }
+    APRG_TickDominationAnyPicker(now);
+    APRG_TickDevilsPlaygroundZergVictory(player, now);
+    APRG_TickEngineOfDestructionLoki(player, now);
 
-    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_HELLION_RUN_BY) != 0) { APRG_TickHellionRunBy(player, now); }
-    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_DIAMONDBACK_WANDERERS) != 0) { APRG_TickDiamondbackWanderers(player, now); }
-    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_LEVIATHAN_OUTSIDE_BASE) != 0) { APRG_TickBaseLeviathan(player, now); }
-    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_ODIN_DELAYED_ASSAULT) != 0) { APRG_TickDelayedOdin(player, now); }
-    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_COMBINED_RAIDS) != 0) { APRG_TickCombinedRaids(player, now); }
-    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_BRAKK_PRIMAL_ARMY) != 0) { APRG_TickBrakkArmy(player, now); }
-    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_ORLAN_FORTRESS) != 0) { APRG_TickOrlanFortress(player, now); }
-    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_TOSH_AND_HIS_BOYS) != 0) { APRG_TickToshAndHisBoys(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_HELLION_RUN_BY) != 0) { APRG_TickHellionRunBy(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_DIAMONDBACK_WANDERERS) != 0) { APRG_TickDiamondbackWanderers(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_LEVIATHAN_OUTSIDE_BASE) != 0) { APRG_TickBaseLeviathan(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_ODIN_DELAYED_ASSAULT) != 0) { APRG_TickDelayedOdin(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_COMBINED_RAIDS) != 0) { APRG_TickCombinedRaids(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_BRAKK_PRIMAL_ARMY) != 0) { APRG_TickBrakkArmy(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_ORLAN_FORTRESS) != 0) { APRG_TickOrlanFortress(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_TOSH_AND_HIS_BOYS) != 0) { APRG_TickToshAndHisBoys(player, now); }
     // Enemy Spear of Adun is disabled pending a reliable campaign-compatible implementation.
 
     if ((g_aprgRichMineralsApplied || g_aprgRichVespeneApplied) && now >= g_aprgNextRichResourceRefreshTime) {
@@ -20115,9 +21221,32 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     if (!g_aprgEffectsActivated) {
         APRG_ActivateEffects(player);
     }
+    // Only Lab Rat needs compensation for Horde Mode's 25-mineral Drone discount
+    // altering its early Zerg structure morph affordability. Award once, at startup.
+    if (
+        !g_aprgLabRatHordeMineralsGiven &&
+        (g_aprgMissionFlags & APRG_MISSION_FLAG_LAB_RAT_OPENING) != 0 &&
+        APRG_HasExtension(APRG_EXT_BLESS_HORDE_MODE)
+    ) {
+        PlayerModifyPropertyInt(player, c_playerPropMinerals, c_playerPropOperAdd, 25);
+        g_aprgLabRatHordeMineralsGiven = true;
+    }
     APRG_UpdateMacroBaseReady(player);
+    // A second scheduler for vital boons: shares the one-second gate with the
+    // fast tick, so the two paths never grant double regeneration.
+    APRG_TickRegenerativeAberrations(player, now);
+    // One mission-start summary only: delay until after the macro base is
+    // established so campaign intro messages do not erase or bury it.
+    // Do not display it in the fast tick or at initial effect activation.
+    if (!g_aprgEffectsSummaryAfterBaseDisplayed && APRG_PlayerMacroBaseReady(player) &&
+        now >= g_aprgMacroReadyTime + 3.0) {
+        APRG_DisplayActiveEffects(player);
+        g_aprgEffectsSummaryAfterBaseDisplayed = true;
+    }
+    APRG_ActivateDeferredMutationCatalog(player);
+    APRG_GiveSmashGrabExtraWorkersIfReady(player);
     APRG_TickPotions(player, now);
-    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_IMMORTAL_ZERGLING) != 0) { APRG_TickImmortalZergling(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_IMMORTAL_ZERGLING) != 0) { APRG_TickImmortalZergling(player, now); }
     APRG_HideScvJumpJetsCommandCard(player);
     APRG_EnsureProtossResearchStructures(player);
     APRG_TickAllInEliminationVictory(player);
@@ -20127,7 +21256,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     APRG_TickGeneratedHeroAbilities(player, now);
     APRG_TickGodMode(player);
 
-    if (APRG_HasMutation(APRG_MUT_ENEMY_REGENERATION) && now >= g_aprgNextEnemyRegenerationTime) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_ENEMY_REGENERATION) && now >= g_aprgNextEnemyRegenerationTime) {
         APRG_ApplyEnemyRegeneration(player);
         g_aprgNextEnemyRegenerationTime = now + 1.0;
     }
@@ -20186,17 +21315,18 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     ) {
         APRG_TickGorgons(player, now);
     }
-    if (APRG_HasExtension(APRG_EXT_MUT_BURROWED_ZERGLINGS) && APRG_PlayerMacroBaseReady(player)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_BURROWED_ZERGLINGS) && APRG_PlayerMacroBaseReady(player)) {
         APRG_TickBurrowedZerglings(player);
     }
-    if (APRG_HasExtension(APRG_EXT_MUT_SNIPER_THOR) && APRG_PlayerMacroBaseReady(player)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_SNIPER_THOR) && APRG_PlayerMacroBaseReady(player)) {
         APRG_TrySpawnSniperThor(player);
+        APRG_TickSniperThorDefenseAttack(player, now);
     }
-    if (APRG_HasExtension(APRG_EXT_MUT_TOWER_DEFENSE) && APRG_PlayerMacroBaseReady(player)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_TOWER_DEFENSE) && APRG_PlayerMacroBaseReady(player)) {
         APRG_TickTowerDefenseProbes(player, now);
         APRG_TryTowerDefense(player, now);
     }
-    if (APRG_HasExtension(APRG_EXT_MUT_CLOAKED_NIGHTMARE)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_CLOAKED_NIGHTMARE)) {
         APRG_ApplyCloakedNightmare(player);
     }
     if (APRG_HasExtension(APRG_EXT_BLESS_RAPID_REPAIR)) {
@@ -20208,7 +21338,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     if (APRG_HasExtension(APRG_EXT_BLESS_DRAKKEN_DRILL)) {
         APRG_ApplyDrakkenDrillBlessing(player);
     }
-    if (APRG_HasExtension(APRG_EXT_MUT_JETPACKS)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_JETPACKS)) {
         APRG_ApplyJetpacks(player);
     }
     if (APRG_HasExtension(APRG_EXT_BLESS_STEALTH_TUNNELS)) {
@@ -20220,23 +21350,24 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     if (APRG_HasExtension(APRG_EXT_BLESS_COMBAT_WORKERS)) {
         APRG_ApplyCombatWorkers(player);
     }
-    if (APRG_HasExtension(APRG_EXT_MUT_RAPID_EVOLUTION) && now >= g_aprgNextEnemyRapidEvolutionTime) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_RAPID_EVOLUTION) && APRG_PlayerMacroBaseReady(player) && now >= g_aprgNextEnemyRapidEvolutionTime) {
         APRG_ApplyEnemyRapidEvolution(player);
         g_aprgNextEnemyRapidEvolutionTime = now + 5.0;
     }
     if (APRG_HasExtension(APRG_EXT_BLESS_GLASS_CANNONS)) {
         APRG_ApplyGlassCannons(player);
     }
-    if (APRG_HasExtension(APRG_EXT_MUT_NO_DEATHS_ALLOWED)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_NO_DEATHS_ALLOWED)) {
         APRG_TickNoDeathsAllowed(player, now);
     }
-    if (APRG_HasExtension(APRG_EXT_MUT_VICTORY_TEMPORARY)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_VICTORY_TEMPORARY)) {
         APRG_TickEnemyRespawns(now);
     }
     if (APRG_HasExtension(APRG_EXT_BLESS_ODIN)) {
         APRG_GiveOdinIfReady(player);
     }
-    if (APRG_HasExtension(APRG_EXT_MUT_TACTICAL_BINOCULARS)) {
+    APRG_TickPlayerOdinNoNukes(player, now);
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_TACTICAL_BINOCULARS)) {
         APRG_ApplyTacticalBinoculars(player);
     }
     if (APRG_HasExtension(APRG_EXT_BLESS_BUILDING_OVERCHARGE)) {
@@ -20245,40 +21376,40 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     if (APRG_HasExtension(APRG_EXT_BLESS_GHOST_REPORTING)) {
         APRG_TickGhostReporting(player);
     }
-    if (APRG_HasExtension(APRG_EXT_MUT_TALDARIM_REINFORCEMENTS)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_TALDARIM_REINFORCEMENTS)) {
         APRG_TickTaldarimReinforcements(player, now);
     }
-    if (APRG_HasExtension2(APRG_EXT2_MUT_MIRAS_MERCENARIES)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension2(APRG_EXT2_MUT_MIRAS_MERCENARIES)) {
         APRG_TickMiraMercenaries(player);
     }
     if (APRG_HasExtension2(APRG_EXT2_BLESS_GLORIOUS_MARTYRS)) {
         APRG_TickGloriousMartyrs();
     }
-    if (APRG_HasExtension2(APRG_EXT2_MUT_DOUBLE_TIME)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension2(APRG_EXT2_MUT_DOUBLE_TIME)) {
         APRG_ApplyDoubleTime(player);
     }
-    if (APRG_HasExtension2(APRG_EXT2_MUT_SHRINKAGE)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension2(APRG_EXT2_MUT_SHRINKAGE)) {
         APRG_TickShrinkage(player, now);
     }
-    if (APRG_HasExtension2(APRG_EXT2_MUT_MINERAL_THIEVES)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension2(APRG_EXT2_MUT_MINERAL_THIEVES)) {
         APRG_TickMineralThieves(player, now);
     }
-    if (APRG_HasExtension2(APRG_EXT2_MUT_ACTIVE_ENEMIES)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension2(APRG_EXT2_MUT_ACTIVE_ENEMIES)) {
         APRG_TickActiveEnemies(player, now);
     }
-    if (APRG_HasExtension2(APRG_EXT2_MUT_ZAGARAS_BANELINGS)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension2(APRG_EXT2_MUT_ZAGARAS_BANELINGS)) {
         APRG_TickZagarasBanelings(player, now);
     }
     if (APRG_HasExtension2(APRG_EXT2_BLESS_INFINITE_LARVA)) {
         APRG_TickInfiniteLarva(player, now);
     }
-    if (APRG_HasExtension2(APRG_EXT2_MUT_BUDDY_SYSTEM)) { APRG_TickBuddySystem(player, now); }
-    if (APRG_HasExtension2(APRG_EXT2_MUT_TORRASQUE)) { APRG_TickTorrasque(player, now); }
-    if (APRG_HasExtension2(APRG_EXT2_MUT_NEXUS_SHIELD)) { APRG_TickNexusShield(player); }
-    if (APRG_HasExtension2(APRG_EXT2_MUT_RAYNORS_RAIDERS)) { APRG_TickRaynorsRaiders(player, now); }
-    if (APRG_HasExtension3(APRG_EXT3_MUT_PURIFIER)) { APRG_TickPurifier(player, now); }
-    if (APRG_HasExtension3(APRG_EXT3_MUT_DEHAKAS_PACK)) { APRG_TickDehakasPack(player, now); }
-    if (APRG_HasExtension3(APRG_EXT3_MUT_ARGUMENTS)) { APRG_TickArguments(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension2(APRG_EXT2_MUT_BUDDY_SYSTEM)) { APRG_TickBuddySystem(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension2(APRG_EXT2_MUT_TORRASQUE)) { APRG_TickTorrasque(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension2(APRG_EXT2_MUT_NEXUS_SHIELD)) { APRG_TickNexusShield(player); }
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension2(APRG_EXT2_MUT_RAYNORS_RAIDERS)) { APRG_TickRaynorsRaiders(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension3(APRG_EXT3_MUT_PURIFIER)) { APRG_TickPurifier(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension3(APRG_EXT3_MUT_DEHAKAS_PACK)) { APRG_TickDehakasPack(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension3(APRG_EXT3_MUT_ARGUMENTS)) { APRG_TickArguments(player, now); }
     if (
         APRG_HasExtension2(APRG_EXT2_BOON_DEADLY_WEAPONS) || APRG_HasExtension2(APRG_EXT2_BOON_AUTO_REPAIR) ||
         APRG_HasExtension2(APRG_EXT2_BOON_RAPID_FIRE) ||
@@ -20294,7 +21425,9 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     if (APRG_HasExtension2(APRG_EXT2_BOON_FIRE_POWER)) { APRG_ApplyFirePower(player); }
     if (APRG_HasExtension2(APRG_EXT2_BOON_UNLIMITED_BLINK)) { APRG_ApplyUnlimitedBlink(player); }
     if (APRG_HasExtension2(APRG_EXT2_BOON_TOXIC_OBSERVATION)) { APRG_TickToxicObservation(player, now); }
-    if (APRG_HasExtension2(APRG_EXT2_BOON_CLONING_TECHNOLOGY)) { APRG_RetargetClonedUnits(player, now); }
+    // Meat Grinder marines share this attack-AI group even without Cloning
+    // Technology: otherwise their first attack-move is never refreshed.
+    if (APRG_HasExtension2(APRG_EXT2_BOON_CLONING_TECHNOLOGY) || APRG_HasExtension4(APRG_EXT4_BOON_MEAT_GRINDER)) { APRG_RetargetClonedUnits(player, now); }
     if (APRG_HasBlessing(APRG_BOON_ENLARGED_BANELINGS)) { APRG_ApplyEnlargedBanelings(player); }
     if (APRG_HasExtension(APRG_EXT_BOON_VIKING_ANCHORS)) { APRG_ApplyVikingAnchors(player); }
     if (APRG_HasExtension3(APRG_EXT3_BOON_UNLIMITED_POWER)) {
@@ -20305,26 +21438,27 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     if (APRG_HasExtension3(APRG_EXT3_BOON_ARCHON_CANNONS)) { APRG_TickArchonCannons(now); }
     if (APRG_HasExtension3(APRG_EXT3_BOON_MADDENING_SHADES)) { APRG_TickMaddeningShadeUnits(now); }
     if (APRG_HasExtension3(APRG_EXT3_BOON_CONCUSSED_SHELLS)) { APRG_ApplyConcussedShells(player); }
-    APRG_TickOccasionalReplacementRaids(player, now);
+    if (APRG_PlayerMacroBaseReady(player)) { APRG_TickOccasionalReplacementRaids(player, now); }
     if (APRG_HasExtension4(APRG_EXT4_BLESS_RESOURCE_PICKUPS)) { APRG_TickResourcePickups(player); }
-    if (APRG_HasExtension4(APRG_EXT4_MUT_MARAUDER_KILL_TEAMS)) { APRG_TickMarauderKillTeams(player, now); }
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension4(APRG_EXT4_MUT_MARAUDER_KILL_TEAMS)) { APRG_TickMarauderKillTeams(player, now); }
     if (APRG_HasExtension4(APRG_EXT4_BOON_PURIFIER_ALLIANCE)) { APRG_TickPurifierAlliance(player, now); }
     APRG_TickDeadManSwitchNukes(player, now);
     APRG_TickGeneratedHeroNoRevive();
+    APRG_TickEnemyZagaraFatalHp(player, now);
 
-    if (APRG_HasMutation(APRG_MUT_DARKNESS)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_DARKNESS)) {
         APRG_ApplyDarkness(player);
     }
-    if (APRG_HasMutation(APRG_MUT_ADRENALINE)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_ADRENALINE)) {
         APRG_ApplyAdrenaline(player);
     }
-    if (APRG_HasMutation(APRG_MUT_PICKY_EATERS)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_PICKY_EATERS)) {
         APRG_ApplyPickyEaters(player);
     }
-    if (APRG_HasMutation(APRG_MUT_SQUISHY)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_SQUISHY)) {
         APRG_ApplySquishy(player);
     }
-    if (APRG_HasMutation(APRG_MUT_ARMS_RACE) && now >= g_aprgNextArmsRaceTime) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_ARMS_RACE) && APRG_PlayerMacroBaseReady(player) && now >= g_aprgNextArmsRaceTime) {
         APRG_AdvanceArmsRace(player);
         g_aprgNextArmsRaceTime = now + 120.0;
     }
@@ -20357,18 +21491,18 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
         APRG_GiveTransportsIfReady(player);
     }
 
-    if (APRG_HasMutation(APRG_MUT_CONGA_LINE)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_CONGA_LINE)) {
         APRG_TickConga(player);
     }
     if (
-        APRG_HasMutation(APRG_MUT_DESTRUCTION) &&
+        APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_DESTRUCTION) &&
         APRG_PlayerMacroBaseReady(player) &&
         now >= g_aprgNextDestructionTime
     ) {
         APRG_DestructionPulse(player);
         g_aprgNextDestructionTime = now + 20.0;
     }
-    if (APRG_HasMutation(APRG_MUT_GOLDEN_ARMADA) && APRG_PlayerMacroBaseReady(player)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_GOLDEN_ARMADA) && APRG_PlayerMacroBaseReady(player)) {
         if (!g_aprgGoldenSpawned) {
             APRG_TrySpawnGoldenArmada(player);
         }
@@ -20379,26 +21513,26 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
             }
         }
     }
-    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_TRUE_GOLDEN_ARMADA) != 0) {
+    if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_TRUE_GOLDEN_ARMADA) != 0) {
         APRG_TickTrueGoldenArmada(player, now);
     }
-    if ((APRG_HasMutation(APRG_MUT_SIEGE_MODE) || APRG_HasExtension4(APRG_EXT4_MUT_SIEGE_MODE_X5)) && APRG_PlayerMacroBaseReady(player)) {
+    if (APRG_PlayerMacroBaseReady(player) && (APRG_HasMutation(APRG_MUT_SIEGE_MODE) || APRG_HasExtension4(APRG_EXT4_MUT_SIEGE_MODE_X5)) && APRG_PlayerMacroBaseReady(player)) {
         APRG_TrySpawnSiegeMode(player);
     }
-    if (APRG_HasMutation(APRG_MUT_DRAKKEN_DRILL) && APRG_PlayerMacroBaseReady(player)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_DRAKKEN_DRILL) && APRG_PlayerMacroBaseReady(player)) {
         APRG_TrySpawnEnemyDrill(player);
         APRG_TickEnemyDrillTargetLimit(now);
     }
-    if (APRG_HasMutation(APRG_MUT_DARK_ARCHONS) || APRG_HasExtension4(APRG_EXT4_MUT_DARK_ARCHONS_X5)) {
+    if (APRG_PlayerMacroBaseReady(player) && (APRG_HasMutation(APRG_MUT_DARK_ARCHONS) || APRG_HasExtension4(APRG_EXT4_MUT_DARK_ARCHONS_X5))) {
         APRG_TrySpawnDarkArchons(player);
     }
     if (
-        APRG_HasMutation(APRG_MUT_DROP_PODS) &&
+        APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_DROP_PODS) &&
         APRG_PlayerMacroBaseReady(player) &&
         g_aprgMacroReadyTime >= 0.0
     ) {
-        if (g_aprgNextDropPodTime < g_aprgMacroReadyTime + 120.0) {
-            g_aprgNextDropPodTime = g_aprgMacroReadyTime + 120.0;
+        if (g_aprgNextDropPodTime < g_aprgMacroReadyTime + 240.0) {
+            g_aprgNextDropPodTime = g_aprgMacroReadyTime + 240.0;
         }
         if (now >= g_aprgNextDropPodTime) {
             APRG_SpawnDropPodRaid(player);
@@ -20406,27 +21540,27 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
         }
     }
     if (
-        APRG_HasMutation(APRG_MUT_DARK_TEMPLAR) &&
+        APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_DARK_TEMPLAR) &&
         APRG_PlayerMacroBaseReady(player) &&
         now >= g_aprgNextDarkTemplarTime
     ) {
         APRG_SpawnDarkTemplarRaid(player);
-        g_aprgNextDarkTemplarTime = now + RandomFixed(60.0, 160.0);
+        g_aprgNextDarkTemplarTime = now + RandomFixed(60.0, 160.0) + 10.0 * IntToFixed(g_aprgDarkTemplarWaveIndex);
     }
-    if (APRG_HasMutation(APRG_MUT_FRAGILE_WORKERS)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_FRAGILE_WORKERS)) {
         APRG_ApplyFragileWorkers(player);
     }
-    if (APRG_HasMutation(APRG_MUT_DECAY) && now >= g_aprgNextDecayTime) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_DECAY) && APRG_PlayerMacroBaseReady(player) && now >= g_aprgNextDecayTime) {
         APRG_TickDecay(player, now);
         g_aprgNextDecayTime = now + 1.0;
     }
-    if (APRG_HasMutation(APRG_MUT_LIMITED_BANK)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_LIMITED_BANK)) {
         APRG_EnforceLimitedBank(player);
     }
-    if (APRG_HasMutation(APRG_MUT_LEVIATHAN) && APRG_PlayerMacroBaseReady(player)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_LEVIATHAN) && APRG_PlayerMacroBaseReady(player)) {
         if (g_aprgLeviathanRampStartTime < 0.0) {
-            g_aprgLeviathanRampStartTime = now;
-            g_aprgNextLeviathanTime = now + APRG_LeviathanNextInterval(now);
+            g_aprgLeviathanRampStartTime = g_aprgMacroReadyTime + 240.0;
+            g_aprgNextLeviathanTime = g_aprgLeviathanRampStartTime;
         }
         else if (now >= g_aprgNextLeviathanTime) {
             APRG_SpawnLeviathanRaid(player);
@@ -20434,10 +21568,10 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
         }
     }
 
-    if (APRG_HasMutation(APRG_MUT_HEROES_OF_STORM) && APRG_PlayerMacroBaseReady(player) && g_aprgHostileHeroesSpawned < 3 + g_aprgMissionLayer) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_HEROES_OF_STORM) && APRG_PlayerMacroBaseReady(player) && g_aprgHostileHeroesSpawned < 3 + g_aprgMissionLayer) {
         APRG_TrySpawnHostileHero(player);
     }
-    if (APRG_HasMutation(APRG_MUT_HEROES_OF_STORM)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_HEROES_OF_STORM)) {
         if (now >= g_aprgNextHeroesOfStormPatrolTime) {
             if (APRG_RepathRandomHeroesOfStormHero()) {
                 g_aprgNextHeroesOfStormPatrolTime = now + 60.0;
@@ -20459,19 +21593,20 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
         }
     }
     if (
-        APRG_HasMutation(APRG_MUT_TOO_MANY_WRAITHS) &&
+        APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_TOO_MANY_WRAITHS) &&
+        APRG_PlayerMacroBaseReady(player) &&
         now >= g_aprgNextWraithTime
     ) {
         APRG_SpawnWraithRaid(player);
         g_aprgNextWraithTime = now + APRG_WraithRaidNextInterval(now);
     }
-    if (APRG_HasMutation(APRG_MUT_NOT_ENOUGH_ENERGY)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_NOT_ENOUGH_ENERGY)) {
         APRG_EnforceNotEnoughEnergy(player);
     }
-    if (APRG_HasMutation(APRG_MUT_VOID_THRASHERS) && APRG_PlayerMacroBaseReady(player)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_VOID_THRASHERS) && APRG_PlayerMacroBaseReady(player)) {
         APRG_TickVoidThrashers(player, now);
         if (g_aprgNextVoidThrasherTime < 0.0) {
-            g_aprgNextVoidThrasherTime = g_aprgMacroReadyTime + 180.0;
+            g_aprgNextVoidThrasherTime = g_aprgMacroReadyTime + 240.0;
         }
         else if (now >= g_aprgNextVoidThrasherTime) {
             APRG_SpawnVoidThrasher(player);
@@ -20479,14 +21614,14 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
         }
     }
     if (
-        APRG_HasMutation(APRG_MUT_VIKING_RAIDS) &&
+        APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_VIKING_RAIDS) &&
         APRG_PlayerMacroBaseReady(player) &&
         now >= g_aprgNextVikingRaidTime
     ) {
         APRG_SpawnVikingRaid(player);
-        g_aprgNextVikingRaidTime = now + RandomFixed(20.0, 180.0);
+        g_aprgNextVikingRaidTime = now + RandomFixed(APRG_VikingRaidIntervalMinimum(now), 180.0);
     }
-    if (APRG_HasMutation(APRG_MUT_NUCLEAR_ANNIHILATION)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_NUCLEAR_ANNIHILATION)) {
         APRG_TickNuclearAnnihilation(player, now);
     }
 
@@ -20502,19 +21637,19 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     if (APRG_HasBlessing(APRG_BLESS_AIR_SUPPORT) || APRG_HasMutation(APRG_MUT_GOLDEN_ARMADA)) {
         APRG_ReplenishAirSupportCarriers();
     }
-    if (APRG_HasBlessing(APRG_BLESS_RAPID_EVOLUTION) && now >= g_aprgNextRapidEvolutionTime) {
+    if (APRG_HasBlessing(APRG_BLESS_RAPID_EVOLUTION) && APRG_PlayerMacroBaseReady(player) && now >= g_aprgNextRapidEvolutionTime) {
         APRG_ApplyRapidEvolution(player);
         g_aprgNextRapidEvolutionTime = now + 5.0;
     }
-    if (APRG_HasBlessing(APRG_BLESS_COMPOUNDING_INTEREST) && now >= g_aprgNextCompoundTime) {
+    if (APRG_HasBlessing(APRG_BLESS_COMPOUNDING_INTEREST) && APRG_PlayerMacroBaseReady(player) && now >= g_aprgNextCompoundTime) {
         APRG_ApplyCompoundingInterest(player);
         g_aprgNextCompoundTime = now + 30.0;
     }
-    if (APRG_HasBlessing(APRG_BLESS_LOST_VIKINGS) && now >= g_aprgNextLostVikingTime) {
+    if (APRG_HasBlessing(APRG_BLESS_LOST_VIKINGS) && APRG_PlayerMacroBaseReady(player) && now >= g_aprgNextLostVikingTime) {
         APRG_SpawnLostViking(player);
         g_aprgNextLostVikingTime = now + 60.0;
     }
-    if (APRG_HasBlessing(APRG_BLESS_WARFIELD_REINFORCEMENTS) && now >= g_aprgNextWarfieldTime) {
+    if (APRG_HasBlessing(APRG_BLESS_WARFIELD_REINFORCEMENTS) && APRG_PlayerMacroBaseReady(player) && now >= g_aprgNextWarfieldTime) {
         if (APRG_PlayerMacroBaseReady(player)) {
             APRG_SpawnWarfieldReinforcements(player);
             g_aprgNextWarfieldTime = now + 30.0;
@@ -20530,7 +21665,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
         APRG_ApplyEliteSoldiers(player);
     }
 
-    if (APRG_HasExtension3(APRG_EXT3_MUT_PURIFIER) && g_aprgPurifier != null && UnitIsAlive(g_aprgPurifier)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension3(APRG_EXT3_MUT_PURIFIER) && g_aprgPurifier != null && UnitIsAlive(g_aprgPurifier)) {
         UnitSetPropertyFixed(g_aprgPurifier, c_unitPropMovementSpeed, 0.25);
     }
 
@@ -20550,6 +21685,8 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
 }
 
 void APRogue_Init() {
+    g_aprgAberrationDebugTrigger = TriggerCreate("APRG_AberrationDebug_Func");
+    TriggerAddEventChatMessage(g_aprgAberrationDebugTrigger, c_playerAny, "?SlayAberrationDebug", false);
     g_aprgConfigTrigger = TriggerCreate("APRG_Config_Func");
     TriggerAddEventChatMessage(g_aprgConfigTrigger, c_playerAny, "?APRogue", false);
     g_aprgPotionLiveUpdateTrigger = TriggerCreate("APRG_PotionLiveUpdate_Func");

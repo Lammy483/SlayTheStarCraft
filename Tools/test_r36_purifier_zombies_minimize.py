@@ -61,12 +61,12 @@ class R36Tests(unittest.TestCase):
         self.assertIn('APRG_RetargetRaiders(player)', fn('APRG_Tick_Func'))
 
     def test_mutation_purifier_vulnerable_in_any_mission(self):
-        remove = fn('APRG_RemoveMutationPurifierInvulnerability')
+        remove = fn('APRG_RemoveSlayPurifierInvulnerability')
         tick = fn('APRG_TickPurifier')
         self.assertIn('UnitBehaviorRemove(purifier, "InvulnerabilityShield", c_unitBehaviorCountAll)', remove)
         self.assertIn('UnitSetState(purifier, c_unitStateInvulnerable, false)', remove)
-        self.assertEqual(tick.count('APRG_RemoveMutationPurifierInvulnerability(g_aprgPurifier)'), 2)
-        self.assertNotIn('APRG_RemoveMutationPurifierInvulnerability', fn('APRG_TickPurifierAlliance'))
+        self.assertEqual(tick.count('APRG_RemoveSlayPurifierInvulnerability(g_aprgPurifier)'), 2)
+        self.assertEqual(fn('APRG_TickPurifierAlliance').count('APRG_RemoveSlayPurifierInvulnerability(g_aprgPurifierAlliance)'), 2)
         self.assertIn('if (u == g_aprgPurifier) { return false; }', fn('APRG_IsScriptedPurifier'))
 
 

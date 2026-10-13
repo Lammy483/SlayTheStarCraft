@@ -84,7 +84,7 @@ class R30Tests(unittest.TestCase):
                          'APRG_TryGeneratedHeroAbility(g_aprgTosh, player)',
                          'APRG_RegisterMutationEnemyGroup(created)',
                          'UnitBehaviorAdd(spec, "APRogueCloakedNightmare", spec, 1)',
-                         'RandomFixed(0.0, 5.0)', 'APRG_TryUnitAbilityKeyword(spec, "Nuke"',
+                         'RandomFixed(0.0, 5.0)', 'APRG_CreateObjectiveSafeSlayEffect(UnitGetOwner(spec), "NukeDamage", targetPoint, 12.0)',
                          'g_aprgToshSpectreNextOrderTime[i] = now + 4.0',
                          'if (!UnitIsAlive(spec))', 'now + 12.0'):
             self.assertIn(expected, body)

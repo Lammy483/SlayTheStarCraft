@@ -53,7 +53,7 @@ class PotionTests(unittest.TestCase):
                   ("Hyperion in a Bottle",4,"point"),("Drop Pod Wave",2,"point"),
                   ("Mass EMP",1,"instant"),("Tactical Nuke",1,"point"),
                   ("Tosh's Miners",1,"point"),("Stealth Protocol",2,"instant"),
-                  ("Mass Stimpack",2,"instant"),("Spear of Adun Recharge",2,"instant"),
+                  ("Mass Stimpack",2,"instant"),("Spear of Adun Recharge",1,"instant"),
                   ("Second Kerrigan",2,"instant"),("Mercenary Favor",2,"instant"),
                   ("Guardian Matrix",1,"friendly"),("Corruption Spores",1,"unit"),
                   ("Mass Marines",1,"instant"),("Mass Spellcasters",1,"instant"),

@@ -25,10 +25,10 @@ class V110ReleaseUITests(unittest.TestCase):
         self.assertNotIn('form.height = dp(350)',self.theme)
 
     def test_release_metadata(self):
-        self.assertEqual((ROOT/'VERSION.txt').read_text().strip(),'1.1.0')
-        self.assertIn('"release_channel": "stable"',(ROOT/'launcher_manifest.json').read_text())
-        self.assertIn('"release_channel": "stable"',self.verifier)
-        self.assertIn('release_branch=release/v1.1.0',(ROOT/'INTEGRATION_BUILD.txt').read_text())
+        self.assertEqual((ROOT/'VERSION.txt').read_text().strip(),'1.1.2')
+        self.assertIn('"release_channel": "development"',(ROOT/'launcher_manifest.json').read_text())
+        self.assertIn('"release_channel": "development"',self.verifier)
+        self.assertIn('release_branch=pending',(ROOT/'INTEGRATION_BUILD.txt').read_text())
         self.assertTrue((ROOT/'RELEASE_NOTES.md').is_file())
 
 if __name__=='__main__': unittest.main()

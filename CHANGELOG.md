@@ -1,3 +1,258 @@
+## v1.1.2 Dev24 — Recycled Armor Suits / Meat Grinder
+
+- Reduced Recycled Armor Suits refunds on Marines to 10 minerals / 3 gas when Meat Grinder is owned, preserving 25/10 otherwise.
+
+## v1.1.2 Dev23 — scripted Protoss warp animation
+
+- Nexus Shields, Purifier hostile/escort, and For Aiur allied warp-in effects use the exact visibility-aware `ProtossGenericWarpInOut` attachment at `Ref_Origin` used by Blizzard's LotV Purifier campaign script (rather than the previous `Ref_Center` generic attachment).
+- When the LotV model is missing from a WoL/HotS mission catalog, use the verified WoL Protoss `MothershipTeleportIn` model scaled down as a visible fallback before relying on the otherwise-insufficient `ProtossFastWarpinMarker`.
+- Preserve five-second fade/stun and unit AI. Source-level only; the exact rendered VFX still needs in-game verification.
+
+## v1.1.2 Dev22 — Brakk, inventory stacks, balance
+
+- Brakk in Brakk's Pack receives +1000 max/current HP and +3 armor; the rest of his primal army does not.
+- Deadly Weapons scales damage by +25% of base damage per stack instead of +30%.
+- Inventory now uses the canonical boon purchase counter for both repeatable boons (Deadly Weapons and Auto-repair), while showing non-repeatable boons once.
+- Time Stop costs 1200 credits instead of 900.
+
+## v1.1.2 Dev20 — Regenerative Aberrations targeting and diagnostics
+
+- Detect Aberration variants by internal link, unit-type name, and actual unit name. Search all owned units and double-schedule one capped heal through a shared timer.
+- Add `?SlayAberrationDebug` to diagnose runtime detection without spamming ordinary gameplay messages.
+
+## v1.1.2 Dev19 — Regenerative Aberrations
+
+- Fixed player-owned Aberrations failing to heal from the +10 HP/second boon by replacing a fragile one-time native regeneration-property edit with a once-per-second capped health restore.
+- Preserve natural healing, per-mission gating, all previous Dev18 changes.
+
+# v1.1.2 Dev18 — Artanis commander uses the LotV ground hero
+
+- Request the Void campaign catalog when the General blessing selects Artanis (commander index 9), the same as Alarak and Vorazun.
+- Use the actual campaign unit `ArtanisVoid` (Twilight Blades) directly, bypassing the normal AP production replacement for this hero. Fall back to `AP_ArtanisVoid` only if the native unit is missing.
+- Never replace an explicit Artanis commander with an unrelated random hero such as Urun if the catalog is unavailable. Display a clear in-game warning in that case.
+- Keep the Haven dependency compatibility restriction intact; on sensitive Haven maps lacking Void data, display the warning rather than summoning Urun.
+- Preserve respawns, commander bonuses, and every earlier Dev17 change. No release or GitHub branch updates.
+
+# v1.1.2 Dev17 — Fix portable Warp Gate launch import
+
+- Fix the Launch Slay `ModuleNotFoundError: No module named 'install_slay'` caused by isolated embedded Python missing `Payload` on its import path.
+- Load the sibling hotkey installer by absolute path. Keep the existing runtime revision so players do not need to repeat Download Data; preserve customized `Config/slay_preferences.ini`. No gameplay changes.
+
+## v1.1.2 Dev16 — Initial preferences / native objective protection
+
+- Include default hotkey INI in ZIP.
+- Add Devil's Playground original Zerg-structure-only victory fallback.
+- Shield Purification NullCircuit objective actors from enemy-wide Slay modifiers.
+
+## v1.1.2 Dev15 — Editable Warp Gate hotkey
+
+- Added a persistent `Config/slay_preferences.ini` with `[Hotkeys] Warpgate=W` as the default; supported values are A-Z, 0-9, F1-F12.
+- Download Data reads the player-owned INI and writes the requested Warp Gate key into the mod's GameHotkeys localization override and existing custom SC2 hotkey profiles.
+- Repeated Download Data runs do not reset the INI to W; launch also synchronizes the preference before starting the private runtime.
+- The packaged file is an `.ini.example` template to prevent future updates from replacing customized settings.
+- Unsupported values are rejected with clear errors rather than silently reverting the user's selection.
+- Offline regression tests cover both first install and repeated download/launch application. No gameplay changes.
+
+## v1.1.2 Dev14 — Single mission effects message
+
+- Show mutations and blessings once per mission in SC2 chat, three seconds after the player base is established; eliminate both early duplicate summary calls.
+
+## v1.1.2 Dev13 – Odin (player only)
+- Strip nuclear abilities and command-card buttons from player Odin variants; leave enemy Odin intact.
+- Correct Odin blessing description to "You start with the odin".
+
+# Slay the StarCraft 1.1.2 Dev12
+
+- Leviathan in Orbit drops target random player/player-allied units or structures, excluding creep tumors and helper units.
+- Every three seconds, sanitize overlong Merc Compound/Predator Nest cooldowns and charge timers: values above 500 seconds become 10 seconds, including ability catalog command fields.
+- Preserve Dev11 Reconstruction Beam fix and prior changes; live gameplay testing remains outstanding.
+
+# Slay the StarCraft 1.1.2 Dev11
+
+- Fix the Spear of Adun autonomous-caster base gate: passive ability commands (including Reconstruction Beam) were disabled before base establishment and never re-enabled, even though the player had purchased them.
+- Restore the autonomous Spear caster's ability-enabled state after the macro base is established, without resetting its passive cooldowns or the player-controlled Spear's existing cooldown handling.
+- Keep the existing no-passives-before-base behavior and all Dev10 features.
+- Static regression/source verification only; in-game SC2 behavior requires confirmation.
+
+# Slay the StarCraft 1.1.2 Dev10
+
+- Stretchy Spines uses the same bundled `btn-building-zerg-spinecrawler.png` as the Spine Crawler unlock (existing Dev9 icon mapping verified; no substitute web portrait).
+- The Crucible now excludes mutations requiring enemy-owned structures or preferring enemy-structure spawn anchors, across generation, rerolls, and mission execution.
+- Unlimited Power shop cost increased from 1,000 to 1,400 credits.
+- All Dev9 features retained.
+
+## v1.1.2 Dev9 — Marauder Kill Teams visibility and Tosh Spectre nukes
+- Replaced all Marauder Kill Team minimap pings with moving, persistent revealers on every spawned Marauder and Medic. Increased the shared revealer registry from 64 to 128 slots so both full teams can be tracked alongside other always-visible mutations.
+- Reworked Tosh's Boys Spectre strikes: after a four-second preparation, a living enemy Spectre designates a nuke within five range of the nearest player building, displays the Ghost nuke target indicator and warning ping, and detonates `NukeDamage` after a 12-second warning. Killing the Spectre cancels the strike. No Ghost Academy, ammunition magazine, or native Nuke order is required.
+- Kept the original Tosh spawn/raid cadence and the existing pathable enemy staging-area restrictions.
+- Source verification and offline regression coverage for both changes.
+
+# v1.1.2 Dev8 (2026-10-11)
+
+- Stretchy Spines now uses the existing Spine Crawler shop-icon artwork for all UI aliases.
+- Shop Expansion is capped at three total acquisitions; stock generation, purchase checks, old saves, and shop capacities obey the cap.
+- Remove the universal flat +100 victory credits per mission without changing mutation, blessing, high-risk, or other special reward components.
+- See `DEV8_PATCH_NOTES.md` for full details.
+
+# v1.1.2 Dev7 (2026-10-11)
+
+- Bottled Leviathan and Hyperion are autonomous attackers instead of controllable units; their normal boons remain controllable.
+- Leviathan native Mutalisk/Brood Lord AI uses independent 60s casts, and newborn units join the attack.
+- Hyperion preserves internal resistance normalization and 100-energy, 15-second Yamato cooldown.
+- Specialists now uses a Raven portrait.
+
+## v1.1.2 Dev6 — October 11 workbook, base timing, patrol path clearance (unpublished)
+
+- Compare the latest user workbook against the October 7 version and synchronize effect descriptions, severity, timing, and current literal shop prices.
+- Make enemy Torrasque visible continuously, including after repeated respawns.
+- Saving Grace reveals the exact pending blessing package on purchase, then applies the announced effects rather than rerolling.
+- Reannounce Slay startup summary once shortly after base establishment to avoid native intro chatter hiding it.
+- Validate protected patrol line segments, use shorter safe connected ground waypoints, and omit creep tumors from all protected building checks.
+- Reschedule enemy attacks/raids, golden armadas, bosses, and native game-clock exceptions per workbook, including Invasion Fleet's new 2-per-second rate.
+- Update Shop Expansion, Temporal Field, Elite Mercenaries, Repeat Contractor, and Spear Recharge costs; preserve the user-corrected Hyperion in a Bottle description despite stale workbook text.
+- See `DEV6_WORKBOOK_TIMING_AND_PRICE_AUDIT.md` for an explicit before/after timing and price comparison.
+- 252 offline tests plus source verification pass. Live SC2 verification remains necessary.
+
+## v1.1.2 Dev5 — Zagara, Tosh Miners, patrol and base threat fixes (unpublished)
+
+See `DEV5_PATCH_NOTES.md` and `DEV5_MUTATION_THREAT_AUDIT.md` for full details.
+
+## v1.1.2 Dev4 (unpublished local development)
+
+- Roll each mission's unscaled mutation and blessing severity budget before multiplying by the respective effect frequency. Zero frequency now guarantees no corresponding effects; early high-tier bonuses, final-quarter major mutations, opening-blessing injection, and red-path hardening cannot bypass zero. Reduced mutation frequency also disables forced red-path hardening.
+- Reduce mean mutation severity by 2 per gameplay difficulty tier below Brutal: Hard -2, Medium -4, Easy -6. Applies across all missions, including the finale.
+- Replace the second paragraph of the launcher difficulty description with the requested text recommending reduced gameplay difficulty first.
+- Preserve all Dev3 Zagara/Purifier behavior, Dev2 timing/Lab Rat fixes, and Dev1 Baneling Stream behavior.
+
+## v1.1.2 Dev3 (unpublished local development)
+
+- Force hostile Zagara variants to die at 4 HP or less, including mission-native enemies not registered by Slay's generated-hero tracker. The existing kill/remove fallback is preserved to overcome story death-prevention effects.
+- Restrict Purifier invulnerability-shield removal to Slay-created mutation or Purifier Alliance units and only when the corresponding effect is active. Native Safe Haven Purifier shield and Nexus-based unlock remain untouched when neither effect is selected (and the native unit is never targeted by the override).
+- Preserve Dev2 base-establishment timing, Lab Rat Tower Defense exclusion, Lab Rat Horde Mode +25 minerals, and Dev1 Baneling Stream attack-move behavior.
+- Offline source/unit regressions only; SC2 in-game verification remains required.
+
+## v1.1.2 Dev2 (unpublished local development)
+
+- Rebased periodic mutations and blessings to the completed player macro-base clock except explicitly mission-timed descriptions.
+- Too Many Wraiths starts at base +60s and scales from base elapsed time; Golden Armada/True Golden Armada and Heroes of the Storm safety windows use the same clock.
+- Excluded Tower Defense on Lab Rat; grants +25 starting minerals once when Lab Rat also has Horde Mode.
+- Preserved Dev1 Baneling Stream building-target attack-move behavior.
+
+# Slay the StarCraft v1.1.2 development build 1 — Baneling Stream
+
+This is the first local development build toward v1.1.2, not a published stable release.
+
+- Baneling Stream Banelings now issue an explicit **attack-move** order, never a plain-move fallback when attack is unavailable.
+- Prefer pathable enemy structures (including buildings) as the destination. Only look for a ground unit or patrol point when a reachable building is unavailable.
+- Keep the vanilla Baneling unit ID, normal automatic enemy engagement, existing 5–15 second source cadence, and eight-second retarget cadence.
+- Preserve all v1.1.1 fixes and the user-authored Baneling Stream in-game description verbatim.
+
+**Test status:** Offline/source validation only. Verify SC2 combat against enemy buildings before publishing v1.1.2.
+
+---
+
+## v1.1.1 hotfix HF1 — Leviathan Approaching
+
+- Spawn the hostile Leviathan as soon as the player's macro base is established, as before.
+- Hold position for **240 seconds after the base-ready timestamp**, not from mission start. Only then order it to approach the nearest player building.
+- Stop once within 30 range of a player building. Regular, native, and damage-triggered Mutalisk/Brood Lord spawning remain disabled until the approach completes and the stop order is issued.
+- Leave all other mutations, the player Leviathan boon, and catalog descriptions unchanged.
+- Requires live SC2 testing to confirm movement and native spawn-ability behavior with the selected campaign dependencies.
+
+# Slay the StarCraft v1.1.1 — Release Notes
+
+## Changes
+
+- **Occasional Colossus:** Its blessing now prefers the **Purification Colossus** (`AP_ColossusPurifier`, then `ColossusPurifier`). Slay's player-spawned Colossus default now prioritizes that Purifier variant, with the normal Colossus as a dependency-safe fallback. Enemy Colossus mutations retain their existing behavior.
+- **Invasion Fleet:** Shop cost reduced to **1,500 credits**. In-game description restored **exactly** to: "At the 5 minute mark of each mission, many zerg drop pods attack the enemy for 2 minutes". Gameplay duration and pod cadence are unchanged.
+- **Credit replacement items:** New runs default to **60 credits** per credit-item replacement (previously 50).
+- **Early mission rewards:** All first-layer missions earn an additional **50 credits**, and all second-layer missions earn an additional **25 credits**, subject to the existing victory multiplier. Later layers unchanged.
+- **Starting credits:** Remains **700** by default.
+- Includes all fixes from v1.1.0 HF1–HF8, including Loki, Domination, inventory, installer resilience, and Smash and Grab workers.
+
+The credit defaults and generated mission payouts apply to new runs; existing run files retain their saved values. No other in-game catalog descriptions were edited.
+
+## Validation
+
+Static release verification and offline unit tests are performed before packaging. Live StarCraft II execution still needs confirmation, especially the Purification Colossus in the Occasional Colossus blessing.
+
+---
+
+# v1.1.0 hotfix HF8 — Starting credits and Smash and Grab workers
+
+- Set the default starting credits back to **700** in the launcher and command-line run generator. Existing generated runs and saved balances are unchanged.
+- **Smash and Grab** starts with 3 extra player-controlled workers. Slay detects the existing starting worker type (SCV, Drone or Probe, including Archipelago variants), spawns 3 near the established player base and grants them only once per mission.
+- No changes to mission effects, economy rewards, catalog descriptions, or other mission starting armies.
+- Retains all previous HF7 fixes and the public v1.1.0 version. The new runtime revision ensures Download Data reapplies the gameplay script.
+- The unit-spawn behavior requires live testing in SC2; offline tests validate source and routing only.
+
+# v1.1.0 hotfix HF7 — Engine of Destruction Loki protection recovery
+
+- In Engine of Destruction only, detect when player-owned units reach the original Loki Aggro area or close to Loki, and allow the map's normal two-second undocking sequence to complete.
+- If Loki remains invulnerable, remove its invulnerability state and known shield behavior, and release scripted AI. Recheck for stray reapplication while the mission is active.
+- Preserve valid Loki maximum health; set a 2000-HP fallback only if the engine reports a missing/invalid maximum.
+- Do not change other missions, standard Loki staging, descriptions or catalog balance. No packed map patches required.
+- Keep the public version at 1.1.0 and advance the Windows launcher/runtime revision so the patch is actually applied by Download Data.
+- Galaxy source verification and offline regression tests do not replace a live SC2 mission test.
+
+# v1.1.0 hotfix HF6 — Crucible, icon parity, Fire Squad, Decay and Sniper Thor
+
+- Exclude the Meat Grinder mutation from The Crucible in new-run generation and at mission launch (including existing generated runs and rerolls).
+- Fix inventory item icons across categories by keeping canonical Archipelago item IDs. Use the same documented artwork resolution as the shop, including local images whose filenames do not start with `btn-`.
+- Fire Squad now prefers the Archipelago Purification Colossus `AP_ColossusPurifier`, falling back only to the actual `ColossusPurifier` catalog entry, never the ordinary/Aiur Colossus.
+- Decay skips workers, including SCVs, Drones, Probes, MULEs and identified worker variants.
+- Sniper Thor spawns at least 20 range from player and player-allied structures. On timed-defense missions it receives an attack-move to the player base after 15 mission minutes.
+- Restore Energized Queens' original user-authored catalog description without undoing the broadened unit matching. Hyperion in a Bottle retains its original catalog description, unchanged.
+- Synchronize bootstrap, release manifest and launcher runtime revision markers, retaining v1.1.0.
+- Gameplay/unit-ID changes still require live StarCraft II testing. No new text has been invented for in-game descriptions.
+
+---
+
+## v1.1.0 hotfix HF5 — Domination pickups without map editing
+
+- Domination Baneling nests now accept any eligible **player-controlled ground unit**, even if Kerrigan is present or has respawned. This intentionally broadens the pickup rule at the user's request.
+- The regular Archipelago map itself is not modified. Instead the Slay mission flag tells APRogue to select Archipelago's normal unrestricted pickup rule after the mission's Kerrigan/hero initialization. This is compatible with packed `.SC2Map` files and avoids another Download Data failure.
+- All other missions keep their existing Kerrigan-presence behavior. Original Kerrigan spawning, hero registration, respawn, mission objectives and pickups are otherwise unchanged.
+- Removed the HF3/HF4 optional Domination map rewriting logic; retained legacy HF3 map-script backup cleanup on uninstall. Package version remains 1.1.0; no GitHub changes.
+- Offline verification cannot prove that the original API4 map's periodic pickup event behaves correctly in a live SC2 launch. Test collecting a nest using an ordinary ground unit with Kerrigan alive and after Kerrigan respawns.
+
+## v1.1.0 hotfix HF4 — safe optional map patches, nonblocking version checks
+
+- A reported HF3 first-time installation stopped with `Domination API4 map script not found`. The SC2 API4 data had been verified and did not contain an editable `Maps/ArchipelagoCampaign/HotS/ap_domination.SC2Map/MapScript.galaxy` at that path. Requiring a plain-text source inside a potentially packed `.SC2Map` was incorrect.
+- Treat the Domination-specific Kerrigan patch as optional. If the map is packaged, unavailable or has incompatible script contents, log a visible warning, don't modify it, and continue installing mandatory Slay patches. For unpacked editable Domination maps, apply the validated change after successful mandatory patch installation with independent backup and failure recovery. Do not create an invented map source or silently assume the fix applied.
+- Package-version-only `PACKAGE_VERSION = ...` discrepancies in pre-install and post-install checks are warnings; missing gameplay or structural markers remain fatal. Match the same policy in bundled-source preflight verification.
+- Added regression tests for absent/packed/editable/incompatible maps and version-only drift. The user-reported Domination issue remains unfixed on packed map installations pending a safe packed-map-compatible solution.
+- Keep display version 1.1.0 and rebuild a distinct HF4 package; no GitHub publishing.
+
+## v1.1.0 hotfix HF3 — Domination Baneling nest pickup after Kerrigan respawn
+
+- Fix the *Domination* Baneling-nest bonus pickups becoming inaccessible after Kerrigan is replaced by the Slay/HotS respawn system. Archipelago's mission script checks only `gv_militaryUnits`, which it rebuilds every 0.25 seconds using the map's original `gv_kerrigan` reference. If the unit object changes, the new Kerrigan is missing from the eligible pickup group.
+- Patch *only* `Maps/ArchipelagoCampaign/HotS/ap_domination.SC2Map/MapScript.galaxy` during Slay installation. When the original Kerrigan is no longer alive, the mission rebinds its `gv_kerrigan` pointer to a living player-owned Kerrigan (excluding eggs, cocoons and birth placeholders); the native pickup handler then processes nest objectives and rewards unchanged.
+- Preserve Archipelago's no-Kerrigan branch, where regular ground units may collect nests. No change to other mission maps, Kerrigan abilities or global hero respawn timing.
+- Back up the original Domination map script before patching, reapply safely on repeat installs, reject unknown map versions rather than editing them blindly, roll back if setup fails, and restore the original on Slay uninstallation. Updates SC2's locally installed Archipelago map data, not just the portable runtime.
+- Rebuild the native Windows launcher with a new runtime revision so existing installations run Download Data to apply the fix. The public package still reports **v1.1.0**. Source checks and offline regression tests are not a native SC2 Galaxy compiler or a live pickup test.
+
+## v1.1.0 hotfix HF2 — Energized Queens matches all Queen units
+
+- Energized Queens now applies to any player-owned mobile unit whose internal catalog unit ID **or localized displayed name** contains "Queen" (case-insensitive), including Archipelago's `AP_Queen` Swarm Queen. The previous filter accepted only `SwarmQueen` or `BroodQueen` unit IDs and missed the standard AP variant.
+- Cached display-name checks by unit type to avoid repeated localized-name lookups during combat. Kept the existing energy regeneration behavior and 400-credit cost.
+- Expanded the boon shop eligibility to any owned unit unlock containing "Queen" in its name, and updated the displayed boon description.
+- All other gameplay and package version markers remain at v1.1.0. Test the actual energy gain in StarCraft II; source checks cannot prove Galaxy behavior in-game.
+
+## v1.1.0 Endless Mode hotfix — installer verification repair
+
+- Fixed the portable Download Data installation stopping at "Applying Slay patches" because different package-version markers were expected by the installer. All release components now consistently use 1.1.0.
+- Pre-install package version checks now use the version from bundled `VERSION.txt`, rather than hard-coded past release numbers. The installer success message uses the same version.
+- Strengthened source verification to check *all bundled-source pre-install markers* for launcher, generator, Slay runtime, and Galaxy before packaging. No gameplay changes.
+
+## v1.1.0 Endless Mode hotfix — retire mode and correct orphaned mission tooltips
+
+- Remove the Game Mode selector from run setup. New runs are always Standard Mode. Attempts to generate new Endless Mode runs through the Python launcher API are rejected with a clear error; old run files are not deleted or silently converted.
+- Correct the legacy Endless mission UI's half-second forced rebuild. Stable floors now reuse their mission cards and tooltips, and chart/floor changes explicitly remove old tooltips before buttons are replaced. Previously created Endless saves may still be opened but are no longer an actively supported game mode.
+- Keep the release's existing Standard Mode mission map, gameplay scripts, mutation/boon pools, and economy unchanged.
+- Package as a distinct v1.1.0 hotfix ZIP with matching Windows launcher, manifests and private runtime revision. Existing v1.1.0 installations may need one **Download Data** update to apply the new runtime revision.
+- These fixes are covered by offline regression and source checks; live Kivy/StarCraft II testing remains necessary.
+
 ## v1.1.0 public release — UI polish and promotion
 
 - Wangfeng acknowledgement now reads **"Chinese localization and improved UI"**.
@@ -297,3 +552,20 @@ Public stable release baseline used for the current bug-fix development branch.
 - Fix `slay_endless_ui.py`'s `resolve_route_positions` wrapper to accept and forward the optional measured node-width mapping. The wrapper still accepted only three arguments after the wide-title layout began passing four; it caused `TypeError` on ordinary Adventure missions and triggered the legacy rectangular-map fallback.
 - Preserve widened mission titles, abbreviated race labels, working themed tabs and all r10 potion effects. No Galaxy gameplay modifications.
 - Add a dedicated regression suite for the chart adapter in Adventure and Endless modes.
+
+### v1.1.2 Dev21 (development)
+- Clamp Slay and AP-adjusted mercenary recruitment cooldown/charge durations to at least 1 second, retaining the three-second >500s overflow recovery to 10 seconds.
+- Make Meat Grinder boon Marines reacquire attack targets every 10 seconds without requiring Cloning Technology.
+- Prevent Slay's scripted damage and scripted AoE near Null Circuits from destroying The Purification mission objectives outside native mission death handling.
+
+## v1.1.2 Dev25 — Unit unlocks and recycled armor refunds
+
+- Reaver/HERC/Infested Liberator unlocks set to 100 credits. Recycled Armor Suits refunds 8 minerals and 2 gas for uncommandable Slay infantry and 25/10 for controllable infantry.
+
+### Dev26 — Kerrigan respawns and performance
+- Confirm playable Kerrigan respawns after one second before messaging; retry failed spawns at the player base without another 60-second wait.
+- Meat Grinder spreads five Marine spawns over fast ticks (two per tick).
+- Autonomous Marine/Clone retarget work uses shared enemy groups and 40-unit tick budget, retaining nearest reachable target selection.
+
+### Dev27 — Spider Mine structure exclusions
+- Exclude Spider Mines from building-targeted Slay effects, especially Building Overcharge, through shared structure queries.

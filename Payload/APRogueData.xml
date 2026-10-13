@@ -145,6 +145,12 @@
     <Modification WeaponRange="0.25"/>
   </CBehaviorBuff>
 
+  <!-- Brakk's Pack: apply +3 armor only to Brakk himself, not his primal army. -->
+  <CBehaviorBuff id="APRogueBrakkArmor">
+    <InfoFlags index="Hidden" value="1"/><MaxCount value="1"/>
+    <Modification LifeArmorBonus="3"/>
+  </CBehaviorBuff>
+
   <!-- Marauder Kill Teams: +3 armor on all units, +3 additional weapon damage on marauders. -->
   <CBehaviorBuff id="APRogueKillTeamArmor">
     <InfoFlags index="Hidden" value="1"/><MaxCount value="1"/>

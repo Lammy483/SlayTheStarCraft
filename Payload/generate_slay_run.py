@@ -48,7 +48,7 @@ import yaml
 
 FORMAT_VERSION = 39
 
-PACKAGE_VERSION = "1.1.0"
+PACKAGE_VERSION = "1.1.2"
 
 DEFAULT_CHOICE_LAYERS = 11
 
@@ -191,6 +191,28 @@ DESTRUCTION_TIMED_DEFENSE_ALLOWLIST = {"Zero Hour", "All-In"}
 RICH_MINERALS_MISSION_EXCLUSIONS = {"Devil's Playground"}
 GORGON_MISSION_EXCLUSIONS = {"fire in the sky"}
 
+# The Crucible has no enemy-owned structures to act as anchors.  These
+# mutations either operate on existing hostile buildings, need an enemy
+# building to spawn, or preferentially choose enemy buildings/territory when
+# creating hostile armies.  Even effects with random-map fallbacks are
+# excluded: the fallback is not the intended Crucible experience.
+CRUCIBLE_ENEMY_STRUCTURE_MUTATIONS = frozenset({
+    "conga_line", "nexus_shield", "nuclear_structures",
+    "drakken_laser_drill_enemy", "purifier", "golden_armada",
+    "true_golden_armada", "tower_defense", "heroes_of_the_storm",
+    "viking_raids", "drop_pods", "dark_templar", "another_gorgon_mutation",
+    "taldarim_reinforcements", "zagaras_banelings", "dehakas_pack",
+    "torrasque", "marauder_kill_teams", "tosh_and_his_boys",
+    "brakk_primal_army", "odin_delayed_assault", "hellion_run_by",
+    "diamondback_wanderers", "raynors_raiders", "leviathan_outside_base",
+    "enemy_spear_of_adun", "combined_raids",
+})
+
+
+def crucible_mutation_exclusions(mission_name: str) -> set[str]:
+    name = str(mission_name or "").strip().casefold()
+    return set(CRUCIBLE_ENEMY_STRUCTURE_MUTATIONS) if name.startswith("the crucible") else set()
+
 
 
 
@@ -311,6 +333,14 @@ OPENING_POOL_WEIGHTS = {
 # same distribution at every campaign length.
 MISSION_POOL_TILT_STEEPNESS = 1.8
 MISSION_TIER_MUTATION_SEVERITY_PER_TIER = 2.0
+# Reduce the mutation-severity mean by two for every gameplay-difficulty
+# step below Brutal. This applies on every mission, including the finale.
+GAMEPLAY_DIFFICULTY_MUTATION_SHIFT = {
+    "brutal": 0.0,
+    "hard": -2.0,
+    "medium": -4.0,
+    "easy": -6.0,
+}
 RED_DANGER_MARGIN = 250
 
 
@@ -430,7 +460,7 @@ def expected_opening_credit_average(difficulty: str, mutation_frequency: Any = 1
     # A universal +1 mutation-severity budget adds about 125 base credits to
     # the expected first-layer payout at Normal frequency; keep red-risk
     # thresholds aligned with the new generation curve.
-    return max(0.0, base + 50.0 + 125.0 * mf) * max(0.0, float(victory_credit_reward_multiplier))
+    return max(0.0, base + 125.0 * mf) * max(0.0, float(victory_credit_reward_multiplier))
 
 
 RACE_WEAPON_ARMOR_UPGRADE_ITEMS = {
@@ -1399,7 +1429,7 @@ def expected_danger_score(
         blessing_mean = _profile_value(_EXPECTED_BLESSING_SEVERITY_PROFILE, frac)
     else:
         mutation_mean, blessing_mean = _base_effect_means(layer, choice_layers, final)
-    mutation_mean = max(0.0, mutation_mean + {"easy": -1.25, "medium": -0.75, "hard": -0.30, "brutal": 0.0}[difficulty]) * _frequency_factor(mutation_frequency)
+    mutation_mean = max(0.0, mutation_mean + GAMEPLAY_DIFFICULTY_MUTATION_SHIFT[difficulty]) * _frequency_factor(mutation_frequency)
     blessing_mean = max(0.0, blessing_mean) * _frequency_factor(blessing_frequency)
 
     layer_number = max(1, int(layer) + 1)
@@ -2186,7 +2216,7 @@ def roll_effects(
 
 
     mut_mean, bless_mean = _base_effect_means(layer, choice_layers, final)
-    difficulty_mut_shift = {"easy": -1.25, "medium": -0.75, "hard": -0.30, "brutal": 0.0}[difficulty]
+    difficulty_mut_shift = GAMEPLAY_DIFFICULTY_MUTATION_SHIFT[difficulty]
     expected_pool = target_pool(layer, choice_layers, difficulty, final)
     # Balance AP mission tier against mutation severity. A mission one full AP
     # tier below the layer average receives +2 mean mutation severity; one
@@ -2194,15 +2224,21 @@ def roll_effects(
     mission_tier_mut_shift = (expected_pool - float(mission_pool)) * MISSION_TIER_MUTATION_SEVERITY_PER_TIER
     mut_factor = _frequency_factor(mutation_frequency)
     bless_factor = _frequency_factor(blessing_frequency)
-    scaled_mut_mean = max(0.0, (mut_mean + difficulty_mut_shift + mission_tier_mut_shift) * mut_factor)
-    scaled_bless_mean = max(0.0, bless_mean * bless_factor)
-    mut_target = max(0, min(20, int(round(rng.gauss(scaled_mut_mean, 1.35)))))
-    bless_target = max(0, min(12, int(round(rng.gauss(scaled_bless_mean, 2.0)))))
+    # Roll the *unscaled* mission severity first, including the Gaussian
+    # variance. Only then apply the user's frequency multiplier. Scaling the
+    # Gaussian mean instead leaves nonzero variance even when frequency is 0.
+    raw_mut_target = max(0, int(round(rng.gauss(
+        max(0.0, mut_mean + difficulty_mut_shift + mission_tier_mut_shift), 1.35
+    ))))
+    raw_bless_target = max(0, int(round(rng.gauss(max(0.0, bless_mean), 2.0))))
 
-
+    # High-pool early missions receive an extra blessing-severity budget.
+    # This is part of the unscaled roll, NOT an exemption from frequency 0.
     if not final and frac < 0.35 and int(mission_pool) >= 3:
+        raw_bless_target += min(2, int(mission_pool) - 2)
 
-        bless_target = min(12, bless_target + min(2, int(mission_pool) - 2))
+    mut_target = max(0, min(20, int(round(raw_mut_target * mut_factor))))
+    bless_target = max(0, min(12, int(round(raw_bless_target * bless_factor))))
 
 
 
@@ -2226,7 +2262,9 @@ def roll_effects(
 
 
 
-    major_required = _is_final_quarter(layer, choice_layers, final)
+    # Keep the late severity-4+ preference only when the rolled/scaled budget
+    # can actually afford it. It must not reintroduce mutations at frequency 0.
+    major_required = mut_target >= 4 and _is_final_quarter(layer, choice_layers, final)
 
     if major_required and not any(int(mutation_catalog.get(name, 0)) >= 4 for name in mutators):
 
@@ -2270,7 +2308,7 @@ def roll_effects(
 
 
 
-    if _is_past_halfway(layer, choice_layers, final) and mut_value <= bless_value:
+    if mut_target > 0 and _is_past_halfway(layer, choice_layers, final) and mut_value <= bless_value:
 
         while blessings and mut_value <= bless_value:
 
@@ -2433,7 +2471,8 @@ def credit_reward(
 
     base_reward = 400
 
-    layer_reward = 100
+    # The old flat +100-per-victory bonus was removed in Dev8.
+    layer_reward = 0
 
     difficulty_reward = 300 * (mission_tier - expected_tier)
 
@@ -2446,6 +2485,12 @@ def credit_reward(
     if str(mission_name).strip().casefold() == "lab rat":
 
         reward -= 100
+
+    # Opening layers get a fixed extra payout regardless of mutation severity.
+    if int(layer) == 0:
+        reward += 50
+    elif int(layer) == 1:
+        reward += 25
 
     multiplier = max(0.0, float(victory_credit_reward_multiplier))
 
@@ -3204,6 +3249,9 @@ def _effect_exclusions_for_mission(mission: dict[str, Any]) -> tuple[set[str], s
         forbidden_mutators.add("another_gorgon_mutation")
     if mission_short_name.strip().casefold().startswith("smash and grab"):
         forbidden_mutators.add("nexus_shield")
+    forbidden_mutators.update(crucible_mutation_exclusions(mission_short_name))
+    if mission_short_name.strip().casefold() == "lab rat":
+        forbidden_mutators.add("tower_defense")
 
 
     if mission_short_name.strip().casefold() in ISLAND_MISSION_NAMES:
@@ -3518,7 +3566,11 @@ def assign_missions(
 
 
 
-        attempts = 32 if opening_easy else 1
+        # The cheap opening route may require injecting a free blessing.
+        # Do not do so when a reduced frequency budget is requested: in
+        # particular, a zero multiplier must generate zero blessings.
+        opening_easy_guarantee = opening_easy and _frequency_factor(blessing_frequency) >= 1.0
+        attempts = 32 if opening_easy_guarantee else 1
 
         base_reward = 0
 
@@ -3550,11 +3602,11 @@ def assign_missions(
 
             )
 
-            if not opening_easy or base_reward <= 350:
+            if not opening_easy_guarantee or base_reward <= 400:
 
                 break
 
-        if opening_easy and base_reward > 350:
+        if opening_easy_guarantee and base_reward > 400:
 
             legal_blessings = [
 
@@ -3586,9 +3638,9 @@ def assign_missions(
 
             )
 
-            if base_reward > 350:
+            if base_reward > 400:
 
-                raise RuntimeError("Could not produce a <=350-credit guaranteed easy opening route")
+                raise RuntimeError("Could not produce a <=400-credit guaranteed easy opening route")
 
         reward = credit_reward(
 
@@ -4278,7 +4330,10 @@ def assign_missions(
 
 
 
-    for _safe_pass in range(max(1, len(assigned))):
+    # A reduced mutation multiplier must remain meaningful: do not inject
+    # arbitrarily many mutations just to guarantee a red path. Default and
+    # increased-frequency runs retain the normal route-hardening behavior.
+    for _safe_pass in range(max(1, len(assigned)) if _frequency_factor(mutation_frequency) >= 1.0 else 0):
 
         safe_paths = _red_free_paths(choice_layers, edges, assigned)
 
@@ -4411,11 +4466,11 @@ def build_run_json(
 
     assigned: dict[tuple[int, int], dict[str, Any]], shop_pool: list[str], starting_shop: list[str],
 
-    races: list[str], allow_race_swap: bool, starting_credits: int = 600,
+    races: list[str], allow_race_swap: bool, starting_credits: int = 700,
 
     mutation_frequency: Any = 1.0, blessing_frequency: Any = 1.0,
 
-    victory_credit_reward_multiplier: float = 1.0, item_credit_reward: int = 50,
+    victory_credit_reward_multiplier: float = 1.0, item_credit_reward: int = 60,
 
     game_speed: str = "default", extra_shop_slots: int = 0,
     start_with_spear: bool = False, start_with_kerrigan: bool = False,
@@ -4878,19 +4933,19 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--game-speed", choices=list(GAME_SPEEDS), default="default", help="SC2 game speed override; default follows Archipelago's normal behavior")
 
-    parser.add_argument("--starting-credits", type=int, default=600, help="Starting shop credits (default 600)")
+    parser.add_argument("--starting-credits", type=int, default=700, help="Starting shop credits (default 700)")
 
     parser.add_argument("--mutation-frequency", dest="mutation_frequency", default=None, help=argparse.SUPPRESS)
 
-    parser.add_argument("--mutation-frequency-multiplier", type=float, default=1.0, help="Multiplier applied to each mission mutation-severity mean")
+    parser.add_argument("--mutation-frequency-multiplier", type=float, default=1.0, help="Multiplier applied to each mission rolled mutation severity (0 disables mutations)")
 
     parser.add_argument("--blessing-frequency", dest="blessing_frequency", default=None, help=argparse.SUPPRESS)
 
-    parser.add_argument("--blessing-frequency-multiplier", type=float, default=1.0, help="Multiplier applied to each mission blessing-severity mean")
+    parser.add_argument("--blessing-frequency-multiplier", type=float, default=1.0, help="Multiplier applied to each mission rolled blessing severity (0 disables blessings)")
 
     parser.add_argument("--victory-credit-reward-multiplier", type=float, default=1.0, help="Multiplier applied to mission victory credit rewards (default 1.0)")
 
-    parser.add_argument("--item-credit-reward", type=int, default=50, help="Credits granted by each credit-item replacement (default 50)")
+    parser.add_argument("--item-credit-reward", type=int, default=60, help="Credits granted by each credit-item replacement (default 60)")
 
     parser.add_argument("--extra-shop-slots", type=int, choices=(0, 1, 2, 3), default=0)
 

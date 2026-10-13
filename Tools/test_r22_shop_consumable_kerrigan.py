@@ -36,7 +36,8 @@ class R22Regression(unittest.TestCase):
     def test_cocoons_removed_after_both_kerrigan_respawn_routes(self):
         self.assertIn('void APRG_RemoveKerriganReviveCocoons(int player)', GAL)
         segment=GAL.split('void APRG_TickShopKerrigan(int player, fixed now)')[1].split('void APRG_TickContractStructures')[0]
-        self.assertEqual(segment.count('APRG_RemoveKerriganReviveCocoons(player);'),2)
+        self.assertEqual(segment.count('APRG_ConfirmShopKerriganRespawn(player);'),1)
+        self.assertIn('APRG_RemoveKerriganReviveCocoons(player);',GAL.split('void APRG_ConfirmShopKerriganRespawn(int player)')[1].split('void APRG_TickShopKerrigan')[0])
         self.assertIn('UnitRemove(u);', GAL.split('void APRG_RemoveKerriganReviveCocoons(int player)')[1].split('void APRG_PositionShopKerriganAtHome')[0])
     def test_consumable_overlay_shift(self):
         self.assertIn('DialogCreate(544, 60, c_anchorTopLeft, 320, 0, false)', GAL)

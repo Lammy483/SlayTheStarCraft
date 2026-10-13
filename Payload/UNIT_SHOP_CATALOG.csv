@@ -1,4 +1,6 @@
 Unit,Price
+Reaver,100
+HERC,100
 Wraith,50
 Scout,100
 Swarm Host,100
@@ -13,7 +15,7 @@ Widow Mine,100
 Viper,100
 Lurker,50
 Bullfrog,100
-Infested Liberator,50
+Infested Liberator,100
 Infested Marine,100
 Infested Diamondback,100
 Oracle,50

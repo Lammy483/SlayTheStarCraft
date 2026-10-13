@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	version = "1.1.0"
-	runtimeRevision = "lab-rat-r6"
+	version         = "1.1.2"
+	runtimeRevision = "spider-mine-structure-exclusions-v112-dev27"
 
 	className  = "SlayTheStarCraftLauncherWindow"
 	windowName = "Slay the StarCraft"
@@ -106,11 +106,11 @@ type installConfig struct {
 }
 
 type runtimeInfo struct {
-	SlayVersion    string `json:"slay_version"`
+	SlayVersion     string `json:"slay_version"`
 	RuntimeRevision string `json:"runtime_revision"`
-	PythonVersion  string `json:"python_version"`
-	ArchipelagoRef string `json:"archipelago_ref"`
-	SC2DataAPI     string `json:"sc2_data_api"`
+	PythonVersion   string `json:"python_version"`
+	ArchipelagoRef  string `json:"archipelago_ref"`
+	SC2DataAPI      string `json:"sc2_data_api"`
 }
 
 var (
@@ -501,6 +501,25 @@ func setEnv(env []string, key, value string) []string {
 	return append(out, key+"="+value)
 }
 
+// Sync the player preference before launching the private Archipelago client.
+// If SC2 is installed in Program Files and permissions prevent writing, the
+// player can use Download Data, which applies the same preference elevated.
+func syncWarpgatePreference(sc2Root string) error {
+	pythonExe := filepath.Join(rootDir, "Runtime", "Python", "python.exe")
+	script := filepath.Join(rootDir, "Payload", "slay_hotkeys.py")
+	cmd := exec.Command(pythonExe, script, "--portable-root", rootDir, "--sc2-root", sc2Root)
+	cmd.Dir = rootDir
+	cmd.Env = slayEnvironment(sc2Root)
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000, HideWindow: true}
+	output, err := cmd.CombinedOutput()
+	appendLauncherLog("Warp Gate preference: %s", strings.TrimSpace(string(output)))
+	if err != nil {
+		return fmt.Errorf("could not apply Config\\slay_preferences.ini: %s. "+
+			"Close StarCraft II and click Download Data to apply the hotkey with administrator permissions if needed", strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
 func tryAutoLaunchReadyClient() (bool, error) {
 	ready, _ := runtimeDataReady()
 	if !ready {
@@ -520,6 +539,9 @@ func tryAutoLaunchReadyClient() (bool, error) {
 	}
 	defer logFile.Close()
 
+	if err := syncWarpgatePreference(sc2Root); err != nil {
+		return false, err
+	}
 	appendLauncherLog("Required data and StarCraft II detected; auto-launching Slay without native launcher window")
 	appendLauncherLog("Portable root: %s", rootDir)
 	appendLauncherLog("StarCraft II root: %s", sc2Root)
@@ -583,6 +605,10 @@ func launchSlay() {
 			return
 		}
 		defer logFile.Close()
+		if err := syncWarpgatePreference(sc2Root); err != nil {
+			finishLaunch("Warp Gate preference could not be applied: "+err.Error(), 1)
+			return
+		}
 		appendLauncherLog("Slay the StarCraft v%s native lightweight launcher starting client", version)
 		appendLauncherLog("Portable root: %s", rootDir)
 		appendLauncherLog("StarCraft II root: %s", sc2Root)

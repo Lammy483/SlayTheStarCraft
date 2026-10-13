@@ -47,7 +47,7 @@ from typing import Any
 
 
 
-PACKAGE_VERSION = "1.1.0"
+PACKAGE_VERSION = "1.1.2"
 
 LAUNCHER_ENV = "SLAY_LAUNCHER_MODE"
 
@@ -57,7 +57,7 @@ PORTABLE_ROOT_ENV = "SLAY_PORTABLE_ROOT"
 
 RUNS_DIR_NAME = "Runs"
 
-DEFAULT_STARTING_CREDITS = 600
+DEFAULT_STARTING_CREDITS = 700
 
 DEFAULT_DIFFICULTY = "brutal"
 
@@ -86,7 +86,7 @@ def normalize_races(races: tuple[str, ...] | list[str]) -> tuple[str, ...]:
 
 DEFAULT_VICTORY_CREDIT_REWARD_MULTIPLIER = 1.00
 
-DEFAULT_ITEM_CREDIT_REWARD = 50
+DEFAULT_ITEM_CREDIT_REWARD = 60
 
 DEFAULT_PLAYER_NAME = "Player"
 
@@ -401,8 +401,8 @@ def generate_run(
 
     selected_races = normalize_races(selected_races)
 
-    if game_mode not in {"adventure", "endless"}:
-        raise ValueError("Unsupported game mode")
+    if game_mode != "adventure":
+        raise ValueError("Endless Mode is no longer available. Please generate a Standard Mode run.")
     if difficulty not in DIFFICULTIES:
 
         raise ValueError(f"Unsupported difficulty: {difficulty}")
@@ -468,7 +468,7 @@ def generate_run(
 
         "--starting-credits", str(starting_credits),
 
-        "--layers", str((DEFAULT_CAMPAIGN_LENGTH if game_mode == "endless" else int(campaign_length)) - 1),
+        "--layers", str(int(campaign_length) - 1),
 
         "--mutation-frequency-multiplier", str(float(mutation_frequency)),
 
@@ -504,11 +504,9 @@ def generate_run(
 
     run_data = json.loads(transient_run.read_text(encoding="utf-8"))
 
-    run_data["game_mode"] = game_mode
-    if game_mode == "endless":
-        from SlayTheStarCraft import endless_map_key
-        if len({endless_map_key(n) for n in run_data["nodes"].values()}) < 15:
-            raise ValueError("Endless mode requires at least 15 distinct maps for its five-floor exclusion rule.")
+    # v1.1.0: Only Standard Mode may be generated. Legacy Endless saves
+    # can still be loaded without overwriting their existing mode metadata.
+    run_data["game_mode"] = "adventure"
     transient_run.write_text(json.dumps(run_data, indent=2), encoding="utf-8")
 
     run_id = str(run_data.get("run_id", "")).strip()
@@ -1109,9 +1107,7 @@ def install_launcher_tab(manager: Any) -> None:
 
             "If you are not comfortable playing the default campaigns on Brutal difficulty, or do not want the challenge "
 
-            "described above, then it is recommended to reduce the Mutation Frequency Multiplier, increase the victory credit reward "
-
-            "multiplier, and/or reduce the Gameplay Difficulty.\n\n"
+            "described above, then it is recommended to try on a reduced gameplay difficulty before tweaking other settings.\n\n"
 
             "When you are satisfied with your settings, click “Generate Run”. It will automatically save as you play, and "
 
@@ -1227,7 +1223,6 @@ def install_launcher_tab(manager: Any) -> None:
         spinner.bind(is_open=lambda _instance, opened: Clock.schedule_once(lambda _dt: sync_option_highlights(), 0) if opened else None)
         return spinner
 
-    game_mode_button = make_spinner("adventure", {"adventure": "Standard Mode", "endless": "Endless Mode (ALPHA)"})
     difficulty_button = make_spinner(DEFAULT_DIFFICULTY, {value: value.title() for value in DIFFICULTIES})
     game_speed_button = make_spinner(DEFAULT_GAME_SPEED, {
         "default": "Default", "slower": "Slower", "slow": "Slow",
@@ -1240,7 +1235,6 @@ def install_launcher_tab(manager: Any) -> None:
     item_credit_input = compact_text_input(text=str(DEFAULT_ITEM_CREDIT_REWARD), multiline=False, input_filter="int")
 
     # Column 1: campaign/gameplay.
-    add_field(0, "Game Mode", game_mode_button)
     add_field(0, "Gameplay Difficulty", difficulty_button)
     add_field(0, "Game Speed", game_speed_button)
     add_field(0, "Campaign Length\n(changing run length may alter difficulty in unexpected ways)", campaign_length_input)
@@ -1343,7 +1337,6 @@ def install_launcher_tab(manager: Any) -> None:
 
         seed_input.disabled = busy
 
-        game_mode_button.disabled = busy
         difficulty_button.disabled = busy
 
         game_speed_button.disabled = busy
@@ -1471,8 +1464,6 @@ def install_launcher_tab(manager: Any) -> None:
 
         seed_input.text = ""
 
-        game_mode_button.text = "Standard Mode"
-        game_mode_button.slay_value = "adventure"
         difficulty_button.text = DEFAULT_DIFFICULTY.title()
 
         difficulty_button.slay_value = DEFAULT_DIFFICULTY
@@ -1618,7 +1609,6 @@ def install_launcher_tab(manager: Any) -> None:
                     item_credit_reward=item_credit_reward,
 
                     game_speed=game_speed, campaign_length=campaign_length,
-                    game_mode=game_mode_button.slay_value,
                     extra_shop_slots=extra_shop_slots, start_with_spear=start_with_spear,
                     start_with_kerrigan=start_with_kerrigan,
                     selected_races=selected_races,

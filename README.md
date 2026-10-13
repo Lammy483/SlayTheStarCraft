@@ -4,19 +4,32 @@ Slay the StarCraft is a single-player StarCraft II roguelike built on the Archip
 
 This repository tracks the source for the Windows launcher, Slay runtime/client integration, run generator, Galaxy gameplay layer, data catalogs, installer tooling, and validation scripts.
 
-## Current release: v1.1.0
+## Current development build: v1.1.2-dev16
 
-Download the v1.1.0 ZIP from the project release page and extract it to a writable folder on Windows. Run `SlayTheStarCraft.exe`; on first launch use **Download Data** to install the private Archipelago runtime and SC2 assets into the extracted folder. StarCraft II and the campaign content are required. The launcher does not install a global Python environment.
+Download the v1.1.2 development Windows ZIP and extract it to a writable folder on Windows. Run `SlayTheStarCraft.exe`; on first launch use **Download Data** to install the private Archipelago runtime and SC2 assets into the extracted folder. StarCraft II and the campaign content are required. The launcher does not install a global Python environment.
 
-The release includes the redesigned English UI, Chinese-localization contributions, new mutations, blessings, boons and consumables, and a configurable campaign length. **Endless Mode remains ALPHA**. See `CHANGELOG.md` for development details and `RELEASE_NOTES.md` for a player-facing overview.
+The release includes the redesigned English UI, Chinese-localization contributions, new mutations, blessings, boons and consumables, and a configurable campaign length. **Endless Mode has been removed from new-run setup in v1.1.0**. See `CHANGELOG.md` for development details and `RELEASE_NOTES.md` for a player-facing overview.
 
-`main` tracks the stable release. `release/v1.1.0` is the immutable-intent source snapshot of this version; further development should occur on `develop/v1.1.0` or new feature branches.
+`main` tracks the currently published release. The v1.1.2 Windows ZIP was built as a local development package; the corresponding code changes have not been published to GitHub. The existing `release/v1.1.0` branch remains the v1.1.0 source snapshot.
+
+### Personal hotkey preferences (Dev16)
+
+The initial ZIP already contains `Config/slay_preferences.ini`. You can edit it **before** clicking Download Data, for example:
+
+```ini
+[Hotkeys]
+Warpgate=E
+```
+
+`W` remains the default. Valid values are letters A-Z, digits 0-9, and F1-F12. The **Download Data** action reapplies the current INI setting to the installed mod and SC2 hotkey profile without resetting it. Launching Slay also reapplies the INI when required. If SC2 is installed in a protected directory and the launcher cannot update the mod, click **Download Data** to apply the preference with the necessary permissions. Close StarCraft II before changing it.
+
+The ZIP also includes `Config/slay_preferences.ini.example` as a reference. To preserve your customized live INI when upgrading, choose **Skip existing files** for `Config/slay_preferences.ini` or back it up before extracting a new ZIP. Download Data itself does not overwrite the INI.
 
 ### Highlights introduced in v1.1.0
 
 - Integrates Wangfeng's optional StarCraft-style English command UI.
 - Adds selectable playable races during run setup.
-- Adds an optional Endless Mode (ALPHA) while keeping Standard Mode as the default.
+- v1.1.0 removes the experimental Endless Mode selection; new runs use Standard Mode only.
 - Fixes portable-runtime loading of the Endless client patch helper.
 - Ports the full English StarCraft-style theme and fixes the themed route lifecycle.
 - Uses the compact four-column list view as the default shop/inventory presentation while retaining the optional card view.
