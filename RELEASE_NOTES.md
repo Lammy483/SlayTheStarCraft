@@ -27,6 +27,11 @@ Release based on v1.1.2 Dev51. This is a feature update to v1.1.0.
 - Native Tactical Nuclear Strike, temporary Ghost Academy ammunition, 5-minute first spawn and 60-second follow-ups remain unchanged.
 - Static/source checks were updated; live mission verification remains necessary.
 
+## v1.2.0 Tosh hotfix Galaxy syntax correction
+
+- Replace a C/Galaxy++ `?:` conditional inadvertently introduced in the Tosh/Spectre hotfix with valid raw Galaxy `if/else` syntax. This addresses the script compilation failure observed as the three-race critical error.
+- Add a static regression check that rejects unsupported conditional expressions in raw Galaxy source.
+
 ## Notes
 
 This release keeps the confirmed Galaxy initialization regression fixes. Offline tests cover the source, but not every mutation/mission combination has been live-tested. In particular, the final Dev51 Spectre retargeting update needs additional playtesting.

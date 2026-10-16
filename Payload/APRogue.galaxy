@@ -20267,8 +20267,15 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
                         g_aprgToshSpectreNukePoint[slot] = targetPoint;
                         g_aprgToshSpectreNukeTime[slot] = -1.0;
                         g_aprgToshSpectreNextOrderTime[slot] = now + 1.0;
-                        g_aprgToshSpectreLastDistance[slot] = targetPoint == null
-                            ? 999999.0 : DistanceBetweenPoints(UnitGetPosition(spec), targetPoint);
+                        // Raw SC2 Galaxy does not support C's conditional expression.
+                        // Keep the fallback explicit rather than using ? :.
+                        if (targetPoint == null) {
+                            g_aprgToshSpectreLastDistance[slot] = 999999.0;
+                        }
+                        else {
+                            g_aprgToshSpectreLastDistance[slot] = DistanceBetweenPoints(
+                                UnitGetPosition(spec), targetPoint);
+                        }
                         g_aprgToshSpectreLastProgressTime[slot] = now;
                         g_aprgToshSpectreNukeIndicator[slot] = null;
                         g_aprgToshSpectreNukeSilo[slot] = null;

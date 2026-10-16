@@ -36,6 +36,14 @@ class ToshSpectreReleaseHotfix(unittest.TestCase):
         self.assertIn("UnitGetPropertyFixed(spec, c_unitPropEnergyMax, c_unitPropCurrent)", TOSH)
         self.assertNotIn("APRG_CreateObjectiveSafeSlayEffect", TOSH)
         self.assertNotIn("libNtve_gf_CreateModelAtPoint", TOSH)
+    def test_raw_galaxy_never_uses_unsupported_ternary_operator(self):
+        import re
+        # Ship raw Galaxy rather than Galaxy++: it cannot parse conditional expressions.
+        code = re.sub(r'(?s)/\\*.*?\\*/|//[^\\n]*|"(?:\\\\.|[^"\\\\])*"', '', G)
+        self.assertNotIn('?', code)
+        self.assertIn('if (targetPoint == null) {', TOSH)
+        self.assertIn('g_aprgToshSpectreLastDistance[slot] = 999999.0;', TOSH)
+
     def test_no_known_three_race_declaration_regression(self):
         self.assertNotIn("void APRG_TickNydusWorms(int player, fixed now);", G)
         self.assertNotRegex(G, r"\bunitgroup\s+wave\s*;")
