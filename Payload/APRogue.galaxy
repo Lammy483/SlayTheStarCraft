@@ -386,6 +386,8 @@ unit[48] g_aprgToshSpectres;
 point[48] g_aprgToshSpectreNukePoint;
 fixed[48] g_aprgToshSpectreNukeTime;
 fixed[48] g_aprgToshSpectreNextOrderTime;
+fixed[48] g_aprgToshSpectreLastDistance;
+fixed[48] g_aprgToshSpectreLastProgressTime;
 actor[48] g_aprgToshSpectreNukeIndicator;
 // Temporary ammunition provider per Spectre, not an original-map objective.
 // Created only when that Spectre is ready to cast; removed after the cast.
@@ -6588,7 +6590,10 @@ bool APRG_TryCategorizedAutonomousAbility(unit caster, int player, bool friendly
     // Covert Assistance Tosh's reactive matrix/Psi Shield is issued by his
     // dedicated tick. This shared caster must never drain his shield reserve.
     // 200 energy leaves >=100 after any 100-energy offensive cast.
-    if ((caster == g_aprgCovertTosh || caster == g_aprgTosh) &&
+    // Covert Tosh retains a strict defensive-shield reserve. Enemy Tosh is
+    // handled separately: the 200-energy minimum suppressed his normal
+    // abilities whenever his energy fell below its maximum.
+    if (caster == g_aprgCovertTosh &&
         UnitGetPropertyFixed(caster, c_unitPropEnergy, c_unitPropCurrent) < 200.0) { return false; }
 
     // Preserve the roaming/attack-move objective across opportunistic casts.
@@ -18178,6 +18183,8 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
         g_aprgToshSpectreNukeIndicator[g_aprgGoldenRetries] = null;
         g_aprgToshSpectreNukeSilo[g_aprgGoldenRetries] = null;
         g_aprgToshSpectreNukeOrderSeen[g_aprgGoldenRetries] = false;
+        g_aprgToshSpectreLastDistance[g_aprgGoldenRetries] = 999999.0;
+        g_aprgToshSpectreLastProgressTime[g_aprgGoldenRetries] = -1.0;
         g_aprgToshSpectrePhase[g_aprgGoldenRetries] = 0;
     }
     g_aprgEnemySpearCaster = null;
@@ -20021,16 +20028,49 @@ bool APRG_TryUnitAbilityKeyword(unit caster, string keyword, unit target, point 
 // Validate the actual spawn position as well as the hostile building anchor.
 point APRG_ToshPathableHostileSpawnPoint(unit anchor, int player) {
     unit home;
+    unit worker;
+    unitgroup workers;
     point candidate;
+    point homeGround;
     int attempt;
     if (anchor == null || !UnitIsAlive(anchor)) { return null; }
     home = APRG_FindPlayerHomeStructure(player);
     if (home == null || !UnitIsAlive(home)) { return null; }
-    for (attempt = 0; attempt < 12; attempt += 1) {
-        candidate = APRG_FindGroundPointNear(UnitGetPosition(anchor), 3.0, 10.0);
-        if (candidate != null && PointPathingIsConnected(candidate, UnitGetPosition(home))) {
-            return candidate;
-        }
+    // The building centre itself may be unpathable. Compare actual ground
+    // positions, using a worker as the reference when one is available.
+    homeGround = null;
+    workers = APRG_PlayerWorkers(player);
+    worker = UnitGroupClosestToPoint(workers, UnitGetPosition(home));
+    if (worker != null && UnitIsAlive(worker)) { homeGround = UnitGetPosition(worker); }
+    if (homeGround == null || !PointPathingPassable(homeGround)) {
+        homeGround = APRG_FindGroundPointNear(UnitGetPosition(home), 3.0, 9.0);
+    }
+    if (homeGround == null) { return null; }
+    for (attempt = 0; attempt < 20; attempt += 1) {
+        candidate = APRG_FindGroundPointNear(UnitGetPosition(anchor), 3.0, 11.0);
+        if (candidate == null || !PointPathingPassable(candidate) ||
+            !APRG_LabRatEnemySpawnAllowed(candidate, player)) { continue; }
+        if (!APRG_GroundSpawnsNeedPlayerPathing() ||
+            PointPathingIsConnected(candidate, homeGround)) { return candidate; }
+    }
+    return null;
+}
+// Select an accessible standing location from which the Spectre can cast on
+// its locked nuke point. Moving to the point itself can get stuck inside a
+// structure footprint or against cliffs.
+point APRG_ToshSpectreApproachPoint(unit spectre, point targetPoint) {
+    point candidate;
+    int attempt;
+    if (spectre == null || !UnitIsAlive(spectre) || targetPoint == null) { return null; }
+    if (DistanceBetweenPoints(UnitGetPosition(spectre), targetPoint) <= 8.5) {
+        return UnitGetPosition(spectre);
+    }
+    for (attempt = 0; attempt < 20; attempt += 1) {
+        candidate = PointWithOffsetPolar(targetPoint, RandomFixed(6.0, 8.0),
+            libNtve_gf_RandomAngle());
+        if (candidate != null && RegionContainsPoint(RegionPlayableMap(), candidate) &&
+            PointPathingPassable(candidate) &&
+            PointPathingIsConnected(UnitGetPosition(spectre), candidate)) { return candidate; }
     }
     return null;
 }
@@ -20133,6 +20173,9 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
     unitgroup created;
     point spawnPoint;
     point targetPoint;
+    point approachPoint;
+    fixed distance;
+    bool shieldCast;
     int owner;
     int slot;
     int i;
@@ -20149,6 +20192,11 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
         if (!CatalogEntryIsValid(c_gameCatalogUnit, toshType)) { toshType = "ToshHero"; }
         if (!CatalogEntryIsValid(c_gameCatalogUnit, toshType)) { return; }
         anchor = APRG_RandomPathableHostileBaseAnchor(player);
+        // Building-centre connectivity is not reliable for every campaign
+        // structure. The actual spawn helper validates the walkable position.
+        if (anchor == null) {
+            anchor = UnitGroupRandomUnit(APRG_EnemyStructures(player), c_unitCountAlive);
+        }
         if (anchor == null) { return; }
         spawnPoint = APRG_ToshPathableHostileSpawnPoint(anchor, player);
         if (spawnPoint == null) { return; }
@@ -20166,18 +20214,18 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
     if (g_aprgTosh != null && UnitIsAlive(g_aprgTosh)) {
         // Do not wait for the 5-second generic hero AI tick or for a nearby
         // offensive target before using Tosh's personal protective shield.
-        APRG_TryToshDefensiveShield(g_aprgTosh);
+        shieldCast = APRG_TryToshDefensiveShield(g_aprgTosh);
         if (now >= g_aprgNextToshPatrolTime) {
-            targetPoint = APRG_ArchonImmortalPatrolDestination(g_aprgTosh, player, 20.0);
-            if (targetPoint != null) { APRG_OrderAttackMove(g_aprgTosh, targetPoint); }
-            // Don't replace a long move with tiny new hops every few seconds.
+            if (!shieldCast) {
+                targetPoint = APRG_ArchonImmortalPatrolDestination(g_aprgTosh, player, 20.0);
+                if (targetPoint != null) { APRG_OrderAttackMove(g_aprgTosh, targetPoint); }
+            }
             g_aprgNextToshPatrolTime = now + 20.0;
         }
         if (now >= g_aprgNextToshAbilityTime) {
-            // Hostile Tosh also reserves 100+ energy for his personal shield.
-            if (UnitGetPropertyFixed(g_aprgTosh, c_unitPropEnergy, c_unitPropCurrent) >= 200.0) {
-                APRG_TryGeneratedHeroAbility(g_aprgTosh, player);
-            }
+            // The dedicated shield fires first; offensive spells are allowed
+            // whenever their actual native orders/energy requirements permit.
+            if (!shieldCast) { APRG_TryGeneratedHeroAbility(g_aprgTosh, player); }
             g_aprgNextToshAbilityTime = now + 5.0;
         }
         if (now >= g_aprgNextToshSpectreTime) {
@@ -20219,6 +20267,9 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
                         g_aprgToshSpectreNukePoint[slot] = targetPoint;
                         g_aprgToshSpectreNukeTime[slot] = -1.0;
                         g_aprgToshSpectreNextOrderTime[slot] = now + 1.0;
+                        g_aprgToshSpectreLastDistance[slot] = targetPoint == null
+                            ? 999999.0 : DistanceBetweenPoints(UnitGetPosition(spec), targetPoint);
+                        g_aprgToshSpectreLastProgressTime[slot] = now;
                         g_aprgToshSpectreNukeIndicator[slot] = null;
                         g_aprgToshSpectreNukeSilo[slot] = null;
                         g_aprgToshSpectreNukeOrderSeen[slot] = false;
@@ -20227,11 +20278,15 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
                         if (CatalogEntryIsValid(c_gameCatalogBehavior, "APRogueCloakedNightmare")) {
                             UnitBehaviorAdd(spec, "APRogueCloakedNightmare", spec, 1);
                         }
-                        // Approach the locked NUKE POINT directly. Script control
-                        // prevents ordinary enemy AI from stopping to attack en route.
+                        // Lock the nuke point now, but walk to a reachable
+                        // position within native casting range, not into a
+                        // potentially blocked building/unit position.
                         if (targetPoint != null) {
-                            UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
-                                targetPoint), c_orderQueueReplace);
+                            approachPoint = APRG_ToshSpectreApproachPoint(spec, targetPoint);
+                            if (approachPoint != null) {
+                                UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
+                                    approachPoint), c_orderQueueReplace);
+                            }
                         }
                         g_aprgNextToshSpectreTime = now + 60.0;
                     }
@@ -20284,17 +20339,28 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
             targetPoint = APRG_ToshSpectreChooseNukePoint(spec, player);
             if (targetPoint == null) { g_aprgToshSpectreNextOrderTime[i] = now + 4.0; continue; }
             g_aprgToshSpectreNukePoint[i] = targetPoint;
-            UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
-                targetPoint), c_orderQueueReplace);
+            g_aprgToshSpectreLastDistance[i] = DistanceBetweenPoints(UnitGetPosition(spec), targetPoint);
+            g_aprgToshSpectreLastProgressTime[i] = now;
         }
-        // Nuke directly from cast range, without waiting for the approach
-        // move to finish at the building/unit's actual position.
-        if (DistanceBetweenPoints(UnitGetPosition(spec), targetPoint) > 9.0) {
-            // Only reissue when no move order is active; constant replacements
-            // could repeatedly restart travel for Spectres far across the map.
-            if (UnitOrderCount(spec) == 0) {
-                UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
-                    targetPoint), c_orderQueueReplace);
+        // Never acquire enemies or attack-move before this native nuke.
+        distance = DistanceBetweenPoints(UnitGetPosition(spec), targetPoint);
+        if (distance + 0.5 < g_aprgToshSpectreLastDistance[i]) {
+            g_aprgToshSpectreLastDistance[i] = distance;
+            g_aprgToshSpectreLastProgressTime[i] = now;
+        }
+        if (distance > 9.0) {
+            // An order can remain active even when the unit is physically
+            // stuck. Every 20 seconds without progress, choose another
+            // walkable point inside casting range of the LOCKED target.
+            if (UnitOrderCount(spec) == 0 ||
+                now >= g_aprgToshSpectreLastProgressTime[i] + 20.0) {
+                approachPoint = APRG_ToshSpectreApproachPoint(spec, targetPoint);
+                if (approachPoint != null) {
+                    UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
+                        approachPoint), c_orderQueueReplace);
+                }
+                g_aprgToshSpectreLastDistance[i] = distance;
+                g_aprgToshSpectreLastProgressTime[i] = now;
             }
             g_aprgToshSpectreNextOrderTime[i] = now + 2.0;
             continue;
@@ -20312,6 +20378,10 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
             continue;
         }
         if (!UnitAbilityExists(spec, "TacNukeStrike")) { UnitAbilityAdd(spec, "TacNukeStrike"); }
+        // A long cloaked approach can drain the Spectre's energy below the
+        // native strike requirement; restore this one caster for its one nuke.
+        UnitSetPropertyFixed(spec, c_unitPropEnergy,
+            UnitGetPropertyFixed(spec, c_unitPropEnergyMax, c_unitPropCurrent));
         UnitAbilityShow(spec, "TacNukeStrike", true);
         UnitAbilityEnable(spec, "TacNukeStrike", true);
         TechTreeAbilityAllow(spectreOwner, AbilityCommand("TacNukeStrike", 0), true);

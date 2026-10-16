@@ -18,7 +18,8 @@ class NativeSpectreTargetTest(unittest.TestCase):
     def test_chooses_target_at_birth(self):
         self.assertIn('targetPoint = APRG_ToshSpectreChooseNukePoint(spec, player);', TOSH)
         self.assertIn('g_aprgToshSpectreNukePoint[slot] = targetPoint;', TOSH)
-        self.assertIn('UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),\n                                targetPoint), c_orderQueueReplace);', TOSH)
+        self.assertIn('approachPoint = APRG_ToshSpectreApproachPoint(spec, targetPoint);', TOSH)
+        self.assertIn('g_aprgToshSpectreLastProgressTime[slot] = now;', TOSH)
         self.assertIn('g_aprgToshSpectreNukePoint[i];', TOSH)
 
     def test_25_percent_mobile_preference_plus_allied_units(self):
@@ -35,7 +36,7 @@ class NativeSpectreTargetTest(unittest.TestCase):
 
     def test_cast_keeps_original_point_and_no_attack_approach(self):
         self.assertIn('OrderTargetingPoint(AbilityCommand("TacNukeStrike", 0), targetPoint)', TOSH)
-        self.assertIn('DistanceBetweenPoints(UnitGetPosition(spec), targetPoint) > 9.0', TOSH)
+        self.assertIn('if (distance > 9.0)', TOSH)
         self.assertIn('UnitOrderCount(spec) == 0', TOSH)
         self.assertNotIn('targetPoint = PointWithOffsetPolar(UnitGetPosition(target),', TOSH)
         start = TOSH.index('if (g_aprgToshSpectrePhase[i] != 1')

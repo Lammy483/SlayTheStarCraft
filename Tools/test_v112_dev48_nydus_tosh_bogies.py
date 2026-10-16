@@ -32,16 +32,16 @@ class Dev48(unittest.TestCase):
  def test_roachling_zombie_exclusion(self):
   self.assertIn('StringContains(unitType, "Roachling", c_stringAnywhere, c_stringNoCase)',f('APRG_NoDeathsExcluded')) if 'APRG_NoDeathsExcluded' in G else self.assertIn('StringContains(unitType, "Roachling", c_stringAnywhere, c_stringNoCase)',G)
  def test_covert_tosh_reserve_in_shared_ai(self):
-  self.assertIn('(caster == g_aprgCovertTosh || caster == g_aprgTosh)',f('APRG_TryCategorizedAutonomousAbility'))
+  self.assertIn('caster == g_aprgCovertTosh',f('APRG_TryCategorizedAutonomousAbility'))
   self.assertIn('c_unitPropEnergy, c_unitPropCurrent) < 200.0',f('APRG_TryCategorizedAutonomousAbility'))
   self.assertIn('>= 200.0',f('APRG_TickCovertAssistance'))
  def test_tosh_raid_paths_and_nuke(self):
   tosh=f('APRG_TickToshAndHisBoys')
   self.assertIn('g_aprgNextToshSpectreTime = g_aprgMacroReadyTime + APRG_TOSH_SPECTRE_FIRST_SPAWN_DELAY',tosh)
-  self.assertIn('UnitGetPropertyFixed(g_aprgTosh, c_unitPropEnergy, c_unitPropCurrent) >= 200.0',tosh)
+  self.assertIn('if (!shieldCast) { APRG_TryGeneratedHeroAbility(g_aprgTosh, player); }',tosh)
   self.assertIn('g_aprgToshSpectreNextOrderTime[slot] = now + 1.0;',tosh)
   self.assertIn('APRG_ArchonImmortalPatrolDestination(g_aprgTosh, player, 20.0)',tosh)
-  self.assertIn('DistanceBetweenPoints(UnitGetPosition(spec), targetPoint) > 9.0',tosh)
+  self.assertIn('if (distance > 9.0)',tosh)
   self.assertIn('g_aprgNextToshSpectreTime = now + 5.0',tosh)
   self.assertIn('UnitIssueOrder(spec, castOrder, c_orderQueueReplace)',tosh)
  def test_air_bogie_voice_whitelist_and_catalog(self):
