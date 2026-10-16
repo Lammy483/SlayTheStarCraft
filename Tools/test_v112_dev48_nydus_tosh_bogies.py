@@ -38,10 +38,10 @@ class Dev48(unittest.TestCase):
  def test_tosh_raid_paths_and_nuke(self):
   tosh=f('APRG_TickToshAndHisBoys')
   self.assertIn('g_aprgNextToshSpectreTime = g_aprgMacroReadyTime + APRG_TOSH_SPECTRE_FIRST_SPAWN_DELAY',tosh)
-  self.assertIn('if (!shieldCast) { APRG_TryGeneratedHeroAbility(g_aprgTosh, player); }',tosh)
-  self.assertIn('g_aprgToshSpectreNextOrderTime[slot] = now + 1.0;',tosh)
+  self.assertIn('APRG_TryToshDefensiveShield(g_aprgTosh);',tosh)
+  self.assertIn('g_aprgToshSpectreNextOrderTime[slot] = now;',tosh)
   self.assertIn('APRG_ArchonImmortalPatrolDestination(g_aprgTosh, player, 20.0)',tosh)
-  self.assertIn('if (distance > 9.0)',tosh)
+  self.assertIn('if (DistanceBetweenPoints(UnitGetPosition(spec), targetPoint) > 11.75)',tosh)
   self.assertIn('g_aprgNextToshSpectreTime = now + 5.0',tosh)
   self.assertIn('UnitIssueOrder(spec, castOrder, c_orderQueueReplace)',tosh)
  def test_air_bogie_voice_whitelist_and_catalog(self):

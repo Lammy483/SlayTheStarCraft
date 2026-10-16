@@ -93,7 +93,8 @@ class Dev8Regressions(unittest.TestCase):
         self.assertEqual(manifest['runtime_revision'],revision)
         self.assertIn('runtimeRevision = "'+revision+'"',(ROOT/'Tools/slay_launcher_windows.go').read_text(encoding='utf-8'))
         self.assertIn('$RuntimeRevision = "'+revision+'"',(ROOT/'Tools/bootstrap_slay_runtime.ps1').read_text(encoding='utf-8'))
-        self.assertTrue((ROOT/'SlayTheStarCraft.exe').is_file())
+        # The compiled Windows EXE belongs in the public ZIP, not Git history.
+        self.assertTrue((ROOT/'Tools/slay_launcher_windows.go').is_file())
 
 
 if __name__=='__main__':unittest.main()

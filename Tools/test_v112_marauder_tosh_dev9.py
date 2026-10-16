@@ -30,7 +30,7 @@ class Dev9Regressions(unittest.TestCase):
         tosh = section('void APRG_TickToshAndHisBoys(', 'bool APRG_IsOdinDefensiveStructure(')
         self.assertIn('g_aprgNextToshSpectreTime = g_aprgMacroReadyTime + APRG_TOSH_SPECTRE_FIRST_SPAWN_DELAY;',tosh)
         self.assertIn('g_aprgNextToshSpectreTime = now + 60.0;',tosh)
-        self.assertIn('g_aprgToshSpectreNextOrderTime[slot] = now + 1.0;',tosh)
+        self.assertIn('g_aprgToshSpectreNextOrderTime[slot] = now;',tosh)
         self.assertIn('if (!UnitIsAlive(spec)) {',tosh)
         self.assertIn('UnitMagazineArm(silo, AbilityCommand("ArmSiloWithNuke", 0), 1);',tosh)
         self.assertIn('UnitMagazineCount(silo, "ArmSiloWithNuke")',tosh)
