@@ -66,7 +66,7 @@ class R29Regressions(unittest.TestCase):
         self.assertIn('if len(chosen_potions) < potion_offer_count:', stock)
         self.assertIn('POTION_CAPACITY = 2', CLIENT)
         self.assertIn('including Consumables.', CLIENT)
-        self.assertIn('SHOP_STOCK_LOGIC_VERSION = 113', CLIENT)
+        self.assertIn('SHOP_STOCK_LOGIC_VERSION = 114', CLIENT)
 
     def test_mercenary_favor_squad_sizes_and_contract_spawn(self):
         counts=galaxy_function('APRG_PotionMercSquadCount')
@@ -102,6 +102,6 @@ class R29Regressions(unittest.TestCase):
             self.assertIn('libNtve_gf_SetOpacity(1.0, 5.0)', fn)
             self.assertIn('now + 5.0', fn)
         self.assertIn('ProtossGenericWarpInOut', visual)
-        self.assertIn('libNtve_gf_AttachModelToUnit', visual)
+        self.assertIn('libNtve_gf_AttachModelToUnitInheritVisibility', visual)
 
 if __name__ == '__main__': unittest.main()

@@ -78,15 +78,15 @@ class R30Tests(unittest.TestCase):
         self.assertGreaterEqual(GALAXY.count('APRG_ToshPathableHostileSpawnPoint(anchor, player)'), 2)
         body = GALAXY[GALAXY.index('void APRG_TickToshAndHisBoys('):GALAXY.index('bool APRG_IsOdinDefensiveStructure(')]
         for expected in ('APRG_RandomPathableHostileBaseAnchor(player)',
-                         'g_aprgMacroReadyTime + 180.0', 'g_aprgMacroReadyTime + 240.0',
+                         'g_aprgMacroReadyTime + 180.0', 'g_aprgMacroReadyTime + APRG_TOSH_SPECTRE_FIRST_SPAWN_DELAY',
                          'now + 60.0', 'g_aprgToshSpawned = true',
                          'if (g_aprgTosh != null && UnitIsAlive(g_aprgTosh))',
                          'APRG_TryGeneratedHeroAbility(g_aprgTosh, player)',
                          'APRG_RegisterMutationEnemyGroup(created)',
                          'UnitBehaviorAdd(spec, "APRogueCloakedNightmare", spec, 1)',
-                         'RandomFixed(0.0, 5.0)', 'APRG_TryUnitAbilityKeyword(spec, "Nuke"',
+                         'APRG_ToshSpectreChooseNukePoint(spec, player)', 'UnitIssueOrder(spec, castOrder, c_orderQueueReplace)',
                          'g_aprgToshSpectreNextOrderTime[i] = now + 4.0',
-                         'if (!UnitIsAlive(spec))', 'now + 12.0'):
+                         'if (!UnitIsAlive(spec))', 'now + 23.0'):
             self.assertIn(expected, body)
         self.assertIn('"tosh_and_his_boys"', function_source(CLIENT, '_mutation_allowed_for_mission'))
         self.assertIn('"tosh_and_his_boys"', function_source(GENERATOR, '_effect_exclusions_for_mission'))

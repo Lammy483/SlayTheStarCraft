@@ -3,7 +3,7 @@ import argparse, ast, csv, importlib.util, py_compile, sys, xml.etree.ElementTre
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 RELEASE_ROOT=ROOT.parent
-VERSION="1.1.0"
+VERSION="1.2.0"
 
 def load_installer():
     spec=importlib.util.spec_from_file_location("slay_release_installer", ROOT/"install_slay.py")
@@ -60,9 +60,94 @@ def check_installer_galaxy_postchecks(payload_dir: Path) -> None:
         raise RuntimeError(f"Installer will reject the APRogue.galaxy payload: {missing}")
 
 
+
+def check_installer_bundled_preinstall_postchecks(payload_dir: Path) -> None:
+    """Verify the exact installer markers for bundled source files.
+
+    Gameplay markers remain hard requirements. Version-only drift is a warning,
+    because it must not make the first-time data download fail. Native AP files
+    that the installer generates from Archipelago are intentionally not part
+    of this check; these are the payload files installed byte-for-byte.
+    """
+    program = ast.parse((payload_dir / "install_slay.py").read_text(encoding="utf-8"))
+    post_checks = None
+    for node in ast.walk(program):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict) and any(
+                isinstance(target, ast.Name) and target.id == "post_checks" for target in node.targets):
+            post_checks = node.value
+            break
+    if post_checks is None:
+        raise RuntimeError("Installer pre-install post-checks are missing")
+    known_source_paths = {
+        "runtime_target": "slay_the_starcraft.py",
+        "launcher_target": "slay_launcher.py",
+        "generator_target": "generate_slay_run.py",
+        "apr_target": "APRogue.galaxy",
+    }
+    package_version = (payload_dir.parent / "VERSION.txt").read_text(encoding="utf-8").strip()
+    expected_version_marker = f'PACKAGE_VERSION = "{package_version}"'
+    found = set()
+    for key, value in zip(post_checks.keys, post_checks.values):
+        if not isinstance(key, ast.Name) or key.id not in known_source_paths:
+            continue
+        name = key.id
+        found.add(name)
+        file_path = payload_dir / known_source_paths[name]
+        data = file_path.read_text(encoding="utf-8")
+        markers = []
+        for marker_node in value.elts:
+            if isinstance(marker_node, ast.Constant) and isinstance(marker_node.value, str):
+                markers.append(marker_node.value)
+            elif (isinstance(marker_node, ast.JoinedStr) and len(marker_node.values) == 1
+                  and isinstance(marker_node.values[0], ast.FormattedValue)
+                  and isinstance(marker_node.values[0].value, ast.Name)
+                  and marker_node.values[0].value.id == "package_version"):
+                # The installer should embed its version in a full marker,
+                # not only the bare version string.
+                raise RuntimeError("Installer version marker must include PACKAGE_VERSION =")
+            elif (isinstance(marker_node, ast.JoinedStr)
+                  and any(isinstance(part, ast.FormattedValue) and
+                          isinstance(part.value, ast.Name) and part.value.id == "package_version"
+                          for part in marker_node.values)):
+                parts = []
+                for part in marker_node.values:
+                    if isinstance(part, ast.Constant):
+                        parts.append(part.value)
+                    elif (isinstance(part, ast.FormattedValue) and
+                          isinstance(part.value, ast.Name) and part.value.id == "package_version"):
+                        parts.append(package_version)
+                    else:
+                        raise RuntimeError("Unsupported computed installer pre-install marker")
+                markers.append("".join(parts))
+            else:
+                raise RuntimeError(f"Unsupported installer pre-install marker for {name}")
+        if name in {"launcher_target", "generator_target"} and expected_version_marker not in markers:
+            print(f"WARNING: Installer's version expectation for {file_path.name} differs from VERSION.txt.")
+        missing = [marker for marker in markers if marker not in data]
+        version_only = [m for m in missing if m.startswith('PACKAGE_VERSION = ')]
+        critical = [m for m in missing if m not in version_only]
+        if version_only:
+            print(f"WARNING: Installer's version marker differs for {file_path.name}: {version_only}")
+        if critical:
+            raise RuntimeError(f"Installer requires missing gameplay markers in {file_path.name}: {critical}")
+    if found != set(known_source_paths):
+        raise RuntimeError(f"Installer source pre-install checks are incomplete: {set(known_source_paths) - found}")
+
+
+def check_galaxy_type_identifiers():
+    import re
+    source = (ROOT / "APRogue.galaxy").read_text(encoding="utf-8")
+    reserved = r"wave|waveinfo|wavetarget|unit|unitgroup|point|region|trigger|order|sound"
+    pattern = r"(?m)^\s*(?:unitgroup|unit|point|int|fixed|bool|string)\s+(?:" + reserved + r")\s*(?:;|=|,|\[)"
+    illegal = re.search(pattern, source)
+    if illegal:
+        raise RuntimeError("Galaxy variable uses a built-in type name: " + illegal.group(0).strip())
+
 def check_payload():
+    check_galaxy_type_identifiers()
     check_embedded_gui_methods()
     check_installer_galaxy_postchecks(ROOT)
+    check_installer_bundled_preinstall_postchecks(ROOT)
     verify_v1025_changes(ROOT)
     verify_v1026_changes(ROOT)
     verify_v1027_changes(ROOT)
@@ -117,7 +202,7 @@ def check_payload():
         "def prepare_kerrigan_options",
         'campaign != "Heart of the Swarm" and _progression_owned(ctx, KERRIGAN_UNLOCK)',
         'inventory_received_snapshot',
-        'commander_hero_index(ctx, mission_id) in {10, 30}',
+        'commander_hero_index(ctx, mission_id) in {9, 10, 30}',
         '_purchased_count(ctx, item_name) < 3',
         'status not in {"future","available","selected"}',
         'def consume_shop_purchase_reveal',
@@ -253,15 +338,15 @@ def verify_v1027_changes(payload_dir: Path) -> None:
             raise RuntimeError(f"Missing v1.0.2.17 document update: {token}")
     for token in (
         "APRG_DiamondbackWanderDestination",
-        "RandomInt(1, 100) <= 60",
+        "APRG_DiamondbackWanderDestination",  # Dev6 destination odds vary with base-established minutes
         "g_aprgTorrasqueRespawnTime = now + 5.0",
         "g_aprgMacroReadyTime + 180.0",
-        "elapsed >= 720.0",
+        "now >= 780.0",  # Too Many Wraiths reaches maximum rate at 13m after base
         "APRG_TickTrueGoldenArmada",
         "APRG_TryTrueGoldenOracleRevelation",
         'UnitCreate(20, "Phoenix"',
         'UnitCreate(3, "Oracle"',
-        "g_aprgEffectsSummaryDisplayed",
+        "g_aprgEffectsSummaryAfterBaseDisplayed",
         "APRG_DisplayActiveEffects(player)",
     ):
         if token not in galaxy:
@@ -353,7 +438,7 @@ def verify_v10210_changes(payload_dir: Path) -> None:
     for token in (
         "bool APRG_GoldenPatrolRouteSafe",
         "APRG_PointNearPlayerOrAlliedBuilding(sample, player, clearance)",
-        "GameGetMissionTime() < 600.0",
+        "APRG_TimeSinceMacroBase(GameGetMissionTime()) < 900.0",
         "APRG_SetGroupMovementSpeed(g_aprgGoldenFleet, 1.9)",
         "APRG_SetGroupMovementSpeed(g_aprgTrueGoldenFleet, 1.9)",
         "c_unitPropLifeMax, 1000.0",
@@ -373,13 +458,16 @@ def verify_v10211_changes(payload_dir: Path) -> None:
         "MISSION_TIER_MUTATION_SEVERITY_PER_TIER = 2.0",
         "RED_DANGER_MARGIN = 250",
         "mission_tier_mut_shift = (expected_pool - float(mission_pool)) * MISSION_TIER_MUTATION_SEVERITY_PER_TIER",
-        "scaled_mut_mean = max(0.0, (mut_mean + difficulty_mut_shift + mission_tier_mut_shift) * mut_factor)",
+        "raw_mut_target = max(0, int(round(rng.gauss(",
+        "mut_target = max(0, min(20, int(round(raw_mut_target * mut_factor))))",
+        "bless_target = max(0, min(12, int(round(raw_bless_target * bless_factor))))",
+        "GAMEPLAY_DIFFICULTY_MUTATION_SHIFT = {",
         "+ RED_DANGER_MARGIN",
     ):
         if token not in generator:
             raise RuntimeError(f"Missing v1.0.2.17 mission pacing fix: {token}")
     for token in (
-        "SHOP_STOCK_LOGIC_VERSION = 113",
+        "SHOP_STOCK_LOGIC_VERSION = 114",
         "def _unit_upgrade_available_from_owned_or_current_stock",
         "race_unit_stock = _weighted_shop_sample",
         "ctx, name, owned_unlocks, race_unit_stock, table",
@@ -387,7 +475,7 @@ def verify_v10211_changes(payload_dir: Path) -> None:
         if token not in runtime:
             raise RuntimeError(f"Missing v1.0.2.17 current-shop upgrade fix: {token}")
     installer = (payload_dir / "install_slay.py").read_text(encoding="utf-8")
-    if '"SHOP_STOCK_LOGIC_VERSION = 113"' not in installer:
+    if '"SHOP_STOCK_LOGIC_VERSION = 114"' not in installer:
         raise RuntimeError("Installer preflight shop-stock version is stale")
     if '"SHOP_STOCK_LOGIC_VERSION = 108"' in installer:
         raise RuntimeError("Installer still contains obsolete shop-stock version 108")
@@ -440,7 +528,7 @@ def verify_v10214_changes(payload_dir: Path) -> None:
         'DISABLED_MUTATIONS = {"enemy_spear_of_adun"}',
         '_upgrade_pack_race_is_unlocked(ctx, race, owned_unlocks)',
         'return _owned_race_unit_unlock_count(ctx, race, owned_unlocks, table) >= 3',
-        'SHOP_STOCK_LOGIC_VERSION = 113',
+        'SHOP_STOCK_LOGIC_VERSION = 114',
     ):
         if token not in runtime:
             raise RuntimeError(f"Missing v1.0.2.17 runtime fix: {token}")
@@ -550,7 +638,7 @@ def verify_v10217_changes(payload_dir: Path) -> None:
         "destination = RegionRandomPoint(RegionPlayableMap());",
         "this deliberately allows routes through the player's base",
         'OrderTargetingPoint(AbilityCommand("attack", 0), destination)',
-        "if (GameGetMissionTime() < 600.0 && g_aprgFixedPatrolPointCount > 0)",
+        "if (APRG_TimeSinceMacroBase(GameGetMissionTime()) < 1200.0 && g_aprgFixedPatrolPointCount > 0)",
     ):
         if token not in galaxy:
             raise RuntimeError(f"Missing v1.0.2.17 True Golden Armada patrol update: {token}")
@@ -582,6 +670,9 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
             raise RuntimeError(f"Missing v1.1.0 UI batch command token: {token}")
     # An unsupported Galaxy native breaks APRogue globally: all three races
     # appear broken even if the invalid function would never execute.
+    galaxy = (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8")
+    if "UnitGroupUnit(" in galaxy:
+        raise RuntimeError("Unsupported Galaxy native UnitGroupUnit; use UnitGroupUnitFromEnd")
     if "UnitHasAttribute(" in (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8"):
         raise RuntimeError("Unsupported Galaxy native UnitHasAttribute remains; use UnitTypeTestAttribute(UnitGetType(unit), attr)")
     if "slay_wheel_zoom_bound" in command or "def wheel_zoom(" in command:

@@ -1,4 +1,4 @@
-"""Guard controllable named-unit consumables against automated attack AI."""
+"""Guard Spawn-X autonomous unit consumables and their AP unit variants."""
 from pathlib import Path
 import re
 import unittest
@@ -30,13 +30,14 @@ class R26ControllableConsumables(unittest.TestCase):
   self.assertIn('APRG_PlayerSpawnSameUnitShape',u)
  def test_auto_orders_limited_to_uncontrollable_mass_waves(self):
   f=fn('APRG_TickPotionSpawnQueues')
-  self.assertIn('if (kind == 17 || kind == 18) {\n                // Only Mass Marines',f)
-  chunk=f.split('if (kind == 17 || kind == 18) {\n                // Only Mass Marines',1)[1].split('\n            }\n        }',1)[0]
+  gate='if (kind == 17 || kind == 18 || (kind >= 1901 && kind <= 1918)) {'
+  self.assertIn(gate,f)
+  chunk=f.split(gate,1)[1].split('\n            }\n        }',1)[0]
   self.assertIn('APRG_MakeGroupUncommandable(created)',chunk)
   self.assertIn('UnitGroupAdd(g_aprgPotionAutoUnits, spawned)',chunk)
   self.assertIn('APRG_OrderAttackMove(spawned',chunk)
   outside=f.replace(chunk,'')
-  # After removing the mass-wave block, the only remaining orders are the
+  # After removing the autonomous block, the only remaining orders are the
   # periodic AI retargeter applied exclusively to g_aprgPotionAutoUnits.
   self.assertIn('UnitGroupUnitFromEnd(g_aprgPotionAutoUnits, i)',outside)
   self.assertNotIn('UnitGroupAdd(g_aprgPotionAutoUnits, spawned)',outside)

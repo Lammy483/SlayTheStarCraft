@@ -40,9 +40,11 @@ class R32Regression(unittest.TestCase):
 
     def test_mira_spawn_has_building_buffer_pathing_and_no_unsafe_fallback(self):
         src = body('APRG_FindMiraCampPoint')
-        self.assertIn('APRG_PointNearPlayerOrAlliedBuilding(candidate, player, 40.0)', src)
+        self.assertIn('clearance = 40.0;', src)
+        self.assertIn('clearance = 26.0;', src)
+        self.assertIn('APRG_PointNearPlayerOrAlliedBuilding(candidate, player, clearance)', src)
         self.assertIn('APRG_GroundSpawnsNeedPlayerPathing()', src)
-        self.assertIn('PointPathingIsConnected(candidate, UnitGetPosition(home))', src)
+        self.assertIn('PointPathingIsConnected(candidate, homePoint)', src)
         self.assertNotIn('return APRG_FindStaticPatrolGroundPoint(', src)
         self.assertRegex(src, r'return\s+null\s*;\s*$')
         self.assertIn('if (campPoint == null) { return; }', body('APRG_SpawnMiraMercenaries'))
