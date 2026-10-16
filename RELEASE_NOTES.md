@@ -1,20 +1,24 @@
-# Slay the StarCraft v1.1.0
+# Slay the StarCraft v1.2.0
 
-A feature release of the single-player StarCraft II Archipelago roguelike.
+Release based on v1.1.2 Dev51. This is a feature update to v1.1.0.
 
 ## Highlights
 
-- Overhauled English StarCraft-style interface for mission selection, shops, inventory, setup and in-mission consumables; Chinese localization contributions and improved UI by Wangfeng.
-- Configurable Standard Mode campaign lengths, new run options, and experimental **Endless Mode (ALPHA)**.
-- New and updated mutations, blessings, boons, consumable potions, AI behaviors and scripted reinforcements across all three campaigns.
-- Victory reward balance: flat 100-credit baseline bonus per mission, 125 credits per mutation severity point, and a 100-credit deduction per blessing severity point, plus tier and special adjustments.
-- First-run launcher downloads its private Python, Archipelago and SC2-specific data as needed. The ZIP does not require a system Python installation.
+- New mutations: Nydus Worms, Point Defense Drones, Heavily-Defended Drakken Laser Drill, Multiple Air Bogies, Hybrid Research, and Immortals.
+- New Covert Assistance blessing: Tosh fights autonomously and retreats to recover.
+- More consistent enemy patrol placement, autonomous consumable allies, scripted reinforcement behavior and mutation timing relative to base establishment.
+- Tosh and His Boys Spectres use the native Tactical Nuclear Strike and choose strike targets when spawned.
+- Campaign voice announcements for new and existing mutation events; improved WoL sound catalog registration.
+- Improved Kerrigan and commander spawning, mission-specific behavior, and unit AI/performance.
+- Additional generator, shop, map, consumable, launcher and Galaxy reliability fixes.
 
-## Installation
+## Balance updates in this release
 
-1. Extract the ZIP to a normal writable folder (for example `C:\Games\SlayTheStarCraft`), not directly into the Windows Program Files folder.
-2. Launch `SlayTheStarCraft.exe`.
-3. Choose **Download Data** on first launch and keep the launcher open while it finishes. StarCraft II and its campaign content must already be installed.
-4. Generate a run or load an existing one.
+- Meat Grinder boon: **500 credits**.
+- Infested Liberator unit unlock: **50 credits**.
+- The uploaded October 2026 balancing workbook was audited across the Boons, Spear of Adun, Mercenaries, Kerrigan, Units and Upgrades, Consumables, and Events sheets. All other direct catalog prices were consistent.
+- Archipelago Scout variants remain 80 credits.
 
-Endless Mode is **ALPHA**; use Standard Mode for the intended v1.1.0 experience. The release has passed automated source checks, but not every mission/unit combination can be verified by automated tests.
+## Notes
+
+This release keeps the confirmed Galaxy initialization regression fixes. Offline tests cover the source, but not every mutation/mission combination has been live-tested. In particular, the final Dev51 Spectre retargeting update needs additional playtesting.

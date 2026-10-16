@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-PACKAGE_VERSION = "1.1.0"
+PACKAGE_VERSION = "1.2.0"
 
 
 
@@ -935,7 +935,7 @@ SPEAR_CHEAP_BASE_NAMES = {"Pylon Overcharge", "Temporal Field", "Mass Recall", "
 
 EFFECT_BANK_BITS: dict[str, tuple[int, int]] = {'low_quality_minerals': (0, 1), 'conga_line': (0, 2), 'ten_minutes_until_destruction': (0, 4), 'golden_armada': (0, 8), 'siege_mode': (0, 16), 'drakken_laser_drill_enemy': (0, 32), 'dark_archons': (0, 64), 'drop_pods': (0, 128), 'dark_templar': (0, 256), 'fragile_workers': (0, 512), 'decay': (0, 1024), 'zombies_mutation': (0, 2048), 'limited_bank': (0, 4096), 'leviathan_in_orbit': (0, 8192), 'heroes_of_the_storm': (0, 16384), 'too_many_wraiths': (0, 32768), 'void_thrashers': (0, 65536), 'not_enough_energy': (0, 131072), 'viking_raids': (0, 262144), 'nuclear_annihilation': (0, 524288), 'squishy': (0, 1048576), 'picky_eaters': (0, 2097152), 'darkness': (0, 4194304), 'adrenaline': (0, 8388608), 'arms_race': (0, 16777216), 'rising_gas_prices': (0, 33554432), 'forced_variety': (0, 67108864), 'occasional_thor_mutation': (0, 134217728), 'occasional_ultralisk_mutation': (0, 268435456), 'occasional_colossus_mutation': (0, 536870912), 'enemy_regeneration': (0, 1073741824), 'investors': (1, 1), 'multi_class': (1, 2), 'speedy': (1, 4), 'general': (1, 8), 'farseers': (1, 16), 'air_support': (1, 32), 'fire_squad': (1, 64), 'fuel_pipeline': (1, 128), 'rapid_evolution': (1, 256), 'zombies_blessing': (1, 512), 'compounding_interest': (1, 1024), 'transports': (1, 2048), 'lost_vikings': (1, 4096), 'warfields_reinforcements': (1, 8192), 'energy_overload': (1, 16384), 'explosive_armor': (1, 32768), 'instant_workers': (1, 65536), 'juggernaut': (1, 131072), 'assembly_line': (1, 262144), 'elite_soldiers': (1, 524288), 'blinding_light': (1, 1048576), 'specialists': (1, 2097152), 'fortifications': (1, 4194304), 'baneling_stream': (1, 8388608), 'tychus': (1, 16777216), 'zagaras_aid': (1, 33554432), 'logistics': (1, 67108864), 'occasional_thor_blessing': (2, 1), 'occasional_ultralisk_blessing': (2, 2), 'occasional_colossus_blessing': (2, 4), 'unexpected_evolution': (2, 8), 'another_gorgon_blessing': (2, 16), 'another_gorgon_mutation': (2, 32), 'burrowed_zerglings': (2, 64), 'sniper_thor': (2, 128), 'horde_mode': (2, 256), 'tower_defense': (2, 512), 'cloaked_nightmare': (2, 1024), 'rapid_repair': (2, 2048), 'blink_blessing': (2, 4096), 'boon_viking_anchors': (2, 8192), 'power_overwhelming': (2, 16384), 'drakken_laser_drill_blessing': (2, 32768), 'jetpacks': (2, 65536), 'stealth_tunnels': (2, 131072), 'lurker_defense': (2, 262144), 'combat_workers': (2, 524288), 'rapid_evolution_mutation': (2, 1048576), 'no_deaths_allowed': (2, 2097152), 'glass_cannons': (2, 4194304), 'victory_is_temporary': (2, 8388608), 'odin': (2, 16777216), 'nuclear_workers': (2, 33554432), 'bounty_kills': (2, 67108864), 'tactical_binoculars': (2, 134217728), 'building_overcharge': (2, 268435456), 'ghost_reporting': (2, 536870912), 'taldarim_reinforcements': (2, 1073741824), 'miras_mercenaries': (3, 1), 'glorious_martyrs': (3, 2), 'inflatable_soldiers': (3, 4), 'double_time': (3, 8), 'shrinkage': (3, 16), 'mineral_thieves': (3, 32), 'active_enemies': (3, 64), 'infinite_larva': (3, 128), 'zagaras_banelings': (3, 256), 'reflective_armor': (3, 512), 'buddy_system': (3, 1024), 'torrasque': (3, 2048), 'nexus_shield': (3, 4096), 'gargantuan_enemies': (3, 8192), 'boon_deadly_weapons': (3, 16384), 'boon_auto_repair': (3, 32768), 'boon_rapid_fire': (3, 65536), 'boon_shields_for_all': (3, 131072), 'boon_heavy_armor': (3, 262144), 'boon_unlimited_blink': (3, 524288), 'boon_interplanetary_fortress': (3, 1048576), 'boon_roach_infestation': (3, 2097152), 'boon_chain_reaction': (3, 4194304), 'boon_aiur_recruitment': (3, 8388608), 'boon_toxic_observation': (3, 16777216), 'boon_cloning_technology': (3, 33554432), 'raynors_raiders': (3, 67108864), 'boon_defender': (3, 134217728), 'boon_fire_power': (3, 268435456), 'boon_roachling_mines': (3, 536870912), 'boon_broodling_evolution': (3, 1073741824), 'boon_adamantium_blades': (1, 134217728), 'boon_enhanced_control': (1, 268435456), 'boon_banshee_swarm': (1, 536870912), 'boon_enlarged_banelings': (1, 1073741824), 'boon_corrosive_claws': (4, 2), 'boon_unlimited_power': (4, 4), 'boon_unstable_colossi': (4, 8), 'boon_archon_cannons': (4, 16), 'boon_hyrda_storms': (4, 32), 'boon_mobile_siege': (4, 64), 'boon_maddening_shades': (4, 128), 'boon_concussed_shells': (4, 256), 'purifier': (4, 512), 'spear_of_adun_blessing': (4, 1024), 'spear_of_adun_overcharge': (4, 2048), 'dehakas_pack': (4, 4096), 'zombie_apocalypse': (4, 8192), 'arguments': (4, 16384), 'combat_pay': (4, 32768), 'nuclear_structures': (4, 65536), 'resource_swap': (4, 131072), 'rich_vespene': (4, 262144), 'rich_minerals': (4, 524288), 'boon_missile_defense': (4, 1048576), 'boon_stretchy_spines': (4, 2097152), 'boon_gargantuan_units': (4, 4194304), 'boon_chaos_blessings': (4, 8388608)}
 
-EFFECT_DISPLAY_NAMES: dict[str, str] = {'golden_armada': 'Golden Armada', 'low_quality_minerals': 'Low-Quality Minerals', 'conga_line': 'Meat Grinder', 'ten_minutes_until_destruction': '10 Minutes Until Destruction', 'siege_mode': 'Siege Mode', 'drakken_laser_drill_enemy': 'Drakken Laser Drill', 'dark_archons': 'Archons', 'drop_pods': 'Drop Pods', 'dark_templar': 'Dark Templar', 'fragile_workers': 'Fragile Workers', 'decay': 'Decay', 'zombies_mutation': 'Zombies', 'limited_bank': 'Limited Bank', 'leviathan_in_orbit': 'Leviathan In Orbit', 'heroes_of_the_storm': 'Heroes of the Storm', 'too_many_wraiths': 'Too many Wraiths', 'void_thrashers': 'Void Thrashers', 'not_enough_energy': 'Energy Leak', 'viking_raids': 'Viking Raids', 'nuclear_annihilation': 'Nuclear Annihilation', 'darkness': 'Darkness', 'adrenaline': 'Adrenaline', 'picky_eaters': 'Picky Eaters', 'arms_race': 'Arms Race', 'rising_gas_prices': 'Rising Gas Prices', 'squishy': 'Squishy', 'forced_variety': 'Forced Variety', 'occasional_thor_mutation': 'Occasional Thor', 'occasional_ultralisk_mutation': 'Occasional Ultralisk', 'occasional_colossus_mutation': 'Occasional Colossus', 'enemy_regeneration': 'Enemy Regeneration', 'investors': 'Investors', 'multi_class': 'Multi-Class', 'speedy': 'Speedy', 'general': 'Commander', 'farseers': 'Farseers', 'air_support': 'Air Support', 'fire_squad': 'Fire Squad', 'fuel_pipeline': 'Fuel Pipeline', 'rapid_evolution': 'Constant Evolution', 'zombies_blessing': 'Zombies', 'compounding_interest': 'Compound Interest', 'transports': 'Transports', 'lost_vikings': 'Lost Vikings', 'warfields_reinforcements': "Warfield's Reinforcements", 'energy_overload': 'Energy Overload', 'explosive_armor': 'Explosive Armor', 'instant_workers': 'Instant workers', 'juggernaut': 'Juggernaut', 'assembly_line': 'Assembly Line', 'elite_soldiers': 'Elite Soldiers', 'blinding_light': 'Blinding Light', 'specialists': 'Specialists', 'fortifications': 'Fortifications', 'baneling_stream': 'Baneling Stream', 'tychus': 'Tychus', 'zagaras_aid': "Zagara's Aid", 'logistics': 'Logistics', 'occasional_thor_blessing': 'Occasional Thor', 'occasional_ultralisk_blessing': 'Occasional Ultralisk', 'occasional_colossus_blessing': 'Occasional Colossus', 'unexpected_evolution': 'Unexpected Evolution', 'another_gorgon_blessing': 'ANOTHER GORGON', 'another_gorgon_mutation': 'ANOTHER GORGON', 'burrowed_zerglings': 'Burrowed Zerglings', 'sniper_thor': 'Sniper Thor', 'horde_mode': 'Horde Mode', 'tower_defense': 'Tower Defense', 'cloaked_nightmare': 'Cloaked Nightmare', 'rapid_repair': 'Rapid Repair', 'blink_blessing': 'Blink', 'boon_viking_anchors': 'Viking Anchors', 'power_overwhelming': 'Power Overwhelming', 'drakken_laser_drill_blessing': 'Drakken Laser Drill', 'jetpacks': 'Jetpacks', 'stealth_tunnels': 'Stealth Tunnels', 'lurker_defense': 'Lurker Defense', 'combat_workers': 'Combat Workers', 'rapid_evolution_mutation': 'Rapid Evolution', 'no_deaths_allowed': 'No Deaths Allowed', 'glass_cannons': 'Glass Cannons', 'victory_is_temporary': 'Victory is Temporary', 'odin': 'Odin', 'nuclear_workers': 'Nuclear Workers', 'bounty_kills': 'Bounty Kills', 'tactical_binoculars': 'Tactical Binoculars', 'building_overcharge': 'Building Overcharge', 'ghost_reporting': 'Ghost Reporting', 'taldarim_reinforcements': "Tal'darim Reinforcements", 'miras_mercenaries': "Mira's Mercenaries", 'glorious_martyrs': 'Glorious Martyrs', 'inflatable_soldiers': 'Inflatable Soldiers', 'double_time': 'Double Time', 'shrinkage': 'Shrinkage', 'mineral_thieves': 'Mineral Thieves', 'active_enemies': 'Active enemies', 'infinite_larva': 'Infinite Larva', 'zagaras_banelings': "Zagara's Banelings", 'reflective_armor': 'Reflective Armor', 'buddy_system': 'Buddy System', 'torrasque': 'Torrasque', 'nexus_shield': 'Nexus Shield', 'gargantuan_enemies': 'Gargantuan Enemies', 'boon_deadly_weapons': 'Deadly Weapons', 'boon_auto_repair': 'Auto-repair', 'boon_rapid_fire': 'Rapid-Fire', 'boon_shields_for_all': 'Shields for all', 'boon_heavy_armor': 'Heavy Armor', 'boon_unlimited_blink': 'Unlimited Blink', 'boon_interplanetary_fortress': 'Interplanetary Fortress', 'boon_roach_infestation': 'Roach Infestation', 'boon_chain_reaction': 'Chain Reaction', 'boon_aiur_recruitment': 'For Aiur!', 'boon_toxic_observation': 'Toxic Gaze', 'boon_cloning_technology': 'Cloning Technology', 'raynors_raiders': "Raynor's Raiders", 'boon_defender': 'Defender', 'boon_fire_power': 'Fire Power', 'boon_roachling_mines': 'Roachling Mines', 'boon_broodling_evolution': 'Broodling evolution', 'boon_adamantium_blades': 'Adamantium Blades', 'boon_enhanced_control': 'Enhanced Control', 'boon_banshee_swarm': 'Banshee Swarm', 'boon_enlarged_banelings': 'Enlarged Banelings', 'boon_corrosive_claws': 'Corrosive Claws', 'boon_unlimited_power': 'Unlimited Power', 'boon_unstable_colossi': 'Unstable Colossi', 'boon_archon_cannons': 'Archon Cannons', 'boon_hyrda_storms': 'Hyrda Storms', 'boon_mobile_siege': 'Mobile Siege', 'boon_maddening_shades': 'Maddening Shades', 'boon_concussed_shells': 'Concussed Shells', 'purifier': 'Purifier', 'spear_of_adun_blessing': 'Spear of Adun', 'spear_of_adun_overcharge': 'Spear of Adun Overcharge', 'dehakas_pack': "Dehaka's Pack", 'zombie_apocalypse': 'Zombie Apocalypse', 'arguments': 'Arguments', 'combat_pay': 'Combat Pay', 'nuclear_structures': 'Nuclear Structures', 'resource_swap': 'Resource Swap', 'rich_vespene': 'Rich Vespene', 'rich_minerals': 'Rich Minerals', 'boon_missile_defense': 'Missile Defense System', 'boon_stretchy_spines': 'Stretchy Spines', 'boon_gargantuan_units': 'Gargantuan Units', 'boon_chaos_blessings': 'Chaos Blessings', 'resource_pickups': 'Resource Pickups', 'marauder_kill_teams': 'Marauder Kill Teams', 'dark_archons_x5': 'Archons x5', 'siege_mode_x5': 'Siege Mode x5'}
+EFFECT_DISPLAY_NAMES: dict[str, str] = {'golden_armada': 'Golden Armada', 'low_quality_minerals': 'Low-Quality Minerals', 'conga_line': 'Meat Grinder', 'ten_minutes_until_destruction': '10 Minutes Until Destruction', 'siege_mode': 'Siege Mode', 'drakken_laser_drill_enemy': 'Drakken Laser Drill', 'dark_archons': 'Archons', 'drop_pods': 'Drop Pods', 'dark_templar': 'Dark Templar', 'fragile_workers': 'Fragile Workers', 'decay': 'Decay', 'zombies_mutation': 'Zombies', 'limited_bank': 'Limited Bank', 'leviathan_in_orbit': 'Leviathan In Orbit', 'heroes_of_the_storm': 'Heroes of the Storm', 'too_many_wraiths': 'Too many Wraiths', 'void_thrashers': 'Void Thrashers', 'not_enough_energy': 'Energy Leak', 'viking_raids': 'Viking Raids', 'nuclear_annihilation': 'Nuclear Annihilation', 'darkness': 'Darkness', 'adrenaline': 'Adrenaline', 'picky_eaters': 'Picky Eaters', 'arms_race': 'Arms Race', 'rising_gas_prices': 'Rising Gas Prices', 'squishy': 'Squishy', 'forced_variety': 'Forced Variety', 'occasional_thor_mutation': 'Occasional Thor', 'occasional_ultralisk_mutation': 'Occasional Ultralisk', 'occasional_colossus_mutation': 'Occasional Colossus', 'enemy_regeneration': 'Enemy Regeneration', 'investors': 'Investors', 'multi_class': 'Multi-Class', 'speedy': 'Speedy', 'general': 'Commander', 'farseers': 'Farseers', 'air_support': 'Air Support', 'fire_squad': 'Fire Squad', 'fuel_pipeline': 'Fuel Pipeline', 'rapid_evolution': 'Constant Evolution', 'zombies_blessing': 'Zombies', 'compounding_interest': 'Compound Interest', 'transports': 'Transports', 'lost_vikings': 'Lost Vikings', 'warfields_reinforcements': "Warfield's Reinforcements", 'energy_overload': 'Energy Overload', 'explosive_armor': 'Explosive Armor', 'instant_workers': 'Instant workers', 'juggernaut': 'Juggernaut', 'assembly_line': 'Assembly Line', 'elite_soldiers': 'Elite Soldiers', 'blinding_light': 'Blinding Light', 'specialists': 'Specialists', 'fortifications': 'Fortifications', 'baneling_stream': 'Baneling Stream', 'tychus': 'Tychus', 'zagaras_aid': "Zagara's Aid", 'logistics': 'Logistics', 'occasional_thor_blessing': 'Occasional Thor', 'occasional_ultralisk_blessing': 'Occasional Ultralisk', 'occasional_colossus_blessing': 'Occasional Colossus', 'unexpected_evolution': 'Unexpected Evolution', 'another_gorgon_blessing': 'ANOTHER GORGON', 'another_gorgon_mutation': 'ANOTHER GORGON', 'burrowed_zerglings': 'Burrowed Zerglings', 'sniper_thor': 'Sniper Thor', 'horde_mode': 'Horde Mode', 'tower_defense': 'Tower Defense', 'cloaked_nightmare': 'Cloaked Nightmare', 'rapid_repair': 'Rapid Repair', 'blink_blessing': 'Blink', 'boon_viking_anchors': 'Viking Anchors', 'power_overwhelming': 'Power Overwhelming', 'drakken_laser_drill_blessing': 'Drakken Laser Drill', 'jetpacks': 'Jetpacks', 'stealth_tunnels': 'Stealth Tunnels', 'lurker_defense': 'Lurker Defense', 'combat_workers': 'Combat Workers', 'rapid_evolution_mutation': 'Rapid Evolution', 'no_deaths_allowed': 'No Deaths Allowed', 'glass_cannons': 'Glass Cannons', 'victory_is_temporary': 'Victory is Temporary', 'odin': 'Odin', 'nuclear_workers': 'Nuclear Workers', 'bounty_kills': 'Bounty Kills', 'tactical_binoculars': 'Tactical Binoculars', 'building_overcharge': 'Building Turrets', 'ghost_reporting': 'Ghost Reporting', 'taldarim_reinforcements': "Tal'darim Reinforcements", 'miras_mercenaries': "Mira's Mercenaries", 'glorious_martyrs': 'Glorious Martyrs', 'inflatable_soldiers': 'Inflatable Soldiers', 'double_time': 'Double Time', 'shrinkage': 'Shrinkage', 'mineral_thieves': 'Mineral Thieves', 'active_enemies': 'Active enemies', 'infinite_larva': 'Infinite Larva', 'zagaras_banelings': "Zagara's Banelings", 'reflective_armor': 'Reflective Armor', 'buddy_system': 'Buddy System', 'torrasque': 'Torrasque', 'nexus_shield': 'Nexus Shield', 'gargantuan_enemies': 'Gargantuan Enemies', 'boon_deadly_weapons': 'Deadly Weapons', 'boon_auto_repair': 'Auto-repair', 'boon_rapid_fire': 'Rapid-Fire', 'boon_shields_for_all': 'Shields for all', 'boon_heavy_armor': 'Heavy Armor', 'boon_unlimited_blink': 'Unlimited Blink', 'boon_interplanetary_fortress': 'Interplanetary Fortress', 'boon_roach_infestation': 'Roach Infestation', 'boon_chain_reaction': 'Chain Reaction', 'boon_aiur_recruitment': 'For Aiur!', 'boon_toxic_observation': 'Toxic Gaze', 'boon_cloning_technology': 'Cloning Technology', 'raynors_raiders': "Raynor's Raiders", 'boon_defender': 'Defender', 'boon_fire_power': 'Fire Power', 'boon_roachling_mines': 'Roachling Mines', 'boon_broodling_evolution': 'Broodling evolution', 'boon_adamantium_blades': 'Adamantium Blades', 'boon_enhanced_control': 'Enhanced Control', 'boon_banshee_swarm': 'Banshee Swarm', 'boon_enlarged_banelings': 'Enlarged Banelings', 'boon_corrosive_claws': 'Corrosive Claws', 'boon_unlimited_power': 'Unlimited Power', 'boon_unstable_colossi': 'Unstable Colossi', 'boon_archon_cannons': 'Archon Cannons', 'boon_hyrda_storms': 'Hyrda Storms', 'boon_mobile_siege': 'Mobile Siege', 'boon_maddening_shades': 'Maddening Shades', 'boon_concussed_shells': 'Concussed Shells', 'purifier': 'Purifier', 'spear_of_adun_blessing': 'Spear of Adun', 'spear_of_adun_overcharge': 'Spear of Adun Overcharge', 'dehakas_pack': "Dehaka's Pack", 'zombie_apocalypse': 'Zombie Apocalypse', 'arguments': 'Arguments', 'combat_pay': 'Combat Pay', 'nuclear_structures': 'Nuclear Structures', 'resource_swap': 'Resource Swap', 'rich_vespene': 'Rich Vespene', 'rich_minerals': 'Rich Minerals', 'boon_missile_defense': 'Missile Defense System', 'boon_stretchy_spines': 'Stretchy Spines', 'boon_gargantuan_units': 'Gargantuan Units', 'boon_chaos_blessings': 'Chaos Blessings', 'resource_pickups': 'Resource Pickups', 'marauder_kill_teams': 'Marauder Kill Teams', 'dark_archons_x5': 'Archons x5', 'siege_mode_x5': 'Siege Mode x5'}
 
 
 
@@ -1013,6 +1013,33 @@ _NEW_BOON_BANK_F: dict[str, int] = {
 }
 
 EFFECT_BANK_BITS.update({effect: (5, bit) for effect, bit in _NEW_BOON_BANK_F.items()})
+
+# Nydus Worms occupies unused bank-E bit 1; no new protocol or dependency.
+EFFECT_BANK_BITS["nydus_worms"] = (4, 1)
+EFFECT_DISPLAY_NAMES["nydus_worms"] = "Nydus Worms"
+EFFECT_DESCRIPTIONS["nydus_worms"] = "Nydus worms periodically spawn to send units towards your base"
+
+# Dev41: unused E-bank bits for three new mutations and Covert Assistance.
+_DEV41_EFFECTS = {
+    "point_defense_drones": ((4, 16777216), "Point Defense Drones", "Enemy structures each have a point defense drone deployed near them to stop your projectiles"),
+    "heavily_defended_drakken_laser_drill": ((4, 33554432), "Heavily-Defended Drakken Laser Drill", "The enemy has a Heavily-Defended Drakken Laser Drill"),
+    "multiple_air_bogies": ((4, 67108864), "Multiple Air Bogies", "Zerg air units occasionally attack your base"),
+    "covert_assistance": ((4, 134217728), "Covert Assistance", "Tosh works independently to assist you. He does not respawn."),
+}
+for _effect_key, (_bank_bit, _title, _description) in _DEV41_EFFECTS.items():
+    EFFECT_BANK_BITS[_effect_key] = _bank_bit
+    EFFECT_DISPLAY_NAMES[_effect_key] = _title
+    EFFECT_DESCRIPTIONS[_effect_key] = _description
+
+# Dev42: mutation death event, using a free E-bank bit.
+EFFECT_BANK_BITS["hybrid_research"] = (4, 268435456)
+EFFECT_DISPLAY_NAMES["hybrid_research"] = "Hybrid Research"
+EFFECT_DESCRIPTIONS["hybrid_research"] = "Each enemy structure releases a random hybrid when destroyed"
+
+# Dev43: same hostile roaming patrol logic as Archons, 30 units.
+EFFECT_BANK_BITS["fifty_immortals"] = (4, 536870912)
+EFFECT_DISPLAY_NAMES["fifty_immortals"] = "Immortals"
+EFFECT_DESCRIPTIONS["fifty_immortals"] = "There are 30 immortals patrolling around the map"
 
 # v1.0.2.17 mutations are transported in mission_flags because banks A-F are full.
 _V1024_MUTATIONS: dict[str, tuple[str, str, int]] = {'hellion_run_by': ('Hellion Run-by', 'Hellions try to run into your mineral lines', 2), 'diamondback_wanderers': ('Diamondbacks', '50 diamondbacks wander all over the place', 3), 'leviathan_outside_base': ('Leviathan Approaching', 'The Leviathan floats outside your base spawning mutalisks and brood lords', 5), 'odin_delayed_assault': ('Odin', 'The enemy base has an odin in it. After 13 minutes it attacks your base.', 3), 'combined_raids': ('Ultimate Harassment', 'The enemy sends many wraiths, vikings, and hellions bother you', 5), 'brakk_primal_army': ("Brakk's Pack", 'Brakk and a massive primal army awaits on the map. It attacks after 10 minutes.', 5), 'orlan_fortress': ("Orlan's Planetary Fortress", 'Colonel Orlan has a well-defended Planetary Fortress on the map that gains 1 range every 30 seconds.', 4), 'enemy_spear_of_adun': ('Enemy Spear of Adun', "The enemy has the Spear of Adun. Let's see how YOU like it", 7), 'true_golden_armada': ('True Golden Armada', 'A massive golden armada patrols the map', 6), 'immortal_zergling': ('Immortal Zergling', 'A single immortal zergling attacks you constantly', 1), 'tosh_and_his_boys': ('Tosh and his Boys', 'Tosh is somewhere on the map. While he lives, cloaked spectres periodically try to nuke your base.', 3)}
@@ -1198,6 +1225,7 @@ DEFAULT_STATE: dict[str, Any] = {
     "golden_goose_credit_offset": 0,
 
     "saving_grace_charges": 0,
+    "saving_grace_pending": [],
 
     "temporary_blessings": {},
 
@@ -1238,15 +1266,15 @@ POTION_DEFINITIONS = (
     ("Mineral Reserves", 1, 'Gain 1000 minerals', "instant"),
     ("Gas Reserves", 1, 'Gain 1000 vespene gas', "instant"),
     ("Odin in a Bottle", 2, 'Spawn the Odin', "point"),
-    ("Leviathan in a Bottle", 3, 'Spawn the WoL leviathan but with its spawn mutalisk and spawn brood lord abilities on a 60 second cooldown', "point"),
-    ("Hyperion in a Bottle", 4, 'Spawn the WoL hyperion with its legendary resistance removed', "point"),
+    ("Leviathan in a Bottle", 3, 'Spawn the WoL leviathan, but you cannot control it', "point"),
+    ("Hyperion in a Bottle", 4, 'Spawn the WoL hyperion, but you cannot control it', "point"),
     ("Drop Pod Wave", 2, 'Call down 10 terran drop pods on target area.', "point"),
     ("Mass EMP", 1, 'Reduce all shields and energy of all units to 0 and remove all cloaked for 30 seconds', "instant"),
     ("Tactical Nuke", 1, 'Immediately detonate a single tactical nuke at target location', "point"),
-    ("Tosh's Miners", 1, 'Drop down a flying command center with 5 scvs loaded inside of it at target location', "point"),
+    ("Tosh's Miners", 1, 'Drop down a flying command center with 5 scvs at target location', "point"),
     ("Stealth Protocol", 2, 'All of your units and structures become stealthed for 1 minute', "instant"),
     ("Mass Stimpack", 2, 'All of your units gain 50% movement and attack speed for 1 minute, but they all lose 1 hp per second during this time.', "instant"),
-    ("Spear of Adun Recharge", 2, "Set the Spear of Adun's energy to maximum.", "instant"),
+    ("Spear of Adun Recharge", 1, "Set the Spear of Adun's energy to maximum.", "instant"),
     ("Second Kerrigan", 2, 'Spawn a second kerrigan that does not respawn on death', "instant"),
     ("Mercenary Favor", 2, 'Instantly call down all units unlocked in the predator nest and merc compound for free regardless of cooldown and charges', "instant"),
     ("Guardian Matrix", 1, 'Target unit gains 2000 shields until the shields are completely depleted', "friendly"),
@@ -1474,7 +1502,8 @@ SHOP_CATEGORY_ORDER = (
 
 SHOP_ITEMS_PER_CATEGORY = 2
 
-SHOP_STOCK_LOGIC_VERSION = 113
+SHOP_STOCK_LOGIC_VERSION = 114
+SHOP_EXPANSION_MAX = 3
 
 SHOP_SALE_COUNT = 4
 
@@ -1602,6 +1631,15 @@ DEPENDENCY_VARIANT_DIR_NAME = "SlayDependencyVariants"
 
 
 GOLDEN_GOOSE_MUTATIONS: dict[str, int] = {'golden_armada': 2, 'true_golden_armada': 6, 'low_quality_minerals': 2, 'conga_line': 3, 'ten_minutes_until_destruction': 4, 'siege_mode': 1, 'drakken_laser_drill_enemy': 4, 'dark_archons': 1, 'drop_pods': 3, 'dark_templar': 3, 'fragile_workers': 1, 'decay': 3, 'zombies_mutation': 3, 'limited_bank': 1, 'leviathan_in_orbit': 5, 'heroes_of_the_storm': 3, 'too_many_wraiths': 2, 'void_thrashers': 4, 'not_enough_energy': 1, 'viking_raids': 2, 'nuclear_annihilation': 3, 'darkness': 2, 'adrenaline': 3, 'picky_eaters': 2, 'arms_race': 3, 'rising_gas_prices': 2, 'squishy': 2, 'forced_variety': 2, 'occasional_thor_mutation': 1, 'occasional_ultralisk_mutation': 1, 'occasional_colossus_mutation': 1, 'enemy_regeneration': 3, 'sniper_thor': 1, 'another_gorgon_mutation': 2, 'burrowed_zerglings': 1, 'tower_defense': 2, 'cloaked_nightmare': 5, 'jetpacks': 2, 'tactical_binoculars': 4, 'no_deaths_allowed': 7, 'victory_is_temporary': 5, 'nuclear_workers': 1, 'taldarim_reinforcements': 4, 'miras_mercenaries': 2, 'double_time': 1, 'shrinkage': 3, 'mineral_thieves': 1, 'active_enemies': 2, 'zagaras_banelings': 3, 'buddy_system': 3, 'torrasque': 3, 'nexus_shield': 4, 'gargantuan_enemies': 5, 'raynors_raiders': 6, 'purifier': 4, 'dehakas_pack': 5, 'zombie_apocalypse': 5, 'arguments': 2, 'combat_pay': 2, 'marauder_kill_teams': 2, 'dark_archons_x5': 4, 'siege_mode_x5': 4, 'nuclear_structures': 1, 'hellion_run_by': 2, 'diamondback_wanderers': 3, 'leviathan_outside_base': 5, 'odin_delayed_assault': 3, 'combined_raids': 5, 'brakk_primal_army': 5, 'orlan_fortress': 4, 'enemy_spear_of_adun': 7, 'immortal_zergling': 1, 'tosh_and_his_boys': 3}
+GOLDEN_GOOSE_MUTATIONS["nydus_worms"] = 3
+GOLDEN_GOOSE_MUTATIONS.update({
+    "point_defense_drones": 1,
+    "heavily_defended_drakken_laser_drill": 6,
+    "multiple_air_bogies": 1,
+    "hybrid_research": 4,
+    "fifty_immortals": 3,
+})
+BLESSING_SEVERITY["covert_assistance"] = 1
 
 
 
@@ -1643,7 +1681,7 @@ def _load_effect_catalog_rows() -> dict[tuple[str, str], dict[str, str]]:
 
 _EFFECT_CATALOG_ROWS = _load_effect_catalog_rows()
 
-_EFFECT_CATALOG_TITLE_ALIASES = {"general": "(hero) Commander"}
+_EFFECT_CATALOG_TITLE_ALIASES = {"general": "(hero) Commander", "building_overcharge": "Building Turrets"}
 
 for _effect_id, _kind in [
 
@@ -1812,7 +1850,7 @@ def _normalize_config(raw: Any) -> dict[str, Any]:
 
         cfg["victory_credit_reward_multiplier"] = 1.0
 
-    cfg["item_credit_reward"] = max(0, int(cfg.get("item_credit_reward", 50)))
+    cfg["item_credit_reward"] = max(0, int(cfg.get("item_credit_reward", 60)))
 
     cfg["game_speed"] = str(cfg.get("game_speed", "default"))
 
@@ -1960,8 +1998,6 @@ def _legacy_node_credit(node: Mapping[str, Any]) -> int:
 
         400
 
-        + 100
-
         + 300 * (mission_tier - expected_tier)
 
         + 125 * mutation_value
@@ -1979,6 +2015,13 @@ def _legacy_node_credit(node: Mapping[str, Any]) -> int:
     if mission_name == "lab rat":
 
         reward -= 100
+
+    # Match credit_reward() when loading legacy nodes without stored payouts.
+    layer = int(node.get("layer", 0))
+    if layer == 0:
+        reward += 50
+    elif layer == 1:
+        reward += 25
 
     return reward
 
@@ -2497,6 +2540,13 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
         if isinstance(raw_map, Mapping):
 
             state[mapping_key] = copy.deepcopy(dict(raw_map))
+            if mapping_key == "boon_purchases":
+                expansion_id = _boon_id("shop_expansion")
+                if expansion_id in state[mapping_key]:
+                    try:
+                        state[mapping_key][expansion_id] = min(SHOP_EXPANSION_MAX, max(0, int(state[mapping_key][expansion_id])))
+                    except (TypeError, ValueError):
+                        state[mapping_key][expansion_id] = state["shop_expansion"]
 
     raw_test_missions = value.get("test_mission_overrides", {})
 
@@ -2552,6 +2602,9 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
 
         except (TypeError, ValueError): state[int_key] = 0
 
+    # Old saves may exceed the new three-expansion cap. Normalize on load.
+    state["shop_expansion"] = min(SHOP_EXPANSION_MAX, state["shop_expansion"])
+
     try:
 
         state["saving_grace_charges"] = max(0, int(value.get("saving_grace_charges", 0)))
@@ -2559,6 +2612,13 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
     except (TypeError, ValueError):
 
         state["saving_grace_charges"] = 0
+
+    raw_grace = value.get("saving_grace_pending", [])
+    if isinstance(raw_grace, list):
+        state["saving_grace_pending"] = [
+            [str(e) for e in package if str(e) in BLESSING_SEVERITY]
+            for package in raw_grace if isinstance(package, list)
+        ]
 
     announced = value.get("duplicate_announced", [])
 
@@ -2814,7 +2874,7 @@ def _expected_opening_credit_average(config: Mapping[str, Any]) -> float:
 
         multiplier = 1.0
 
-    return float(base + 125.0 * mf) * multiplier
+    return float(base - 50.0 + 125.0 * mf) * multiplier
 
 
 
@@ -3210,6 +3270,10 @@ MISSION_FLAG_TRUE_GOLDEN_ARMADA = 4096
 MISSION_FLAG_LAB_RAT_OPENING = 8192
 MISSION_FLAG_IMMORTAL_ZERGLING = 16384
 MISSION_FLAG_TOSH_AND_HIS_BOYS = 32768
+MISSION_FLAG_DOMINATION_ANY_PICKER = 65536
+MISSION_FLAG_ENGINE_OF_DESTRUCTION_LOKI = 131072
+MISSION_FLAG_SMASH_AND_GRAB_EXTRA_WORKERS = 262144
+MISSION_FLAG_DEVILS_PLAYGROUND_ZERG_ELIMINATION = 524288
 
 GORGON_MISSION_EXCLUSIONS = {"fire in the sky"}
 
@@ -3263,6 +3327,14 @@ def mission_flags_for_mission(ctx: Any, mission_id: int) -> int:
     if mission_name.casefold() == "lab rat":
 
         flags |= MISSION_FLAG_LAB_RAT_OPENING
+    if mission_name.casefold() == "domination":
+        flags |= MISSION_FLAG_DOMINATION_ANY_PICKER
+    if mission_name.casefold() == "engine of destruction":
+        flags |= MISSION_FLAG_ENGINE_OF_DESTRUCTION_LOKI
+    if mission_name.casefold() == "smash and grab":
+        flags |= MISSION_FLAG_SMASH_AND_GRAB_EXTRA_WORKERS
+    if mission_name.casefold() == "devil's playground":
+        flags |= MISSION_FLAG_DEVILS_PLAYGROUND_ZERG_ELIMINATION
 
     mutation_flag_bits = {
         "hellion_run_by": MISSION_FLAG_HELLION_RUN_BY,
@@ -4287,10 +4359,26 @@ def _blessing_allowed_for_mission(ctx: Any, mission_id: int, effect: str) -> boo
     if effect == "rapid_repair":
 
         return str(data.get("race", "")).casefold() == "terran"
+    if effect == "covert_assistance" and mission_name.casefold() in ISLAND_MISSION_NAMES:
+        return False
 
     return True
 
 
+
+
+
+CRUCIBLE_ENEMY_STRUCTURE_MUTATIONS = frozenset({
+    "conga_line", "nexus_shield", "nuclear_structures",
+    "drakken_laser_drill_enemy", "heavily_defended_drakken_laser_drill", "point_defense_drones", "hybrid_research", "purifier", "golden_armada",
+    "true_golden_armada", "tower_defense", "heroes_of_the_storm",
+    "viking_raids", "drop_pods", "dark_templar", "another_gorgon_mutation",
+    "taldarim_reinforcements", "zagaras_banelings", "dehakas_pack",
+    "torrasque", "marauder_kill_teams", "tosh_and_his_boys",
+    "brakk_primal_army", "odin_delayed_assault", "hellion_run_by",
+    "diamondback_wanderers", "raynors_raiders", "leviathan_outside_base",
+    "enemy_spear_of_adun", "combined_raids",
+})
 
 
 
@@ -4319,6 +4407,14 @@ def _mutation_allowed_for_mission(ctx: Any, mission_id: int, effect: str) -> boo
     if mission_name.casefold() in GORGON_MISSION_EXCLUSIONS and effect == "another_gorgon_mutation":
         return False
     if mission_name.casefold().startswith("smash and grab") and effect == "nexus_shield":
+        return False
+    if effect == "point_defense_drones" and bool(data.get("timed_defense", False)):
+        return False
+    if effect == "hybrid_research" and bool(data.get("timed_defense", False)):
+        return False
+    if effect == "nydus_worms" and mission_name.casefold().startswith("templar's charge"):
+        return False
+    if mission_name.casefold().startswith("the crucible") and effect in CRUCIBLE_ENEMY_STRUCTURE_MUTATIONS:
         return False
 
 
@@ -4708,6 +4804,12 @@ def dependency_variant_for_mission(ctx: Any, mission_id: int) -> str:
     if campaign != "Heart of the Swarm" and _progression_owned(ctx, KERRIGAN_UNLOCK):
         need_swarm = True
 
+    # The General boon uses campaign hero "ZaGara" (not "Zagara").
+    # Its unit catalog lives in the HotS data and must be explicitly loaded
+    # when selected on a Terran, Protoss, or other non-HotS map.
+    if "general" in blessings and commander_hero_index(ctx, mission_id) == 18:
+        need_swarm = True
+
 
 
 
@@ -4746,12 +4848,13 @@ def dependency_variant_for_mission(ctx: Any, mission_id: int) -> str:
 
     need_void = bool(mutations & VOID_DEPENDENCY_MUTATIONS)
 
-    # Alarak and Vorazun use reliable LotV campaign hero catalog entries. Load
-    # Void when Commander rolled either hero. Heroes of the Storm is already a
-    # VOID_DEPENDENCY_MUTATION, so its hostile Alarak/Vorazun candidates use the
-    # same catalog on non-LotV missions. The sensitive Haven early-return above
-    # still wins when Kerrigan has not been unlocked.
-    if "general" in blessings and commander_hero_index(ctx, mission_id) in {10, 30}:
+    # ArtanisVoid is the controllable ground hero in Legacy of the Void;
+    # bare Artanis is the unrelated Wings of Liberty mothership. Artanis must
+    # request the Void campaign catalog just like Alarak and Vorazun, otherwise
+    # his catalog entry is absent on WoL/HotS maps and the Galaxy commander
+    # selector used to fall through to a random hero (sometimes Urun).
+    # Respect the sensitive Haven dependency restriction above.
+    if "general" in blessings and commander_hero_index(ctx, mission_id) in {9, 10, 30}:
         need_void = True
 
 
@@ -5340,7 +5443,7 @@ def item_credit_reward(ctx: Any) -> int:
 
     try:
 
-        return max(0, int(ctx.slay_config.get("item_credit_reward", 50)))
+        return max(0, int(ctx.slay_config.get("item_credit_reward", 60)))
 
     except (TypeError, ValueError):
 
@@ -5779,6 +5882,7 @@ def inventory_rows(ctx: Any) -> list[dict[str, Any]]:
 
         rows.append({
 
+            "canonical_name": item_name,
             "name": PROGRESSION_DISPLAY_NAMES.get(item_name, item_name),
 
             "race": race_name,
@@ -5816,6 +5920,7 @@ def inventory_rows(ctx: Any) -> list[dict[str, Any]]:
     for slot in potion_inventory(ctx):
         potion = POTION_CATALOG[str(slot["id"])]
         rows.append({
+            "canonical_name": str(slot["id"]),
             "name": str(potion["name"]), "race": "Other",
             "category": "Consumables", "section": "Consumables", "type": "Consumable",
             "ap_count": 0, "shop_count": 1, "total": 1,
@@ -5831,6 +5936,7 @@ def inventory_rows(ctx: Any) -> list[dict[str, Any]]:
 
         rows.append({
 
+            "canonical_name": effect_id,
             "name": EFFECT_DISPLAY_NAMES.get(effect_id, effect_id),
 
             "race": "Other",
@@ -5859,7 +5965,10 @@ def inventory_rows(ctx: Any) -> list[dict[str, Any]]:
 
         display = EFFECT_DISPLAY_NAMES.get(effect_id, effect_id)
 
-        kind = next((k for k, e in {"auto_repair":"boon_auto_repair", **_NEW_BOON_EFFECT_BY_KIND}.items() if e == effect_id), "")
+        # All repeatable boons use the same boon_<kind> effect ID convention.
+        # Look up the purchase counter directly; the previous partial reverse map
+        # omitted Deadly Weapons and incorrectly displayed x1 for every stack.
+        kind = effect_id.removeprefix("boon_")
 
         count = int(state(ctx).get("boon_purchases", {}).get(_boon_id(kind), 0)) if kind in REPEATABLE_BOON_KINDS else 1
 
@@ -5867,6 +5976,7 @@ def inventory_rows(ctx: Any) -> list[dict[str, Any]]:
 
         rows.append({
 
+            "canonical_name": effect_id,
             "name": display, "race": "Other",
 
             "category": "Permanent Boons", "section": "Boons", "type": "Boon", "ap_count": 0, "shop_count": count, "total": count,
@@ -5879,6 +5989,7 @@ def inventory_rows(ctx: Any) -> list[dict[str, Any]]:
 
         rows.append({
 
+            "canonical_name": effect_id,
             "name": EFFECT_DISPLAY_NAMES.get(effect_id, effect_id), "race": "Other",
 
             "category": "Permanent Mutations", "section": "Mutations", "type": "Mutation", "ap_count": 0, "shop_count": 1, "total": 1,
@@ -7658,7 +7769,7 @@ def shop_entry_description(item_name: str) -> str:
 
       "reroll_shop":"Reroll every item currently in the shop, including this one",
 
-      "deadly_weapons":"Your units all deal 30% more damage",
+      "deadly_weapons":"Your units all deal 25% more damage",
 
       "auto_repair":"All of your units and structures gain 1 life and shield regeneration",
 
@@ -7880,7 +7991,8 @@ def _boon_candidates(
 
 
 
-    if any(layer < max(0, choice_layers - 2) for layer in frontier_layers):
+    if (int(state(ctx).get("shop_expansion", 0)) < SHOP_EXPANSION_MAX
+            and any(layer < max(0, choice_layers - 2) for layer in frontier_layers)):
 
         result.append(_boon_id("shop_expansion"))
 
@@ -7946,7 +8058,7 @@ def _boon_candidates(
 
       ("chaos_blessings","boon_chaos_blessings",True),
 
-      ("energized_queens","boon_energized_queens",owns(("Swarm Queen","SwarmQueen","Brood Queen","BroodQueen"))),
+      ("energized_queens","boon_energized_queens",owns(("Queen",))),
 
       ("goliaths_online","boon_goliaths_online",owns(("Goliath","Spartan Company","Spartan"))),
 
@@ -8041,7 +8153,7 @@ def _roll_shop_stock(
 
     result: list[str] = []
 
-    expansion = int(state(ctx).get("shop_expansion", 0))
+    expansion = min(SHOP_EXPANSION_MAX, max(0, int(state(ctx).get("shop_expansion", 0))))
 
 
 
@@ -8516,9 +8628,9 @@ def _price_for_item_before_track_discount(item_name: str, ctx: Any | None = None
 
             return _same_shop_50_percent_price(100, reroll_buys)
 
-        fixed_prices = {"shop_expansion":300,"deadly_weapons":800,"auto_repair":500,"rapid_fire":900,"shields_for_all":1000,"heavy_armor":500,"unlimited_blink":500,"interplanetary_fortress":1000,"roach_infestation":400,"chain_reaction":1600,"aiur_recruitment":700,"toxic_observation":500,"cloning_technology":1100,"defender":500,"fire_power":400,"roachling_mines":300,"broodling_evolution":400,"adamantium_blades":900,"enhanced_control":300,"banshee_swarm":400,"enlarged_banelings":500,"viking_anchors":300,"corrosive_claws":600,"unlimited_power":1000,"unstable_colossi":400,"archon_cannons":700,"hyrda_storms":400,"maddening_shades":500,"concussed_shells":400,"missile_defense":400,"stretchy_spines":300,"gargantuan_units":1600,"chaos_blessings":800,"risky_investment":50,"golden_goose":50,
+        fixed_prices = {"shop_expansion":200,"deadly_weapons":800,"auto_repair":500,"rapid_fire":900,"shields_for_all":1000,"heavy_armor":500,"unlimited_blink":500,"interplanetary_fortress":1000,"roach_infestation":400,"chain_reaction":1600,"aiur_recruitment":700,"toxic_observation":500,"cloning_technology":1100,"defender":500,"fire_power":400,"roachling_mines":300,"broodling_evolution":400,"adamantium_blades":900,"enhanced_control":300,"banshee_swarm":400,"enlarged_banelings":500,"viking_anchors":300,"corrosive_claws":600,"unlimited_power":1400,"unstable_colossi":400,"archon_cannons":700,"hyrda_storms":400,"maddening_shades":500,"concussed_shells":400,"missile_defense":400,"stretchy_spines":300,"gargantuan_units":1600,"chaos_blessings":800,"risky_investment":50,"golden_goose":50,
 
-            "energized_queens":400,"goliaths_online":400,"regenerative_aberrations":400,"infantry_reinforcements":600,"acidic_landing_markers":500,"permanent_stimpack":400,"recycled_armor":400,"invasion_fleet":1700,"dead_man_switch":500,"reflective_carapace":400,"cell_division":400,"spine_rifling":500,"guided_shells":500,"zergling_infestation":600,"hyperion":1400,"leviathan":1200,"true_scouts":300,"true_carriers":300,"deadly_vultures":400,"immortal_immortals":700,"kill_streak":400,"hit_and_run":400,"meat_grinder":400,"reaper_blitz":400,"purifier_alliance":1300,"single_use_tools":400}
+            "energized_queens":400,"goliaths_online":400,"regenerative_aberrations":400,"infantry_reinforcements":600,"acidic_landing_markers":500,"permanent_stimpack":400,"recycled_armor":400,"invasion_fleet":1500,"dead_man_switch":500,"reflective_carapace":400,"cell_division":400,"spine_rifling":500,"guided_shells":500,"zergling_infestation":600,"hyperion":1400,"leviathan":1200,"true_scouts":300,"true_carriers":300,"deadly_vultures":400,"immortal_immortals":700,"kill_streak":400,"hit_and_run":400,"meat_grinder":500,"reaper_blitz":400,"purifier_alliance":1300,"single_use_tools":400}
 
         base = fixed_prices.get(kind, 999999)
 
@@ -8872,6 +8984,9 @@ def can_buy_shop_item(ctx: Any, item_name: str) -> bool:
 
     s = state(ctx)
 
+    if kind == "shop_expansion":
+        return int(s.get("shop_expansion", 0)) < SHOP_EXPANSION_MAX
+
     if kind == "permanent_blessing": return payload not in s.get("permanent_blessings", [])
 
     if kind == "upgrade_pack":
@@ -9142,9 +9257,19 @@ def _assign_saving_grace(ctx: Any, mission_id: int) -> None:
 
             existing.add(effect)
 
+    pending = list(s.get("saving_grace_pending", []))
     chosen: list[str] = []
+    if pending:
+        candidate = [str(e) for e in pending[0]]
+        if candidate and not any(e in existing for e in candidate):
+            chosen = candidate
+        # Never quietly discard an announced package: an unavailable mission
+        # combination is surfaced and the charge remains for another choice.
+        elif candidate:
+            _chat(ctx, "Saving Grace: announced blessings are ineligible for this mission; charge preserved.")
+            return
 
-    for target in range(5, 0, -1):
+    for target in ([] if chosen else range(5, 0, -1)):
 
         chosen = _choose_blessings_exact(target, random.Random(seed + (5 - target)), existing)
 
@@ -9165,6 +9290,8 @@ def _assign_saving_grace(ctx: Any, mission_id: int) -> None:
     s["temporary_blessings"] = temp
 
     s["saving_grace_charges"] = max(0, int(s.get("saving_grace_charges", 0)) - 1)
+    if pending:
+        s["saving_grace_pending"] = pending[1:]
 
     _persist_state(ctx)
 
@@ -9416,6 +9543,10 @@ def _reroll_future_nodes(ctx: Any, purchase_index: int) -> int:
         forbidden_mut={"limited_bank"} if mission_name in {"Devil's Playground","Cutthroat"} else set()
 
         if str(mission_name).startswith("Rak'Shir"): forbidden_mut.add("burrowed_zerglings")
+
+        forbidden_mut.update(gen.crucible_mutation_exclusions(mission_name))
+        if mission_name.strip().casefold() in {"evacuation", "the evacuation"}:
+            forbidden_mut.add("nuclear_annihilation")
 
         if mission_name.casefold() in ISLAND_MISSION_NAMES:
 
@@ -9747,7 +9878,31 @@ def _purchase_boon(
         result="Upgrade Pack: "+", ".join(got)
         _set_shop_purchase_reveal(ctx, f"{payload.title()} Upgrade Pack", [_upgrade_reveal_row(name) for name in got])
 
-    elif kind=="saving_grace": s["saving_grace_charges"]=int(s.get("saving_grace_charges",0))+1; result="Saving Grace will empower your next non-final mission."
+    elif kind=="saving_grace":
+        frontier = [int(mid) for mid in current_frontier(ctx)]
+        existing = set(s.get("permanent_blessings", []))
+        for mid in frontier:
+            existing.update((node(ctx, mid) or {}).get("blessings", []))
+        eligible = [effect for effect in BLESSING_SEVERITY if
+                    all(_blessing_allowed_for_mission(ctx, mid, effect) for mid in frontier)]
+        forbidden = existing | (set(BLESSING_SEVERITY) - set(eligible))
+        purchase_number = int(s.get("boon_purchases", {}).get(item_name, 0))
+        seed = int.from_bytes(hashlib.sha256(
+            f"{ctx.slay_config.get('run_seed',0)}:saving-grace-purchase:{purchase_number}".encode()
+        ).digest()[:8], "big")
+        chosen = []
+        for target in range(5, 0, -1):
+            chosen = _choose_blessings_exact(target, random.Random(seed + 5 - target), forbidden)
+            if chosen:
+                break
+        if not chosen:
+            return False, "Saving Grace has no legal blessing package for the available missions."
+        s["saving_grace_charges"] = int(s.get("saving_grace_charges", 0)) + 1
+        pending = list(s.get("saving_grace_pending", []))
+        pending.append(chosen)
+        s["saving_grace_pending"] = pending
+        result = "Saving Grace: " + ", ".join(EFFECT_DISPLAY_NAMES.get(e,e) for e in chosen)
+        _set_shop_purchase_reveal(ctx, "Saving Grace Blessings", [_blessing_reveal_row(e) for e in chosen])
 
     elif kind=="reroll":
 
@@ -9755,9 +9910,12 @@ def _purchase_boon(
 
     elif kind=="shop_expansion":
 
+        if int(s.get("shop_expansion", 0)) >= SHOP_EXPANSION_MAX:
+            return False, "Shop Expansion can only be purchased three times per run."
+
         old_stock = list(s.get("shop_stock", ()))
 
-        s["shop_expansion"] = int(s.get("shop_expansion", 0)) + 1
+        s["shop_expansion"] = min(SHOP_EXPANSION_MAX, int(s.get("shop_expansion", 0)) + 1)
 
 
 

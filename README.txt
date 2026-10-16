@@ -3,6 +3,17 @@ Slay the StarCraft v1.1.0
 Slay the StarCraft is a single-player StarCraft II roguelike built on the
 Archipelago StarCraft II framework.
 
+V1.1.2 DEV15 - WARP GATE HOTKEY
+- The initial ZIP includes Config\slay_preferences.ini. You can set Warpgate=E before Download Data.
+- W remains the default. Download Data and Launch Slay both reapply the preference.
+- The updater preserves the player-owned INI; only a template ships with the ZIP.
+- For protected StarCraft II folders, use Download Data to apply the updated key.
+
+V1.1.0 HOTFIX
+- Endless Mode is no longer selectable for new games. Existing Endless saves are kept but are not a supported gameplay mode.
+- Fixed old Endless mission cards spawning stuck, overlapping tooltips every half-second.
+- Standard Mode and its gameplay remain unchanged.
+
 V1.1.0 RELEASE
 - r31: First-layer 900+ rewards visually count as elite without the 100 bonus; inventory Show Cards / Shop / Exit Inventory controls are top-right, and shop/inventory reroll/exit transitions no longer cross-open unexpectedly. Glass Cannons severity is now 2; Tosh attempts his Psi Shield on taking damage; Terran Upgrade Pack displays the Armory icon.
 - r28: High Templar storm targeting now seeks enemy concentrations; Spear Recharge only restores energy and requires two distinct active Spear abilities. Nexus Shields cannot roll on Smash and Grab. Scripted warp-ins attach the campaign-standard animated Protoss warp model and retain their five-second fade/stun. In-game testing pending.

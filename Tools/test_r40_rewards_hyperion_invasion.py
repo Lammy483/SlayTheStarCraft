@@ -1,4 +1,4 @@
-"""r40 regressions: flat victory bonus, native Raynor movement, Invasion Fleet duration."""
+"""r40/Dev8 regressions: reward formula, native Raynor movement, Invasion Fleet duration."""
 from __future__ import annotations
 import ast
 import csv
@@ -23,23 +23,23 @@ def isolated_function(source, name):
 
 
 class CreditRewardR40(unittest.TestCase):
-    def test_flat_mission_bonus_and_mutation_rate(self):
+    def test_removed_flat_bonus_and_mutation_rate(self):
         reward=isolated_function(GEN,'credit_reward')
         fallback=isolated_function(CLIENT,'_legacy_node_credit')
         # Use matching tier/expected tier at each layer so only the mutation
         # and blessing severity should alter credit values.
         for layer in range(12):
             tier=(layer+3)//3-1
-            self.assertEqual(reward(tier,layer,0,0,False,random.Random(1)),500)
-            self.assertEqual(reward(tier,layer,4,2,True,random.Random(1)),800)
-            self.assertEqual(fallback(dict(layer=layer,mission_pool=tier,mutation_value=4,blessing_value=2)),800)
-            self.assertEqual(reward(tier,layer,0,0,False,random.Random(1),mission_name='Lab Rat'),400)
-        self.assertEqual(reward(0,0,0,40,True,random.Random(1)),150)
-        self.assertEqual(reward(0,0,0,40,True,random.Random(1),mission_name='Lab Rat'),50)
-        self.assertEqual(reward(0,0,4,0,False,random.Random(1),victory_credit_reward_multiplier=1.5),1500)
-        self.assertIn('layer_reward = 100',GEN)
+            self.assertEqual(reward(tier,layer,0,0,False,random.Random(1)),400 + (50 if layer == 0 else 25 if layer == 1 else 0))
+            self.assertEqual(reward(tier,layer,4,2,True,random.Random(1)),700 + (50 if layer == 0 else 25 if layer == 1 else 0))
+            self.assertEqual(fallback(dict(layer=layer,mission_pool=tier,mutation_value=4,blessing_value=2)),700 + (50 if layer == 0 else 25 if layer == 1 else 0))
+            self.assertEqual(reward(tier,layer,0,0,False,random.Random(1),mission_name='Lab Rat'),300 + (50 if layer == 0 else 25 if layer == 1 else 0))
+        self.assertEqual(reward(0,0,0,40,True,random.Random(1)),200)
+        self.assertEqual(reward(0,0,0,40,True,random.Random(1),mission_name='Lab Rat'),100)
+        self.assertEqual(reward(0,0,4,0,False,random.Random(1),victory_credit_reward_multiplier=1.5),1425)
+        self.assertIn('layer_reward = 0',GEN)
         self.assertNotIn('layer_reward = 50 * layer_number',GEN)
-        self.assertIn('base + 50.0 + 125.0 * mf',GEN)
+        self.assertIn('base + 125.0 * mf',GEN)
         self.assertIn('credit_reward=round((base_reward + (100 if risk else 0)) * multiplier)',GEN)
         self.assertNotIn('base_reward + 50 * floor',GEN)
 
@@ -58,17 +58,17 @@ class CreditRewardR40(unittest.TestCase):
         self.assertIn('raynorLife <= g_aprgRaynorFlybyStartLife * 0.5',GALAXY)
         self.assertIn('APRG_TickRaynorRepairSCVs(g_aprgRaynorHyperion);',GALAXY)
 
-    def test_invasion_pods_once_per_second_for_two_minutes(self):
+    def test_invasion_pods_twice_per_second_for_two_minutes(self):
         tick=GALAXY.split('void APRG_TickInvasionFleet(',1)[1].split('void APRG_TickBaseLeviathanBurst(',1)[0]
         self.assertIn('now < 300.0 || now >= 420.0',tick)
-        self.assertIn('g_aprgNextInvasionFleetDropTime = now + 1.0;',tick)
+        self.assertIn('g_aprgNextInvasionFleetDropTime = now + 0.5;',tick)
         self.assertIn('APRG_QueueRealDropPod(APRG_DROP_KIND_INVASION_FLEET, player, p, null)',tick)
         self.assertIn('APRG_ResolvePlayerZergDrop(player, p, true)',tick)
         with (ROOT/'Payload/BOON_CATALOG.csv').open(encoding='utf-8',newline='') as f:
             entries=list(csv.DictReader(f))
         row=next(r for r in entries if r['Boon Title']=='Invasion Fleet')
-        self.assertIn('one zerg drop pod',row['Description'])
-        self.assertIn('every second for 2 minutes',row['Description'])
+        self.assertEqual(row['Description'],'At the 5 minute mark of each mission, many zerg drop pods attack the enemy for 2 minutes')
+        self.assertEqual(int(row['Cost']),1500)
 
 
 if __name__=='__main__':

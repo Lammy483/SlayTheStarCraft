@@ -145,6 +145,12 @@
     <Modification WeaponRange="0.25"/>
   </CBehaviorBuff>
 
+  <!-- Brakk's Pack: apply +3 armor only to Brakk himself, not his primal army. -->
+  <CBehaviorBuff id="APRogueBrakkArmor">
+    <InfoFlags index="Hidden" value="1"/><MaxCount value="1"/>
+    <Modification LifeArmorBonus="3"/>
+  </CBehaviorBuff>
+
   <!-- Marauder Kill Teams: +3 armor on all units, +3 additional weapon damage on marauders. -->
   <CBehaviorBuff id="APRogueKillTeamArmor">
     <InfoFlags index="Hidden" value="1"/><MaxCount value="1"/>
@@ -413,4 +419,88 @@
     <MaxCount value="1"/>
     <Modification><StateFlags index="SuppressCloak" value="1"/></Modification>
   </CBehaviorBuff>
+
+  <!-- Dev38: selected campaign VO.  These Slay-local entries register audio
+       in missions whose original mission-local Sound catalog is unavailable.
+       Do not add campaign dependencies globally; prefer original entries
+       when they are present and carry original cinematic face metadata. -->
+  <CSound id="APRogueVO_THorner01Horner00019" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\thorner01horner00019.ogg" FacialAnim="THorner01Horner00019" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_THorner02Han00022" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\thorner02han00022.ogg" FacialAnim="THorner02Han00022" PortraitModel="MiraHanPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TTychus02Tychus00008" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\ttychus02tychus00008.ogg" FacialAnim="TTychus02Tychus00008" PortraitModel="TychusPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TTychus02Raynor00020" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\ttychus02raynor00020.ogg" FacialAnim="TTychus02Raynor00020" PortraitModel="RaynorPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TTychus05Horner00013" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\ttychus05horner00013.ogg" FacialAnim="TTychus05Horner00013" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_THanson03AHorner00001" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\thanson03ahorner00001.ogg" FacialAnim="THanson03AHorner00001" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TTychus05Horner00032" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\ttychus05horner00032.ogg" FacialAnim="TTychus05Horner00032" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TValerian01Raynor00043" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\tvalerian01raynor00043.ogg" FacialAnim="TValerian01Raynor00043" PortraitModel="RaynorPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_THorner02Orlan00012" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\thorner02orlan00012.ogg" FacialAnim="THorner02Orlan00012" PortraitModel="OrlanPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_THorner02Orlan00019" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\thorner02orlan00019.ogg" FacialAnim="THorner02Orlan00019" PortraitModel="OrlanPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TValerian02BAdjutant00035" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\tvalerian02badjutant00035.ogg" FacialAnim="TValerian02BAdjutant00035" PortraitModel="AdjutantPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TValerian02BAdjutant00017" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\tvalerian02badjutant00017.ogg" FacialAnim="TValerian02BAdjutant00017" PortraitModel="AdjutantPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_THanson02BriefingHanson00001" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\thanson02briefinghanson00001.ogg" FacialAnim="THanson02BriefingHanson00001" PortraitModel="HansonPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TValerian01Horner00015" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\tvalerian01horner00015.ogg" FacialAnim="TValerian01Horner00015" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TValerian01Horner00027" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\tvalerian01horner00027.ogg" FacialAnim="TValerian01Horner00027" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TValerian01Horner00031" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\tvalerian01horner00031.ogg" FacialAnim="TValerian01Horner00031" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TValerian01Horner00032" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\tvalerian01horner00032.ogg" FacialAnim="TValerian01Horner00032" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TValerian01Horner00036" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\tvalerian01horner00036.ogg" FacialAnim="TValerian01Horner00036" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TValerian01Horner00037" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\tvalerian01horner00037.ogg" FacialAnim="TValerian01Horner00037" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_Archangel_123" parent="VO">
+    <AssetArray File="LocalizedData\Sounds\VO\zmission_lab02_lab02mech_123.ogg" FacialAnim="zmission_lab02_lab02mech_123" FacialGroup="zmission_lab02_lab02mech_123"/>
+  </CSound>
+  <CSound id="APRogueVO_Archangel_124" parent="VO">
+    <AssetArray File="LocalizedData\Sounds\VO\zmission_lab02_lab02mech_124.ogg" FacialAnim="zmission_lab02_lab02mech_124" FacialGroup="zmission_lab02_lab02mech_124"/>
+  </CSound>
+  <!-- Dev44: WoL Nydus mutation announcements, with mission-native sound
+       resolution preferred and Slay-local fallback; no global dependencies. -->
+  <CSound id="APRogueVO_TTychus03Horner00009" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\ttychus03horner00009.ogg" FacialAnim="TTychus03Horner00009" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TValerian03Adjutant00039" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\tvalerian03adjutant00039.ogg" FacialAnim="TValerian03Adjutant00039" PortraitModel="AdjutantPortrait"/>
+  </CSound>
+  <CSound id="APRogueVO_TTychus03Horner00033" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\ttychus03horner00033.ogg" FacialAnim="TTychus03Horner00033" PortraitModel="HornerPortrait"/>
+  </CSound>
+  <!-- Liberty campaign warning on each successful Multiple Air Bogies wave.
+       Uses the same Slay-local sound fallback as the tested Horner clips. -->
+  <CSound id="APRogueVO_TRaynor03Tychus00013" parent="Campaign2D">
+    <AssetArray File="LocalizedData\Sounds\TerranVO\CampaignVO\traynor03tychus00013.ogg" FacialAnim="TRaynor03Tychus00013" PortraitModel="TychusPortrait"/>
+  </CSound>
 </Catalog>

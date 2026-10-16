@@ -53,7 +53,7 @@ class R24Tests(unittest.TestCase):
         self.assertIn('MinI(160, FixedToInt(distance / 3.0) + 1)',route)
         self.assertIn('APRG_PointNearPlayerOrAlliedBuilding(sample, player, clearance)',route)
         normal=segment('void APRG_RetargetGoldenArmada(', 'bool APRG_EnsureAirReachableToPlayer(')
-        self.assertIn('GameGetMissionTime() < 240.0',normal)
+        self.assertIn('APRG_TimeSinceMacroBase(GameGetMissionTime()) < 720.0',normal)
         self.assertIn('AbilityCommand("move", 0)',normal)
         self.assertIn('AbilityCommand("attack", 0)',normal)
         self.assertNotIn('EarlySafety',GAL)
@@ -61,11 +61,11 @@ class R24Tests(unittest.TestCase):
         true=segment('void APRG_RetargetTrueGoldenArmada(', 'unit APRG_TrueGoldenAnchorUnit(')
         self.assertIn('APRG_GoldenSafePatrolDestination',true)
         self.assertIn('AbilityCommand("move", 0)',true)
-        self.assertIn('GameGetMissionTime() >= 240.0',true)
+        self.assertIn('APRG_TimeSinceMacroBase(GameGetMissionTime()) >= 600.0',true)
         phoenixes=segment('void APRG_TickTrueGoldenPhoenixes(', 'unit APRG_TrueGoldenNearestCloakedPlayerUnit(')
-        self.assertIn('APRG_GoldenPatrolRouteSafe(UnitGetPosition(phoenix), destination, player, 40.0)',phoenixes)
+        self.assertIn('APRG_GoldenPatrolRouteSafe(UnitGetPosition(phoenix), destination, player, clearance)',phoenixes)
         oracles=segment('void APRG_TickTrueGoldenOracles(', 'void APRG_TrueGoldenAddCreated(')
-        self.assertIn('now < 600.0',oracles)
+        self.assertIn('APRG_TimeSinceMacroBase(now) < 1200.0',oracles)
 
     def test_dummy_marine_cannot_be_selected_targeted_or_seen(self):
         catalog=ET.parse(PAYLOAD/'APRogueData.xml').getroot()

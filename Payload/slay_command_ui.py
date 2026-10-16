@@ -156,7 +156,7 @@ def local_icon(item,source='',category=''):
     if mapped and (ASSETS/'icons'/mapped).is_file():return str(ASSETS/'icons'/mapped)
     if source:
         candidate=ASSETS/'icons'/Path(source).name
-        if candidate.name.startswith('btn-') and candidate.is_file():return str(candidate)
+        if candidate.is_file():return str(candidate)
     return ''
 
 
@@ -288,7 +288,7 @@ class RelicCard(BoxLayout):
             header.pos=(self.x+dp(7),self.top-dp(64));header.size=(self.width-dp(14),dp(56))
         self.bind(pos=instrument,size=instrument);instrument()
         head=BoxLayout(size_hint_y=None,height=dp(47),spacing=dp(8))
-        icon=Image(texture=shop_icon_texture(entry['id'],entry.get('icon',''),category),size_hint_x=None,width=dp(44))
+        icon=Image(texture=shop_icon_texture(entry.get('canonical_name',entry['id']),entry.get('icon',''),category),size_hint_x=None,width=dp(44))
         # A missing portrait is genuinely absent (not a white default-image tile).
         # The Spear of Adun unlock deliberately has no icon.
         if icon.texture is not None:
@@ -328,7 +328,7 @@ class RelicRow(BoxLayout):
     def __init__(self,entry,category,select,shop=False,purchase=None,compact=False,**kwargs):
         super().__init__(orientation='horizontal',spacing=dp(5 if compact else 12),padding=dp(4 if compact else 10),**kwargs)
         panel(self,color=(.13,.23,.16,1) if shop and entry.get('sale') else SECTION_PALETTE.get(category,(.025,.065,.105,1)))
-        portrait = shop_icon_texture(entry['id'], entry.get('icon',''), category)
+        portrait = shop_icon_texture(entry.get('canonical_name',entry['id']), entry.get('icon',''), category)
         if portrait is not None:
             self.add_widget(Image(texture=portrait,size_hint_x=None,width=dp(42 if compact else 48)))
         text=BoxLayout(orientation='vertical',spacing=dp(4))
@@ -488,7 +488,7 @@ class CardConsole:
         self.page+=delta;self.render()
 
     def inspect(self,entry):
-        self.inspect_icon.texture=shop_icon_texture(entry['id'],entry.get('icon',''),self.category)
+        self.inspect_icon.texture=shop_icon_texture(entry.get('canonical_name',entry['id']),entry.get('icon',''),self.category)
         has_icon = self.inspect_icon.texture is not None
         self.inspect_icon.height=dp(112) if has_icon else 0
         self.inspect_icon.opacity=1 if has_icon else 0
@@ -515,7 +515,9 @@ class CardConsole:
         for c,b in self.category_buttons.items():b.background_color=(.45,.85,1,1) if c==self.category else (1,1,1,1)
         page_names=names[self.page*self.page_size:(self.page+1)*self.page_size]
         # Decode every image first, then replace the entire card page in one event.
-        for name in page_names:texture(local_icon(name,self.entries[name].get('icon',''),self.category))
+        for name in page_names:
+            entry=self.entries[name]
+            texture(local_icon(entry.get('canonical_name',name),entry.get('icon',''),self.category))
         self.grid.clear_widgets();self.popup.slay_purchase_buttons={};self.card_widgets={}
         for name in page_names:
             entry=self.entries[name]
@@ -530,7 +532,7 @@ class CardConsole:
         else:self.credit.text=f'Catalogued {len(self.entries)} supply types'
 
     def render_overview(self):
-        for name,entry in self.entries.items():texture(local_icon(name,entry.get('icon','')))
+        for name,entry in self.entries.items():texture(local_icon(entry.get('canonical_name',name),entry.get('icon','')))
         self.grid.clear_widgets();self.popup.slay_purchase_buttons={};self.card_widgets={}
         self.heading.text='' if self.shop else 'All Categories'
         columns=[];holders=[]
@@ -610,7 +612,8 @@ def open_console(manager,shop):
         rows=cache['inventory_rows'] if cache and cache.get('signature')==manager._slay_shop_cache_signature() and 'inventory_rows' in cache else slay.inventory_rows(manager.ctx)
         for i,row in enumerate(rows):
             name='inventory:'+str(i);category=row.get('section','General Upgrades')
-            entry=dict(row,id=name,canonical_name=row['name'],name=tr(row['name']),description=tr(row.get('description','')),icon=local_icon(row['name'],row.get('icon',''),category))
+            canonical=row.get('canonical_name',row['name'])
+            entry=dict(row,id=name,canonical_name=canonical,name=tr(row['name']),description=tr(row.get('description','')),icon=local_icon(canonical,row.get('icon',''),category))
             entries[name]=entry;by_section[category].append(name)
         sections=[(c,by_section[c]) for c in SECTIONS if c in by_section]
         sections += [(c,n) for c,n in by_section.items() if c not in SECTIONS]

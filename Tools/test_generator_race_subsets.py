@@ -52,7 +52,7 @@ class RaceSubsetGenerationTests(unittest.TestCase):
                         self.assertEqual(nodes[(11,generator.FINAL_LANE)]['pool'],4)
                         self.assertTrue(all(n['race'] in selected for n in nodes.values()))
                         self.assertTrue(any(
-                            n['layer']==0 and n['credit_reward']<=350 for n in nodes.values()
+                            n['layer']==0 and n['credit_reward']<=400 for n in nodes.values()
                         ))
 
 

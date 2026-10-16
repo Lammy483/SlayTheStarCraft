@@ -27,14 +27,14 @@ class R14Tests(unittest.TestCase):
         cls.runtime=(P/'slay_the_starcraft.py').read_text(encoding='utf-8')
 
     def test_credit_defaults(self):
-        self.assertIn('DEFAULT_STARTING_CREDITS = 600',self.launcher)
-        self.assertIn('default=600, help="Starting shop credits (default 600)"',(P/'generate_slay_run.py').read_text())
+        self.assertIn('DEFAULT_STARTING_CREDITS = 700',self.launcher)
+        self.assertIn('default=700, help="Starting shop credits (default 700)"',(P/'generate_slay_run.py').read_text())
         self.assertIn('height=dp(90) if noted else dp(70)',self.launcher)
 
     def test_reward_floor_and_special_lab_rat(self):
         g=self.g
-        self.assertEqual(g.credit_reward(0,0,0,40,True,random.Random(0)),150)
-        self.assertEqual(g.credit_reward(0,0,0,40,True,random.Random(0),'Lab Rat'),50)
+        self.assertEqual(g.credit_reward(0,0,0,40,True,random.Random(0)),200)
+        self.assertEqual(g.credit_reward(0,0,0,40,True,random.Random(0),'Lab Rat'),100)
         self.assertIn('reward = max(150, old_reward - (100 * layer_number))',self.runtime)
 
     def test_mutation_mean_plus_one_for_every_campaign_length(self):

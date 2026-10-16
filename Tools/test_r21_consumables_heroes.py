@@ -65,12 +65,12 @@ class ConsumableAndHeroTests(unittest.TestCase):
         self.assertIn('APRG_PointNearPlayerOrAlliedBuilding(candidate, player, 20.0)',spawn)
         self.assertLess(spawn.index('APRG_PointNearPlayerOrAlliedBuilding('),spawn.index('UnitCreate('))
         patrol=GALAXY[GALAXY.index('point APRG_RandomHeroesOfStormPatrolPoint('):GALAXY.index('bool APRG_OrderHeroesOfStormRandomPatrol(')]
-        for marker in ('GameGetMissionTime() < 240.0','UnitPathableToPoint(hero, candidate',
+        for marker in ('APRG_TimeSinceMacroBase(GameGetMissionTime()) < 900.0','UnitPathableToPoint(hero, candidate',
                        'APRG_PointNearPlayerOrAlliedBuilding(candidate, player, 20.0)',
                        'APRG_PointNearPlayerOrAlliedBuilding(sample, player, 20.0)',
                        'if (crossesProtectedArea) { continue; }'):
             self.assertIn(marker,patrol)
-        self.assertIn('g_aprgNextHeroesOfStormDefenseAttackTime = 240.0;',GALAXY)
+        self.assertIn('g_aprgNextHeroesOfStormDefenseAttackTime = established + 900.0;',GALAXY)
         self.assertNotIn('for (int ',GALAXY)
 
 if __name__=='__main__': unittest.main()

@@ -97,7 +97,8 @@ class R28RegressionTests(unittest.TestCase):
                   'GORGON_MISSION_EXCLUSIONS': set(), 'ISLAND_MISSION_NAMES': set(),
                   'DESTRUCTION_MISSION_EXCLUSIONS': set(), 'DESTRUCTION_TIMED_DEFENSE_ALLOWLIST': set(),
                   'dependency_sensitive_effect_exclusions': lambda name: (set(), set()),
-                  'RICH_MINERALS_MISSION_EXCLUSIONS': set()}
+                  'RICH_MINERALS_MISSION_EXCLUSIONS': set(),
+                  'crucible_mutation_exclusions': lambda name: {'conga_line'} if str(name).casefold().startswith('the crucible') else set()}
         exclusions = python_function(GENERATOR, '_effect_exclusions_for_mission', gscope)
         self.assertIn('nexus_shield', exclusions({'name': 'Smash and Grab'})[0])
         self.assertIn('nexus_shield', exclusions({'short_name': 'Smash and Grab', 'name': 'Smash and Grab (WoL)'})[0])
@@ -107,7 +108,8 @@ class R28RegressionTests(unittest.TestCase):
                   '_mission_base_name': lambda name: name,
                   'GORGON_MISSION_EXCLUSIONS': set(), 'ISLAND_MISSION_NAMES': set(),
                   'DEPENDENCY_SENSITIVE_MISSIONS': set(),
-                  'SWARM_DEPENDENCY_MUTATIONS': set(), 'VOID_DEPENDENCY_MUTATIONS': set()}
+                  'SWARM_DEPENDENCY_MUTATIONS': set(), 'VOID_DEPENDENCY_MUTATIONS': set(),
+                  'CRUCIBLE_ENEMY_STRUCTURE_MUTATIONS': {'conga_line'}}
         allowed = python_function(CLIENT, '_mutation_allowed_for_mission', rscope)
         self.assertFalse(allowed({'mission_name': 'Smash and Grab'}, 1, 'nexus_shield'))
         self.assertTrue(allowed({'mission_name': 'The Outlaws'}, 1, 'nexus_shield'))
@@ -115,8 +117,8 @@ class R28RegressionTests(unittest.TestCase):
 
     def test_warp_uses_campaign_proven_attached_model_and_preserves_stun(self):
         warp = galaxy_function('APRG_CreateWarpVisual')
-        self.assertIn('libNtve_gf_AttachModelToUnit(u, "ProtossGenericWarpInOut", "Ref_Center")', warp)
-        self.assertIn('libNtve_gf_ActorLastCreated()', warp)
+        self.assertIn('libNtve_gf_AttachModelToUnitInheritVisibility(u, "ProtossGenericWarpInOut", "Ref_Origin")', warp)
+        self.assertIn('fx = libNtve_gf_AttachModelToUnitInheritVisibility(', warp)
         self.assertLess(warp.index('AttachModelToUnit'), warp.index('ProtossFastWarpinMarker'))
         for name in ('APRG_ProcessAllyWarpQueue', 'APRG_ProcessPurifierHostileWarpQueue'):
             body = galaxy_function(name)

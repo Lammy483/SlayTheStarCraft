@@ -35,11 +35,11 @@ Air Support,Blessing,"Random allied aircraft spawn to attack the enemies, but yo
 Fire Squad,Blessing,Start with a squad of fiery units,1
 Fuel Pipeline,Blessing,Gain 3 vespene gas every second,2
 Constant Evolution,Blessing,Your units gain 1 maximum HP every 5 seconds,2
-Zombies,Blessing,"Whenever any unit dies, they spawn an allied infested terran",4
+Zombies,Blessing,"Whenever any unit dies, they spawn an allied infested terran",3
 Zombies,Mutation,"Whenever any unit dies, they spawn a hostile infested terran",3
 Compound Interest,Blessing,Increase your mineral supply by 10% every 30 seconds.,2
 Transports,Blessing,Start with durable transports,1
-Blink,Blessing,All of your units have the blink ability,2
+Blink,Blessing,All of your units have the blink ability ,2
 Jetpacks,Mutation,"All enemy marines, zealots, and zerglings can fly and sometimes attack your base",2
 Limited Bank,Mutation,You cannot store more than 1500 total resources at a time,1
 Leviathan In Orbit,Mutation,Many zerg drop pods constantly rain down,5
@@ -51,7 +51,7 @@ Instant workers,Blessing,Your workers build instantly,2
 Horde Mode,Blessing,"Your units cost half as much, build twice as fast, and have 25% fewer hit points",3
 Nuclear Annihilation,Mutation,"Every 30 seconds, a nuke can land ANYWHERE",3
 Elite Soldiers,Blessing,Your trained units and structures have a 15% increase to all of their stats,2
-Void Thrashers,Mutation,Void Thrashers spawn to siege your base,4
+Void Thrashers,Mutation,Void Thrashers spawn to siege your base,5
 Energy Leak,Mutation,Your units and structures all lose 1 energy every 3 seconds,1
 Energy Overload,Blessing,Your units produce energy 3x faster,1
 Occasional Thor,Blessing,"Whenever you train a unit, you have a 4% chance of training a Thor instead",1
@@ -75,7 +75,7 @@ Burrowed Zerglings,Mutation,There are 150 burrowed zerglings scattered throughou
 Stealth Tunnels,Blessing,All of your units can move while burrowed,1
 Logistics,Blessing,Your maximum supply is 400,1
 Lurker Defense,Blessing,"You start with 4 lurkers and 4 impalers to protect your base, but they move slowly",1
-Building Overcharge,Blessing,All of your buildings shoot lasers,3
+Building Turrets,Blessing,All of your buildings shoot lasers,3
 Mira's Mercenaries,Mutation,Mira Han has mercenaries on the map on the enemy team. If you have 6000 minerals you purchase them for yourself,2
 Tactical Binoculars,Mutation,Enemies have double range,4
 Tal'darim Reinforcements,Mutation,Absurdly Deadly Tal'darim armies repeatedly attack after the 20 minute mark,4
@@ -112,14 +112,21 @@ Rich Vespene,Blessing,All vespene geysers are replaced with rich vespene geysers
 Rich Minerals,Blessing,All mineral fields are replaced with rich mineral fields,1
 Marauder Kill Teams,Mutation,"After 5 minutes, 2 Marauder Kill Teams begin patrolling the map",2
 Resource Pickups,Blessing,mineral and gas resource pickups scattered around the map,1
-Hellion Run-by,Mutation,Hellions try to run into your mineral lines,2
+Hellion Run-by,Mutation,Hellions try to run into your mineral lines,3
 Diamondbacks,Mutation,50 diamondbacks wander all over the place,3
 Leviathan Approaching,Mutation,The Leviathan floats outside your base spawning mutalisks and brood lords,5
-Odin,Mutation,The enemy base has an odin in it. After 13 minutes it attacks your base.,3
+Odin,Mutation,The enemy base has an odin in it. After about 14 minutes it attacks your base.,3
 Ultimate Harassment,Mutation,"The enemy sends many wraiths, vikings, and hellions bother you",5
-Brakk's Pack,Mutation,Brakk and a massive primal army awaits on the map. It attacks after 10 minutes.,5
+Brakk's Pack,Mutation,Brakk and a massive primal army awaits on the map. It attacks after about 11 minutes.,5
 Orlan's Planetary Fortress,Mutation,Colonel Orlan has a well-defended Planetary Fortress on the map that gains 1 range every 30 seconds.,4
 Enemy Spear of Adun,Mutation,The enemy has the Spear of Adun. Let's see how YOU like it,7
-True Golden Armada,Mutation,A massive golden armada patrols the map,6
+True Golden Armada,Mutation,An absurdely massive golden armada patrols the map,6
 Immortal Zergling,Mutation,A single immortal zergling attacks you constantly,1
 Tosh and his Boys,Mutation,"Tosh is somewhere on the map. While he lives, cloaked spectres periodically try to nuke your base.",3
+Nydus Worms,Mutation,Nydus worms periodically spawn to send units towards your base,3
+Point Defense Drones,Mutation,Enemy structures each have a point defense drone deployed near them to stop your projectiles,1
+Heavily-Defended Drakken Laser Drill,Mutation,The enemy has a Heavily-Defended Drakken Laser Drill,6
+Multiple Air Bogies,Mutation,Zerg air units occasionally attack your base,1
+Covert Assistance,Blessing,Tosh works independently to assist you. He does not respawn.,1
+Hybrid Research,Mutation,Each enemy structure releases a random hybrid when destroyed,4
+Immortals,Mutation,There are 30 immortals patrolling around the map,3
