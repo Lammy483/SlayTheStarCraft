@@ -18,7 +18,7 @@ class NativeSpectreTargetTest(unittest.TestCase):
     def test_chooses_target_at_birth(self):
         self.assertIn('targetPoint = APRG_ToshSpectreChooseNukePoint(spec, player);', TOSH)
         self.assertIn('g_aprgToshSpectreNukePoint[slot] = targetPoint;', TOSH)
-        self.assertIn('approachPoint = APRG_ToshSpectreApproachPoint(spec, targetPoint);', TOSH)
+        self.assertIn('if (!UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),', TOSH)
         self.assertIn('g_aprgToshSpectreLastProgressTime[slot] = now;', TOSH)
         self.assertIn('g_aprgToshSpectreNukePoint[i];', TOSH)
 
@@ -37,13 +37,13 @@ class NativeSpectreTargetTest(unittest.TestCase):
     def test_cast_keeps_original_point_and_no_attack_approach(self):
         self.assertIn('OrderTargetingPoint(AbilityCommand("TacNukeStrike", 0), targetPoint)', TOSH)
         self.assertIn('if (distance > 9.0)', TOSH)
-        self.assertIn('UnitOrderCount(spec) == 0', TOSH)
+        self.assertIn('g_aprgToshSpectreNextOrderTime[i] = now + 5.0;', TOSH)
         self.assertNotIn('targetPoint = PointWithOffsetPolar(UnitGetPosition(target),', TOSH)
         start = TOSH.index('if (g_aprgToshSpectrePhase[i] != 1')
         end = TOSH.index('castOrder = OrderTargetingPoint(AbilityCommand("TacNukeStrike", 0)', start)
         approach = TOSH[start:end]
         self.assertNotIn('APRG_OrderAttackMove(spec', approach)
-        self.assertNotIn('APRG_NearestPathablePlayerStructure(spec', approach)
+        self.assertIn('APRG_NearestPathablePlayerStructure(spec, player)', approach)
 
     def test_native_nuke_and_silo_not_removed(self):
         self.assertIn('UnitMagazineArm(silo, AbilityCommand("ArmSiloWithNuke", 0), 1);', TOSH)

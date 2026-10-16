@@ -19,16 +19,26 @@ class ToshSpectreReleaseHotfix(unittest.TestCase):
     def test_ground_path_uses_ground_not_building_centers(self):
         self.assertIn("UnitGroupClosestToPoint(workers, UnitGetPosition(home))", SPAWN)
         self.assertIn("PointPathingIsConnected(candidate, homeGround)", SPAWN)
-        self.assertIn("PointPathingIsConnected(UnitGetPosition(spectre), candidate)", SPAWN)
         self.assertIn("anchor = UnitGroupRandomUnit(APRG_EnemyStructures(player)", TOSH)
     def test_locked_target_and_unsticking_without_combat_ai(self):
         self.assertIn("targetPoint = APRG_ToshSpectreChooseNukePoint(spec, player);", TOSH)
         self.assertIn("g_aprgToshSpectreNukePoint[slot] = targetPoint;", TOSH)
-        self.assertIn("approachPoint = APRG_ToshSpectreApproachPoint(spec, targetPoint);", TOSH)
+        self.assertIn("if (!UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand(\"move\", 0),", TOSH)
         self.assertIn("g_aprgToshSpectreLastProgressTime[i] + 20.0", TOSH)
-        self.assertIn("PointWithOffsetPolar(targetPoint, RandomFixed(6.0, 8.0)", SPAWN)
+        self.assertNotIn("APRG_ToshSpectreApproachPoint", G)
         self.assertIn("if (distance > 9.0)", TOSH)
+        self.assertIn("g_aprgToshSpectreNextOrderTime[i] = now + 5.0;", TOSH)
+        self.assertIn("APRG_NearestPathablePlayerStructure(spec, player)", TOSH)
         self.assertIn('OrderTargetingPoint(AbilityCommand("TacNukeStrike", 0), targetPoint)', TOSH)
+    def test_retries_move_even_if_previous_order_is_still_queued(self):
+        self.assertNotIn('if (UnitOrderCount(spec) == 0 ||', TOSH)
+        self.assertIn('g_aprgToshSpectreNextOrderTime[i] = now + 5.0;', TOSH)
+        self.assertIn('g_aprgToshSpectreLastProgressTime[i] + 20.0', TOSH)
+        self.assertIn('Spectre move order rejected.', TOSH)
+        self.assertIn('Initial Spectre move rejected.', TOSH)
+        self.assertIn('Spectre approach stalled; switching to player base.', TOSH)
+        self.assertNotIn('APRG_ToshSpectreApproachPoint', G)
+
     def test_preserve_native_nuke_and_timing(self):
         self.assertIn("APRG_TOSH_SPECTRE_FIRST_SPAWN_DELAY = 300.0", G)
         self.assertIn("g_aprgNextToshSpectreTime = now + 60.0;", TOSH)

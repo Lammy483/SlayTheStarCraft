@@ -20055,25 +20055,10 @@ point APRG_ToshPathableHostileSpawnPoint(unit anchor, int player) {
     }
     return null;
 }
-// Select an accessible standing location from which the Spectre can cast on
-// its locked nuke point. Moving to the point itself can get stuck inside a
-// structure footprint or against cliffs.
-point APRG_ToshSpectreApproachPoint(unit spectre, point targetPoint) {
-    point candidate;
-    int attempt;
-    if (spectre == null || !UnitIsAlive(spectre) || targetPoint == null) { return null; }
-    if (DistanceBetweenPoints(UnitGetPosition(spectre), targetPoint) <= 8.5) {
-        return UnitGetPosition(spectre);
-    }
-    for (attempt = 0; attempt < 20; attempt += 1) {
-        candidate = PointWithOffsetPolar(targetPoint, RandomFixed(6.0, 8.0),
-            libNtve_gf_RandomAngle());
-        if (candidate != null && RegionContainsPoint(RegionPlayableMap(), candidate) &&
-            PointPathingPassable(candidate) &&
-            PointPathingIsConnected(UnitGetPosition(spectre), candidate)) { return candidate; }
-    }
-    return null;
-}
+// Dev49's successful native-nuke approach issued an ordinary move order
+// immediately and repeated it every five seconds. Do not make movement
+// conditional on finding a random spot within a narrow ring around a target.
+// SC2 can approach a building footprint even when its centre is unpathable.
 
 // Hostile Tosh uses normal hero spellcasting and attack-move patrols between
 // enemy-held regions. Exactly one Tosh is spawned: killing him stops new raids.
@@ -20173,7 +20158,6 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
     unitgroup created;
     point spawnPoint;
     point targetPoint;
-    point approachPoint;
     fixed distance;
     bool shieldCast;
     int owner;
@@ -20285,14 +20269,15 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
                         if (CatalogEntryIsValid(c_gameCatalogBehavior, "APRogueCloakedNightmare")) {
                             UnitBehaviorAdd(spec, "APRogueCloakedNightmare", spec, 1);
                         }
-                        // Lock the nuke point now, but walk to a reachable
-                        // position within native casting range, not into a
-                        // potentially blocked building/unit position.
+                        // The original Dev49 native nuke build issued the
+                        // first move directly, without a path-probe gate.
+                        // Native ground pathing can approach the target even
+                        // when its exact position is occupied by a building.
                         if (targetPoint != null) {
-                            approachPoint = APRG_ToshSpectreApproachPoint(spec, targetPoint);
-                            if (approachPoint != null) {
-                                UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
-                                    approachPoint), c_orderQueueReplace);
+                            if (!UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
+                                    targetPoint), c_orderQueueReplace)) {
+                                UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+                                    StringToText("[Slay Nuke Test] Initial Spectre move rejected."));
                             }
                         }
                         g_aprgNextToshSpectreTime = now + 60.0;
@@ -20356,20 +20341,32 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
             g_aprgToshSpectreLastProgressTime[i] = now;
         }
         if (distance > 9.0) {
-            // An order can remain active even when the unit is physically
-            // stuck. Every 20 seconds without progress, choose another
-            // walkable point inside casting range of the LOCKED target.
-            if (UnitOrderCount(spec) == 0 ||
-                now >= g_aprgToshSpectreLastProgressTime[i] + 20.0) {
-                approachPoint = APRG_ToshSpectreApproachPoint(spec, targetPoint);
-                if (approachPoint != null) {
-                    UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
-                        approachPoint), c_orderQueueReplace);
+            // Dev49's working native attack retried the DIRECT move every
+            // five seconds even when SC2 still reported an existing order.
+            // A stuck move can remain queued indefinitely; UnitOrderCount
+            // is therefore not a useful test of whether we should retry.
+            if (now >= g_aprgToshSpectreLastProgressTime[i] + 20.0) {
+                // The originally selected unit or point might be inaccessible.
+                // Use Dev49's nearest ground-connected player structure as a
+                // recovery destination, preserving native TacNukeStrike.
+                target = APRG_NearestPathablePlayerStructure(spec, player);
+                if (target == null) { target = APRG_FindPlayerHomeStructure(player); }
+                if (target != null) {
+                    targetPoint = UnitGetPosition(target);
+                    g_aprgToshSpectreNukePoint[i] = targetPoint;
+                    distance = DistanceBetweenPoints(UnitGetPosition(spec), targetPoint);
+                    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+                        StringToText("[Slay Nuke Test] Spectre approach stalled; switching to player base."));
                 }
                 g_aprgToshSpectreLastDistance[i] = distance;
                 g_aprgToshSpectreLastProgressTime[i] = now;
             }
-            g_aprgToshSpectreNextOrderTime[i] = now + 2.0;
+            if (!UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
+                    targetPoint), c_orderQueueReplace)) {
+                UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+                    StringToText("[Slay Nuke Test] Spectre move order rejected."));
+            }
+            g_aprgToshSpectreNextOrderTime[i] = now + 5.0;
             continue;
         }
         // Campaign native cast needs TacNukeStrike and a stocked enemy silo.
@@ -20433,9 +20430,9 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
             g_aprgToshSpectreNextOrderTime[i] = now + 10.0;
             continue;
         }
-        // The locked strike point was chosen at spawn (25% nearest mobile
-        // unit, otherwise within 5 of the nearest allied/player building).
-        // Never silently substitute a new target when the Spectre reaches range.
+        // The strike point was selected at spawn (25% nearest mobile unit,
+        // otherwise within 5 of a player/allied building); a stalled approach
+        // may redirect to a reachable building, still using the native cast.
         castOrder = OrderTargetingPoint(AbilityCommand("TacNukeStrike", 0), targetPoint);
         if (!UnitOrderIsValid(spec, castOrder)) {
             UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,

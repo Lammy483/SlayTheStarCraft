@@ -32,6 +32,13 @@ Release based on v1.1.2 Dev51. This is a feature update to v1.1.0.
 - Replace a C/Galaxy++ `?:` conditional inadvertently introduced in the Tosh/Spectre hotfix with valid raw Galaxy `if/else` syntax. This addresses the script compilation failure observed as the three-race critical error.
 - Add a static regression check that rejects unsupported conditional expressions in raw Galaxy source.
 
+## v1.2.0 Tosh native-nuke approach correction (Dev52)
+
+- Restore Dev49's actual working movement behavior: Spectres issue their first move immediately and reissue a direct move every 5 seconds, even when a stale order remains queued.
+- Remove the 6–8-range random approach-point search that could return no valid point and leave the Spectre motionless after spawning.
+- After 20 seconds without progress, recover toward the nearest pathable player structure and report the fallback in the existing nuclear diagnostics.
+- Keep a strike target chosen at spawn (including the 25% mobile-target option); preserve the native Tactical Nuke Strike, Ghost Academy ammunition, and five-minute/one-minute timing.
+
 ## Notes
 
 This release keeps the confirmed Galaxy initialization regression fixes. Offline tests cover the source, but not every mutation/mission combination has been live-tested. In particular, the final Dev51 Spectre retargeting update needs additional playtesting.
