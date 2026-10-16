@@ -384,10 +384,9 @@ const fixed APRG_TOSH_SPECTRE_FIRST_SPAWN_DELAY = 300.0;
 const int APRG_MAX_TOSH_SPECTRES = 48;
 unit[48] g_aprgToshSpectres;
 point[48] g_aprgToshSpectreNukePoint;
+point[48] g_aprgToshSpectreApproachPoint;
 fixed[48] g_aprgToshSpectreNukeTime;
 fixed[48] g_aprgToshSpectreNextOrderTime;
-fixed[48] g_aprgToshSpectreLastDistance;
-fixed[48] g_aprgToshSpectreLastProgressTime;
 actor[48] g_aprgToshSpectreNukeIndicator;
 // Temporary ammunition provider per Spectre, not an original-map objective.
 // Created only when that Spectre is ready to cast; removed after the cast.
@@ -6590,10 +6589,7 @@ bool APRG_TryCategorizedAutonomousAbility(unit caster, int player, bool friendly
     // Covert Assistance Tosh's reactive matrix/Psi Shield is issued by his
     // dedicated tick. This shared caster must never drain his shield reserve.
     // 200 energy leaves >=100 after any 100-energy offensive cast.
-    // Covert Tosh retains a strict defensive-shield reserve. Enemy Tosh is
-    // handled separately: the 200-energy minimum suppressed his normal
-    // abilities whenever his energy fell below its maximum.
-    if (caster == g_aprgCovertTosh &&
+    if ((caster == g_aprgCovertTosh || caster == g_aprgTosh) &&
         UnitGetPropertyFixed(caster, c_unitPropEnergy, c_unitPropCurrent) < 200.0) { return false; }
 
     // Preserve the roaming/attack-move objective across opportunistic casts.
@@ -18178,13 +18174,12 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     for (g_aprgGoldenRetries = 0; g_aprgGoldenRetries < APRG_MAX_TOSH_SPECTRES; g_aprgGoldenRetries += 1) {
         g_aprgToshSpectres[g_aprgGoldenRetries] = null;
         g_aprgToshSpectreNukePoint[g_aprgGoldenRetries] = null;
+        g_aprgToshSpectreApproachPoint[g_aprgGoldenRetries] = null;
         g_aprgToshSpectreNukeTime[g_aprgGoldenRetries] = -1.0;
         g_aprgToshSpectreNextOrderTime[g_aprgGoldenRetries] = -1.0;
         g_aprgToshSpectreNukeIndicator[g_aprgGoldenRetries] = null;
         g_aprgToshSpectreNukeSilo[g_aprgGoldenRetries] = null;
         g_aprgToshSpectreNukeOrderSeen[g_aprgGoldenRetries] = false;
-        g_aprgToshSpectreLastDistance[g_aprgGoldenRetries] = 999999.0;
-        g_aprgToshSpectreLastProgressTime[g_aprgGoldenRetries] = -1.0;
         g_aprgToshSpectrePhase[g_aprgGoldenRetries] = 0;
     }
     g_aprgEnemySpearCaster = null;
@@ -20028,37 +20023,19 @@ bool APRG_TryUnitAbilityKeyword(unit caster, string keyword, unit target, point 
 // Validate the actual spawn position as well as the hostile building anchor.
 point APRG_ToshPathableHostileSpawnPoint(unit anchor, int player) {
     unit home;
-    unit worker;
-    unitgroup workers;
     point candidate;
-    point homeGround;
     int attempt;
     if (anchor == null || !UnitIsAlive(anchor)) { return null; }
     home = APRG_FindPlayerHomeStructure(player);
     if (home == null || !UnitIsAlive(home)) { return null; }
-    // The building centre itself may be unpathable. Compare actual ground
-    // positions, using a worker as the reference when one is available.
-    homeGround = null;
-    workers = APRG_PlayerWorkers(player);
-    worker = UnitGroupClosestToPoint(workers, UnitGetPosition(home));
-    if (worker != null && UnitIsAlive(worker)) { homeGround = UnitGetPosition(worker); }
-    if (homeGround == null || !PointPathingPassable(homeGround)) {
-        homeGround = APRG_FindGroundPointNear(UnitGetPosition(home), 3.0, 9.0);
-    }
-    if (homeGround == null) { return null; }
-    for (attempt = 0; attempt < 20; attempt += 1) {
-        candidate = APRG_FindGroundPointNear(UnitGetPosition(anchor), 3.0, 11.0);
-        if (candidate == null || !PointPathingPassable(candidate) ||
-            !APRG_LabRatEnemySpawnAllowed(candidate, player)) { continue; }
-        if (!APRG_GroundSpawnsNeedPlayerPathing() ||
-            PointPathingIsConnected(candidate, homeGround)) { return candidate; }
+    for (attempt = 0; attempt < 12; attempt += 1) {
+        candidate = APRG_FindGroundPointNear(UnitGetPosition(anchor), 3.0, 10.0);
+        if (candidate != null && PointPathingIsConnected(candidate, UnitGetPosition(home))) {
+            return candidate;
+        }
     }
     return null;
 }
-// Dev49's successful native-nuke approach issued an ordinary move order
-// immediately and repeated it every five seconds. Do not make movement
-// conditional on finding a random spot within a narrow ring around a target.
-// SC2 can approach a building footprint even when its centre is unpathable.
 
 // Hostile Tosh uses normal hero spellcasting and attack-move patrols between
 // enemy-held regions. Exactly one Tosh is spawned: killing him stops new raids.
@@ -20096,59 +20073,152 @@ bool APRG_TryToshDefensiveShield(unit tosh) {
     return false;
 }
 
-// Select a Spectre's nuke destination ONCE, when it is created. The nearest
-// eligible player/allied unit is chosen in 25% of attempts. Otherwise choose
-// the nearest player/allied structure and a point no more than 5 away. Keeping
-// this point fixed means no enemy-engagement/reacquisition phase precedes the
-// native TacNukeStrike cast.
-point APRG_ToshSpectreChooseNukePoint(unit spectre, int player) {
-    unitgroup candidates;
+// The Spectre's approach targets a genuine player-owned or player-allied
+// structure near its OWN SPAWN location, never a home-base fallback merely
+// because the standard target-filter query missed a structure.  Collect all
+// non-missile units and classify by the STRUCTURE attribute: some campaign/AP
+// building variants are missed by strict c_targetFilterStructure searches.
+// Town halls are a last resort: attacking outer production/defense buildings
+// keeps hostile Spectres from suicidally walking deep into the main base.
+unit APRG_ToshSpectreChooseTarget(unit spectre, int player, bool showDiagnostic) {
+    unitgroup buildings;
+    unitgroup mobiles;
     unit candidate;
-    unit closest;
-    point p;
+    unit nearestNonTownHall = null;
+    unit nearestTownHall = null;
+    unit closestMobile = null;
+    unit closestBuilding;
     fixed distance;
-    fixed bestDistance;
+    fixed nearestNonTownHallDistance = 100000.0;
+    fixed nearestTownHallDistance = 100000.0;
+    fixed mobileDistance = 100000.0;
+    int eligibleCount = 0;
+    int otherCount = 0;
     int j;
-    bool preferMobile;
+    string typeName;
     if (spectre == null || !UnitIsAlive(spectre)) { return null; }
-    preferMobile = RandomInt(1, 4) == 1;
-    if (preferMobile) {
-        candidates = APRG_PlayerMobileUnits(player);
-        UnitGroupAddUnitGroup(candidates, UnitGroupAlliance(
-            player, c_unitAllianceAlly, RegionPlayableMap(),
-            UnitFilter(0, 0, (1 << c_targetFilterStructure) | (1 << c_targetFilterMissile),
-                (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))), 0));
-        closest = null;
-        bestDistance = 999999.0;
-        for (j = UnitGroupCount(candidates, c_unitCountAlive); j > 0; j -= 1) {
-            candidate = UnitGroupUnitFromEnd(candidates, j);
-            if (candidate == null || !UnitIsAlive(candidate) ||
-                UnitTestState(candidate, c_unitStateInvulnerable)) { continue; }
-            distance = DistanceBetweenPoints(UnitGetPosition(spectre), UnitGetPosition(candidate));
-            if (distance < bestDistance) { bestDistance = distance; closest = candidate; }
-        }
-        if (closest != null) { return UnitGetPosition(closest); }
-        // If no eligible mobile unit exists, fall back to a structure.
-    }
-    candidates = APRG_PlayerStructures(player);
-    UnitGroupAddUnitGroup(candidates, UnitGroupAlliance(
+    // Do not exclude hidden-at-filter-time entries: the unit-state test below
+    // excludes actually scripted-hidden structures without discarding ordinary
+    // campaign/AP buildings because of different target flags.
+    buildings = UnitGroup(null, player, RegionPlayableMap(),
+        UnitFilter(0, 0, (1 << c_targetFilterMissile),
+            (1 << (c_targetFilterDead - 32))), 0);
+    UnitGroupAddUnitGroup(buildings, UnitGroupAlliance(
         player, c_unitAllianceAlly, RegionPlayableMap(),
-        UnitFilter((1 << c_targetFilterStructure), 0, (1 << c_targetFilterMissile),
-            (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))), 0));
-    closest = null;
-    bestDistance = 999999.0;
-    for (j = UnitGroupCount(candidates, c_unitCountAlive); j > 0; j -= 1) {
-        candidate = UnitGroupUnitFromEnd(candidates, j);
-        if (candidate == null || !UnitIsAlive(candidate) ||
+        UnitFilter(0, 0, (1 << c_targetFilterMissile),
+            (1 << (c_targetFilterDead - 32))), 0));
+    for (j = UnitGroupCount(buildings, c_unitCountAlive); j > 0; j -= 1) {
+        candidate = UnitGroupUnitFromEnd(buildings, j);
+        if (candidate == null || !UnitIsAlive(candidate)) { continue; }
+        typeName = UnitGetType(candidate);
+        if (!UnitTypeTestAttribute(typeName, c_unitAttributeStructure) ||
+            !APRG_IsSlayStructureEffectEligibleType(typeName) ||
             UnitTestState(candidate, c_unitStateInvulnerable) ||
-            !APRG_IsSlayStructureEffectEligibleType(UnitGetType(candidate))) { continue; }
+            UnitTestState(candidate, c_unitStateHidden)) { continue; }
+        eligibleCount += 1;
         distance = DistanceBetweenPoints(UnitGetPosition(spectre), UnitGetPosition(candidate));
-        if (distance < bestDistance) { bestDistance = distance; closest = candidate; }
+        if (APRG_IsTownHallType(typeName)) {
+            if (distance < nearestTownHallDistance) {
+                nearestTownHall = candidate;
+                nearestTownHallDistance = distance;
+            }
+        }
+        else {
+            otherCount += 1;
+            if (distance < nearestNonTownHallDistance) {
+                nearestNonTownHall = candidate;
+                nearestNonTownHallDistance = distance;
+            }
+        }
     }
-    if (closest == null) { return null; }
-    p = PointWithOffsetPolar(UnitGetPosition(closest), RandomFixed(0.0, 4.5), libNtve_gf_RandomAngle());
-    if (p == null || !RegionContainsPoint(RegionPlayableMap(), p)) { return UnitGetPosition(closest); }
-    return p;
+    closestBuilding = nearestNonTownHall;
+    if (closestBuilding == null) { closestBuilding = nearestTownHall; }
+    // Keep the unit chance at 25% and allow a structure fallback when no
+    // eligible mobile targets exist.
+    if (RandomInt(1, 4) == 1) {
+        mobiles = APRG_PlayerMobileUnits(player);
+        UnitGroupAddUnitGroup(mobiles, UnitGroupAlliance(
+            player, c_unitAllianceAlly, RegionPlayableMap(),
+            UnitFilter(0, 0,
+                (1 << c_targetFilterStructure) | (1 << c_targetFilterMissile),
+                (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))), 0));
+        for (j = UnitGroupCount(mobiles, c_unitCountAlive); j > 0; j -= 1) {
+            candidate = UnitGroupUnitFromEnd(mobiles, j);
+            if (candidate == null || !UnitIsAlive(candidate) ||
+                candidate == g_aprgPotionTargetCaster ||
+                APRG_IsRakShirObjectiveUnit(candidate) ||
+                UnitTestState(candidate, c_unitStateInvulnerable) ||
+                UnitTestState(candidate, c_unitStateHidden)) { continue; }
+            distance = DistanceBetweenPoints(UnitGetPosition(spectre), UnitGetPosition(candidate));
+            if (distance < mobileDistance) {
+                closestMobile = candidate;
+                mobileDistance = distance;
+            }
+        }
+    }
+    if (closestMobile != null) { return closestMobile; }
+    // Show the complete selector inventory so that a one-structure query or
+    // unexpected town-hall fallback is distinguishable from real proximity.
+    if (showDiagnostic) {
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+            StringToText("[Slay Nuke] Eligible buildings=" + IntToString(eligibleCount) +
+                ", non-town halls=" + IntToString(otherCount)));
+        if (closestBuilding != null) {
+            UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+                StringToText("[Slay Nuke] Nearest forward target=" + UnitGetType(closestBuilding) +
+                    ", distance=" + FixedToString(DistanceBetweenPoints(
+                        UnitGetPosition(spectre), UnitGetPosition(closestBuilding)), c_fixedPrecisionAny)));
+        }
+    }
+    return closestBuilding;
+}
+
+// Stand outside the player base at native nuke range.  Use the side facing
+// the Spectre's ORIGINAL position, not the target building's center.  We
+// deliberately do not require pathing to the RANDOM NUKE POINT: it may be
+// on top of a structure, which is a valid nuclear target but not walkable.
+// Try alternative positions around the same 11.5-radius firing arc when
+// the ideal outer-side staging point is on blocked terrain.  Never reject
+// the target or prevent the Spectre from moving if all tests fail.
+point APRG_ToshSpectreStandoffPoint(unit spectre, point strikePoint) {
+    point source;
+    point candidate;
+    point firstPassable = null;
+    point preferred;
+    fixed heading;
+    fixed shift;
+    int attempt;
+    if (spectre == null || strikePoint == null) { return null; }
+    source = UnitGetPosition(spectre);
+    heading = AngleBetweenPoints(strikePoint, source);
+    preferred = PointWithOffsetPolar(strikePoint, 11.5, heading);
+    for (attempt = 0; attempt < 13; attempt += 1) {
+        shift = IntToFixed((attempt + 1) / 2) * 18.0;
+        if (attempt % 2 == 0) { shift = 0.0 - shift; }
+        candidate = PointWithOffsetPolar(strikePoint, 11.5, heading + shift);
+        if (candidate == null || !RegionContainsPoint(RegionPlayableMap(), candidate) ||
+            !PointPathingPassable(candidate)) { continue; }
+        if (firstPassable == null) { firstPassable = candidate; }
+        if (PointPathingIsConnected(source, candidate)) { return candidate; }
+    }
+    if (firstPassable != null) { return firstPassable; }
+    return preferred;
+}
+
+// A randomized point near a building or mobile target does NOT have to be
+// ground-passable.  This chooses a legal map coordinate without converting
+// the attack back into a nuke aimed at the Command Center's center.
+point APRG_ToshSpectreRandomNukePoint(unit target) {
+    point center;
+    point candidate;
+    int attempt;
+    if (target == null) { return null; }
+    center = UnitGetPosition(target);
+    for (attempt = 0; attempt < 12; attempt += 1) {
+        candidate = PointWithOffsetPolar(center, RandomFixed(0.0, 5.0), libNtve_gf_RandomAngle());
+        if (candidate != null && RegionContainsPoint(RegionPlayableMap(), candidate)) { return candidate; }
+    }
+    return center;
 }
 
 void APRG_TickToshAndHisBoys(int player, fixed now) {
@@ -20158,8 +20228,6 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
     unitgroup created;
     point spawnPoint;
     point targetPoint;
-    fixed distance;
-    bool shieldCast;
     int owner;
     int slot;
     int i;
@@ -20176,11 +20244,6 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
         if (!CatalogEntryIsValid(c_gameCatalogUnit, toshType)) { toshType = "ToshHero"; }
         if (!CatalogEntryIsValid(c_gameCatalogUnit, toshType)) { return; }
         anchor = APRG_RandomPathableHostileBaseAnchor(player);
-        // Building-centre connectivity is not reliable for every campaign
-        // structure. The actual spawn helper validates the walkable position.
-        if (anchor == null) {
-            anchor = UnitGroupRandomUnit(APRG_EnemyStructures(player), c_unitCountAlive);
-        }
         if (anchor == null) { return; }
         spawnPoint = APRG_ToshPathableHostileSpawnPoint(anchor, player);
         if (spawnPoint == null) { return; }
@@ -20198,18 +20261,18 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
     if (g_aprgTosh != null && UnitIsAlive(g_aprgTosh)) {
         // Do not wait for the 5-second generic hero AI tick or for a nearby
         // offensive target before using Tosh's personal protective shield.
-        shieldCast = APRG_TryToshDefensiveShield(g_aprgTosh);
+        APRG_TryToshDefensiveShield(g_aprgTosh);
         if (now >= g_aprgNextToshPatrolTime) {
-            if (!shieldCast) {
-                targetPoint = APRG_ArchonImmortalPatrolDestination(g_aprgTosh, player, 20.0);
-                if (targetPoint != null) { APRG_OrderAttackMove(g_aprgTosh, targetPoint); }
-            }
+            targetPoint = APRG_ArchonImmortalPatrolDestination(g_aprgTosh, player, 20.0);
+            if (targetPoint != null) { APRG_OrderAttackMove(g_aprgTosh, targetPoint); }
+            // Don't replace a long move with tiny new hops every few seconds.
             g_aprgNextToshPatrolTime = now + 20.0;
         }
         if (now >= g_aprgNextToshAbilityTime) {
-            // The dedicated shield fires first; offensive spells are allowed
-            // whenever their actual native orders/energy requirements permit.
-            if (!shieldCast) { APRG_TryGeneratedHeroAbility(g_aprgTosh, player); }
+            // Hostile Tosh also reserves 100+ energy for his personal shield.
+            if (UnitGetPropertyFixed(g_aprgTosh, c_unitPropEnergy, c_unitPropCurrent) >= 200.0) {
+                APRG_TryGeneratedHeroAbility(g_aprgTosh, player);
+            }
             g_aprgNextToshAbilityTime = now + 5.0;
         }
         if (now >= g_aprgNextToshSpectreTime) {
@@ -20246,21 +20309,10 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
                         APRG_RegisterMutationEnemyGroup(created);
                         g_aprgToshSpectres[slot] = spec;
                         g_aprgToshSpectrePhase[slot] = 1;
-                        // Lock the strike location at birth, before any approach order.
-                        targetPoint = APRG_ToshSpectreChooseNukePoint(spec, player);
-                        g_aprgToshSpectreNukePoint[slot] = targetPoint;
+                        g_aprgToshSpectreNukePoint[slot] = null;
+                        g_aprgToshSpectreApproachPoint[slot] = null;
                         g_aprgToshSpectreNukeTime[slot] = -1.0;
-                        g_aprgToshSpectreNextOrderTime[slot] = now + 1.0;
-                        // Raw SC2 Galaxy does not support C's conditional expression.
-                        // Keep the fallback explicit rather than using ? :.
-                        if (targetPoint == null) {
-                            g_aprgToshSpectreLastDistance[slot] = 999999.0;
-                        }
-                        else {
-                            g_aprgToshSpectreLastDistance[slot] = DistanceBetweenPoints(
-                                UnitGetPosition(spec), targetPoint);
-                        }
-                        g_aprgToshSpectreLastProgressTime[slot] = now;
+                        g_aprgToshSpectreNextOrderTime[slot] = now;
                         g_aprgToshSpectreNukeIndicator[slot] = null;
                         g_aprgToshSpectreNukeSilo[slot] = null;
                         g_aprgToshSpectreNukeOrderSeen[slot] = false;
@@ -20269,15 +20321,22 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
                         if (CatalogEntryIsValid(c_gameCatalogBehavior, "APRogueCloakedNightmare")) {
                             UnitBehaviorAdd(spec, "APRogueCloakedNightmare", spec, 1);
                         }
-                        // The original Dev49 native nuke build issued the
-                        // first move directly, without a path-probe gate.
-                        // Native ground pathing can approach the target even
-                        // when its exact position is occupied by a building.
-                        if (targetPoint != null) {
-                            if (!UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
-                                    targetPoint), c_orderQueueReplace)) {
-                                UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                                    StringToText("[Slay Nuke Test] Initial Spectre move rejected."));
+                        // Choose the nearest enemy-visible player/allied target
+                        // from THIS SPECTRE's spawn position.  Select the
+                        // random nuke point separately, then stop near maximum
+                        // native TacNukeStrike range on the incoming side.
+                        target = APRG_ToshSpectreChooseTarget(spec, player, false);
+                        // If the broader structure scan has no legitimate
+                        // candidates, do NOT silently redirect to the main
+                        // Command Center. Retry selection on the next tick.
+                        if (target != null) {
+                            targetPoint = APRG_ToshSpectreRandomNukePoint(target);
+                            g_aprgToshSpectreNukePoint[slot] = targetPoint;
+                            g_aprgToshSpectreApproachPoint[slot] =
+                                APRG_ToshSpectreStandoffPoint(spec, targetPoint);
+                            if (g_aprgToshSpectreApproachPoint[slot] != null) {
+                                UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
+                                    g_aprgToshSpectreApproachPoint[slot]), c_orderQueueReplace);
                             }
                         }
                         g_aprgNextToshSpectreTime = now + 60.0;
@@ -20308,7 +20367,7 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
             if (now < g_aprgToshSpectreNukeTime[i]) { continue; }
             if (!g_aprgToshSpectreNukeOrderSeen[i]) {
                 UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                    StringToText("[Slay Nuke Test] Cast order vanished before channel confirmation."));
+                    StringToText("[Slay Nuke] Cast order vanished before channel confirmation."));
             }
             // A temporary silo exists only for the live cast. Remove it after
             // native strike/channel has had time to complete, so it cannot
@@ -20324,49 +20383,26 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
             continue;
         }
         if (g_aprgToshSpectrePhase[i] != 1 || now < g_aprgToshSpectreNextOrderTime[i]) { continue; }
-        // Do not reacquire a building or issue combat orders before nuking.
-        // If the player had no valid targets at birth, acquire one once now.
+        // Cast once the Spectre reaches native maximum range (~12), NOT
+        // range 9 from the center of a building.  The Move destination is
+        // a fixed standoff point, so it can't walk deep into the player's
+        // base between the five-second retry checks.
         targetPoint = g_aprgToshSpectreNukePoint[i];
         if (targetPoint == null) {
-            targetPoint = APRG_ToshSpectreChooseNukePoint(spec, player);
-            if (targetPoint == null) { g_aprgToshSpectreNextOrderTime[i] = now + 4.0; continue; }
+            target = APRG_ToshSpectreChooseTarget(spec, player, false);
+            if (target == null) { g_aprgToshSpectreNextOrderTime[i] = now + 4.0; continue; }
+            targetPoint = APRG_ToshSpectreRandomNukePoint(target);
             g_aprgToshSpectreNukePoint[i] = targetPoint;
-            g_aprgToshSpectreLastDistance[i] = DistanceBetweenPoints(UnitGetPosition(spec), targetPoint);
-            g_aprgToshSpectreLastProgressTime[i] = now;
+            g_aprgToshSpectreApproachPoint[i] = APRG_ToshSpectreStandoffPoint(spec, targetPoint);
         }
-        // Never acquire enemies or attack-move before this native nuke.
-        distance = DistanceBetweenPoints(UnitGetPosition(spec), targetPoint);
-        if (distance + 0.5 < g_aprgToshSpectreLastDistance[i]) {
-            g_aprgToshSpectreLastDistance[i] = distance;
-            g_aprgToshSpectreLastProgressTime[i] = now;
-        }
-        if (distance > 9.0) {
-            // Dev49's working native attack retried the DIRECT move every
-            // five seconds even when SC2 still reported an existing order.
-            // A stuck move can remain queued indefinitely; UnitOrderCount
-            // is therefore not a useful test of whether we should retry.
-            if (now >= g_aprgToshSpectreLastProgressTime[i] + 20.0) {
-                // The originally selected unit or point might be inaccessible.
-                // Use Dev49's nearest ground-connected player structure as a
-                // recovery destination, preserving native TacNukeStrike.
-                target = APRG_NearestPathablePlayerStructure(spec, player);
-                if (target == null) { target = APRG_FindPlayerHomeStructure(player); }
-                if (target != null) {
-                    targetPoint = UnitGetPosition(target);
-                    g_aprgToshSpectreNukePoint[i] = targetPoint;
-                    distance = DistanceBetweenPoints(UnitGetPosition(spec), targetPoint);
-                    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                        StringToText("[Slay Nuke Test] Spectre approach stalled; switching to player base."));
-                }
-                g_aprgToshSpectreLastDistance[i] = distance;
-                g_aprgToshSpectreLastProgressTime[i] = now;
+        if (DistanceBetweenPoints(UnitGetPosition(spec), targetPoint) > 11.75) {
+            spawnPoint = g_aprgToshSpectreApproachPoint[i];
+            if (spawnPoint == null) { spawnPoint = APRG_ToshSpectreStandoffPoint(spec, targetPoint); }
+            if (spawnPoint != null) {
+                UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
+                    spawnPoint), c_orderQueueReplace);
             }
-            if (!UnitIssueOrder(spec, OrderTargetingPoint(AbilityCommand("move", 0),
-                    targetPoint), c_orderQueueReplace)) {
-                UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                    StringToText("[Slay Nuke Test] Spectre move order rejected."));
-            }
-            g_aprgToshSpectreNextOrderTime[i] = now + 5.0;
+            g_aprgToshSpectreNextOrderTime[i] = now + 2.0;
             continue;
         }
         // Campaign native cast needs TacNukeStrike and a stocked enemy silo.
@@ -20377,15 +20413,11 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
             !CatalogEntryIsValid(c_gameCatalogAbil, "ArmSiloWithNuke") ||
             !CatalogEntryIsValid(c_gameCatalogUnit, "GhostAcademy")) {
             UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                StringToText("[Slay Nuke Test] TacNukeStrike / silo missing from loaded catalog."));
+                StringToText("[Slay Nuke] TacNukeStrike / silo missing from loaded catalog."));
             g_aprgToshSpectreNextOrderTime[i] = now + 10.0;
             continue;
         }
         if (!UnitAbilityExists(spec, "TacNukeStrike")) { UnitAbilityAdd(spec, "TacNukeStrike"); }
-        // A long cloaked approach can drain the Spectre's energy below the
-        // native strike requirement; restore this one caster for its one nuke.
-        UnitSetPropertyFixed(spec, c_unitPropEnergy,
-            UnitGetPropertyFixed(spec, c_unitPropEnergyMax, c_unitPropCurrent));
         UnitAbilityShow(spec, "TacNukeStrike", true);
         UnitAbilityEnable(spec, "TacNukeStrike", true);
         TechTreeAbilityAllow(spectreOwner, AbilityCommand("TacNukeStrike", 0), true);
@@ -20413,7 +20445,7 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
         }
         if (silo == null) {
             UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                StringToText("[Slay Nuke Test] Could not create enemy Ghost Academy."));
+                StringToText("[Slay Nuke] Could not create enemy Ghost Academy."));
             g_aprgToshSpectreNextOrderTime[i] = now + 10.0;
             continue;
         }
@@ -20422,7 +20454,7 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
         }
         if (UnitMagazineCount(silo, "ArmSiloWithNuke") < 1) {
             UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                StringToText("[Slay Nuke Test] Academy has no nuke ammo after arming."));
+                StringToText("[Slay Nuke] Academy has no nuke ammo after arming."));
             // A rejected cast must not leave an invulnerable Ghost Academy
             // on a mission requiring the elimination of enemy structures.
             if (silo != null && UnitIsAlive(silo)) { UnitRemove(silo); }
@@ -20430,13 +20462,15 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
             g_aprgToshSpectreNextOrderTime[i] = now + 10.0;
             continue;
         }
-        // The strike point was selected at spawn (25% nearest mobile unit,
-        // otherwise within 5 of a player/allied building); a stalled approach
-        // may redirect to a reachable building, still using the native cast.
+        // The SAME randomized point selected at spawn is the native nuke
+        // target. Never reroll it at cast time just to force an overly close
+        // launch or switch to a Command Center's center.
+        targetPoint = g_aprgToshSpectreNukePoint[i];
+        if (targetPoint == null) { g_aprgToshSpectreNextOrderTime[i] = now + 5.0; continue; }
         castOrder = OrderTargetingPoint(AbilityCommand("TacNukeStrike", 0), targetPoint);
         if (!UnitOrderIsValid(spec, castOrder)) {
             UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                StringToText("[Slay Nuke Test] Native TacNukeStrike order invalid (even with ammo)."));
+                StringToText("[Slay Nuke] Native TacNukeStrike order invalid (even with ammo)."));
             // A rejected cast must not leave an invulnerable Ghost Academy
             // on a mission requiring the elimination of enemy structures.
             if (silo != null && UnitIsAlive(silo)) { UnitRemove(silo); }
@@ -20447,7 +20481,7 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
         castAccepted = UnitIssueOrder(spec, castOrder, c_orderQueueReplace);
         if (!castAccepted) {
             UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                StringToText("[Slay Nuke Test] SC2 rejected native nuke order."));
+                StringToText("[Slay Nuke] SC2 rejected native nuke order."));
             // A rejected cast must not leave an invulnerable Ghost Academy
             // on a mission requiring the elimination of enemy structures.
             if (silo != null && UnitIsAlive(silo)) { UnitRemove(silo); }
@@ -20455,8 +20489,6 @@ void APRG_TickToshAndHisBoys(int player, fixed now) {
             g_aprgToshSpectreNextOrderTime[i] = now + 5.0;
             continue;
         }
-        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-            StringToText("[Slay Nuke Test] Native nuke order accepted; ammo was stocked."));
         // Preserve the native targeting marker/animation and channel.  Never
         // manufacture NukeDamage, a GhostNukeIndicator, or a fake strike.
         g_aprgToshSpectreNukePoint[i] = targetPoint;

@@ -240,7 +240,7 @@ def refresh_ap_content_docs_cache(target: pathlib.Path) -> int:
 
             AP_CONTENT_DOCS_URL,
 
-            headers={"User-Agent": "SlayTheStarCraft/1.1.0"},
+            headers={"User-Agent": "SlayTheStarCraft/1.2.0"},
 
         )
 

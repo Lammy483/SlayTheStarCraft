@@ -166,9 +166,17 @@ def check_payload():
     if exe_path.is_file():
         exe = exe_path.read_bytes()
         if VERSION.encode("ascii") not in exe: raise RuntimeError("Compiled launcher version mismatch")
-    launcher_go = (RELEASE_ROOT/"Tools"/"slay_launcher_windows.go").read_text(encoding="utf-8")
-    expected_download_text = "nothing is installed globally, everything is installed in this folder."
-    if expected_download_text not in launcher_go: raise RuntimeError("First-launch data-location text mismatch")
+    # Developer/source builds ship Go launcher source; public portable ZIPs
+    # ship only the already-verified Windows executable. Never require Go
+    # source at install time; it is intentionally not distributed.
+    launcher_go_path = RELEASE_ROOT / "Tools" / "slay_launcher_windows.go"
+    if launcher_go_path.is_file():
+        launcher_go = launcher_go_path.read_text(encoding="utf-8")
+        expected_download_text = "nothing is installed globally, everything is installed in this folder."
+        if expected_download_text not in launcher_go:
+            raise RuntimeError("First-launch data-location text mismatch")
+    elif not exe_path.is_file():
+        raise RuntimeError("Public release requires a compiled SlayTheStarCraft.exe")
     for fn in ("slay_the_starcraft.py","generate_slay_run.py","slay_launcher.py"):
         if VERSION not in (ROOT/fn).read_text(encoding="utf-8"): raise RuntimeError(f"{fn} release version mismatch")
     check_catalog(ROOT/"EFFECT_CATALOG.csv",("Title","Mutation or Blessing","Description","Severity"))
@@ -667,7 +675,7 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
         "font_size=dp(21)",
     ):
         if token not in command:
-            raise RuntimeError(f"Missing v1.1.0 UI batch command token: {token}")
+            raise RuntimeError(f"Missing v1.2.0 UI batch command token: {token}")
     # An unsupported Galaxy native breaks APRogue globally: all three races
     # appear broken even if the invalid function would never execute.
     galaxy = (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8")
@@ -694,7 +702,7 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
         '(manager.slay_setup_tab, "Settings")',
     ):
         if token not in theme:
-            raise RuntimeError(f"Missing v1.1.0 theme update: {token}")
+            raise RuntimeError(f"Missing v1.2.0 theme update: {token}")
     if "Redfrog" in theme or "ASSEMBLE YOUR ARMY" in theme:
         raise RuntimeError("Removed acknowledgement/splash copy is still present")
     if "sound.volume=.04" not in support:
@@ -705,7 +713,7 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
         'spinner.bind(is_open=',
     ):
         if token not in launcher:
-            raise RuntimeError(f"Missing v1.1.0 settings UI update: {token}")
+            raise RuntimeError(f"Missing v1.2.0 settings UI update: {token}")
     if "def build_mission_table(manager,dt):" not in endless or "cls.build_mission_table=build_mission_table" not in endless:
         raise RuntimeError("Endless mission-table wrapper lost the Kivy-safe function name")
     # Keep randomized blessing/upgrade-pack purchase reveals wired through the native purchase path.

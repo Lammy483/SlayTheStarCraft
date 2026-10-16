@@ -504,7 +504,7 @@ def generate_run(
 
     run_data = json.loads(transient_run.read_text(encoding="utf-8"))
 
-    # v1.1.0: Only Standard Mode may be generated. Legacy Endless saves
+    # v1.2.0: Only Standard Mode may be generated. Legacy Endless saves
     # can still be loaded without overwriting their existing mode metadata.
     run_data["game_mode"] = "adventure"
     transient_run.write_text(json.dumps(run_data, indent=2), encoding="utf-8")

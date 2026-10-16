@@ -1,4 +1,4 @@
-"""English SC2 campaign presentation layer for Slay the StarCraft v1.1.0.
+"""English SC2 campaign presentation layer for Slay the StarCraft v1.2.0.
 
 Ported from Wangfeng's themed launcher while preserving the current launcher
 controls and callbacks. This module only changes presentation/navigation.
@@ -257,7 +257,7 @@ def _style_setup(manager, container) -> None:
 
     hero = BoxLayout(orientation="vertical", padding=[dp(30), dp(16)], size_hint_y=None, height=dp(118))
     panel(hero, "ui_screen_mainmenurebrandlow.png", color=(0.62, 0.73, 0.88, 1))
-    title.text = "[b]SLAY THE STARCRAFT[/b]  [size=16]v1.1.0[/size]"
+    title.text = "[b]SLAY THE STARCRAFT[/b]  [size=16]v1.2.0[/size]"
     title.halign = "left"
     title.bind(size=lambda w, v: setattr(w, "text_size", v))
     hero.add_widget(title)
@@ -284,7 +284,7 @@ def _style_setup(manager, container) -> None:
     panel(settings)
     # No redundant Adventure Configuration heading; settings start with the form.
 
-    # Keep the current v1.1.0 launcher controls and callbacks. We only restyle
+    # Keep the current v1.2.0 launcher controls and callbacks. We only restyle
     # and reposition them, including the new playable-race row.
     form.spacing = [dp(18), dp(12)]
     form.height = max(form.height, dp(350))
@@ -414,7 +414,7 @@ def decorate(manager, container) -> None:
     _install_navigation(manager)
     campaign = manager.slay_mission_tab.content
     panel(campaign, "ui_screens_zeratul_prologue_starfield_generic_diff.png", color=(0.45, 0.6, 0.75, 1), border=False)
-    _theme_log("English v1.1.0 SC2 theme installed")
+    _theme_log("English v1.2.0 SC2 theme installed")
 
 
 def install(module) -> None:

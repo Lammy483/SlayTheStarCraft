@@ -1,9 +1,21 @@
 # Slay the StarCraft
 
-## Current release: v1.2.0
+Slay the StarCraft is a single-player StarCraft II roguelike built on the Archipelago SC2 framework. Choose missions along a branching route, build your army, and develop your run with upgrades, mutations, blessings, and items.
 
-Slay the StarCraft is a single-player StarCraft II Archipelago roguelike experience.
+## Installation (Windows 10/11)
 
-Download the v1.2.0 Windows ZIP and extract it into a writable folder. Run `SlayTheStarCraft.exe`. On first launch, select **Download Data** to download the private Archipelago runtime and SC2 data. StarCraft II and the required campaign content must already be installed. No global Python installation is required.
+1. Extract the complete ZIP into a writable folder. Do not run the launcher inside the ZIP.
+2. Install StarCraft II and the campaign content required for the missions you plan to play.
+3. Open `SlayTheStarCraft.exe`. If prompted, choose your StarCraft II installation folder.
+4. Select **Download Data** on first launch. Leave the launcher open while it finishes.
+5. Select **Launch Slay** to generate and play a run.
 
-See `RELEASE_NOTES.md` for the changes and `docs/` for additional development guidance. The `release/v1.2.0` branch is the release-source snapshot.
+No system-wide Python installation is required. An internet connection is required for the initial runtime and game-data download.
+
+## Preferences
+
+Before downloading data, you can edit `Config/slay_preferences.ini` to set your preferred Warp Gate hotkey. Existing preferences are preserved during updates.
+
+## Support and source
+
+Report issues and find project source at [GitHub](https://github.com/Lammy483/SlayTheStarCraft).
