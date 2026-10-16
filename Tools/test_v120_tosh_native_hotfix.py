@@ -38,8 +38,9 @@ class ToshSpectreReleaseHotfix(unittest.TestCase):
         self.assertNotIn("libNtve_gf_CreateModelAtPoint", TOSH)
     def test_raw_galaxy_never_uses_unsupported_ternary_operator(self):
         import re
-        # Ship raw Galaxy rather than Galaxy++: it cannot parse conditional expressions.
-        code = re.sub(r'(?s)/\\*.*?\\*/|//[^\\n]*|"(?:\\\\.|[^"\\\\])*"', '', G)
+        # The very small subset of Galaxy we ship does not accept ?:.
+        # Strip comments and string contents before testing the source.
+        code = re.sub(r'(?s)/\*.*?\*/|//[^\n]*|"(?:\\.|[^"\\])*"', '', G)
         self.assertNotIn('?', code)
         self.assertIn('if (targetPoint == null) {', TOSH)
         self.assertIn('g_aprgToshSpectreLastDistance[slot] = 999999.0;', TOSH)
