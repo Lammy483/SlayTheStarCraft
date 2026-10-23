@@ -4894,7 +4894,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         trigger_doc_info: ["ArchipelagoCore.SC2Mod", "ArchipelagoTradeSystem.SC2Mod", "ArchipelagoPatches.SC2Mod"],
 
-        warpgate_game_hotkeys: [f"UI/Hotkey/WarpIn={warpgate_key}"],
+        warpgate_game_hotkeys: ([f"UI/Hotkey/WarpIn={warpgate_key}"] if warpgate_key is not None else []),
 
         aprogue_game_strings: ["Button/Name/APRogueBuildDrakkenLaserDrillButton=BUILD DRAKKEN LASER DRILL", "Button/Tooltip/APRogueBuildDrakkenLaserDrillButton=BUILD DRAKKEN LASER DRILL"],
 
