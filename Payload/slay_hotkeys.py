@@ -34,7 +34,7 @@ def load_hotkey_helpers():
     )
 
 
-def apply_hotkeys(portable_root: Path, sc2_root: Path) -> tuple[str, bool, int]:
+def apply_hotkeys(portable_root: Path, sc2_root: Path) -> tuple[str | None, bool, int]:
     patch_mod_game_hotkeys, patch_warpgate_hotkey, read_warpgate_preference = load_hotkey_helpers()
     key = read_warpgate_preference(portable_root)
     game_hotkeys = (
@@ -58,7 +58,7 @@ def apply_hotkeys(portable_root: Path, sc2_root: Path) -> tuple[str, bool, int]:
                 "Close StarCraft II and click Download Data to apply the "
                 "preference with the required permissions."
             ) from exc
-    changed_profiles = patch_warpgate_hotkey(key)
+    changed_profiles = patch_warpgate_hotkey(key) if key is not None else []
     return key, changed, len(changed_profiles)
 
 

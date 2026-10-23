@@ -135,7 +135,7 @@ PY_TEST_COMMANDS = r'''    # ----- Slay one-mission test overrides -----
 
     @mark_raw
     def _cmd_credits(self, amount: str = "") -> bool:
-        """Add test credits to the current Slay run."""
+        """Adjust test credits (positive or negative) in the current Slay run."""
         ok, message = slay.grant_test_credits(self.ctx, amount)
         self.output(message)
         return ok
@@ -240,7 +240,7 @@ def refresh_ap_content_docs_cache(target: pathlib.Path) -> int:
 
             AP_CONTENT_DOCS_URL,
 
-            headers={"User-Agent": "SlayTheStarCraft/1.2.0"},
+            headers={"User-Agent": "SlayTheStarCraft/1.2.2"},
 
         )
 
@@ -724,7 +724,7 @@ def ensure_debug_poc(text: str) -> str:
         credits_command = '''
     @mark_raw
     def _cmd_credits(self, amount: str = "") -> bool:
-        """Add test credits to the current Slay run."""
+        """Adjust test credits (positive or negative) in the current Slay run."""
         ok, message = slay.grant_test_credits(self.ctx, amount)
         self.output(message)
         return ok
@@ -740,7 +740,7 @@ def ensure_debug_poc(text: str) -> str:
 
         old_credits = '''    @mark_raw
     def _cmd_credits(self, amount: str = "") -> bool:
-        """Add test credits to the current Slay run."""
+        """Adjust test credits (positive or negative) in the current Slay run."""
         ok, message = slay.grant_test_credits(self.ctx, amount)
         self.output(message)
         return ok
@@ -1053,6 +1053,7 @@ def patch_client(text: str) -> str:
     bank_send = (
 
         '            mask_a, mask_b, mask_c, mask_d, mask_e, mask_f = slay.effect_masks_for_mission(self.ctx, self.mission_id)  # Slay the StarCraft v1.0.2.17\n'
+        '            mask_g = slay.extra_boon_mask_for_mission(self.ctx, self.mission_id)\n'
 
         '            auto_repair_stacks = slay.auto_repair_stacks(self.ctx)\n'
 
@@ -1086,11 +1087,11 @@ def patch_client(text: str) -> str:
 
         '            slay.announce_mission_effects(self.ctx, self.mission_id)\n'
 
-        '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}")\n'
+        '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask} {mask_g}")\n'
 
     )
 
-    current_send = '?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}'
+    current_send = '?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask} {mask_g}'
 
     previous_send_with_merc2 = '?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2}'
 
@@ -1302,7 +1303,7 @@ def patch_client(text: str) -> str:
 
                     f'            await self.chat_send(f"{send_fmt}")\n',
 
-                    '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}")\n',
+                    '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask} {mask_g}")\n',
 
                     1,
 
@@ -1333,6 +1334,7 @@ def patch_client(text: str) -> str:
     if "auto_repair_stacks = slay.auto_repair_stacks(self.ctx)" not in text:
 
         six_assignment = '            mask_a, mask_b, mask_c, mask_d, mask_e, mask_f = slay.effect_masks_for_mission(self.ctx, self.mission_id)  # Slay the StarCraft v1.0.2.17\n'
+        '            mask_g = slay.extra_boon_mask_for_mission(self.ctx, self.mission_id)\n'
 
         if six_assignment not in text:
 
@@ -1513,7 +1515,7 @@ def patch_client(text: str) -> str:
 
         else:
 
-            send_line = '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}")\n'
+            send_line = '            await self.chat_send(f"?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask} {mask_g}")\n'
 
             if send_line not in text:
 
@@ -2493,6 +2495,7 @@ def patch_gui(text: str) -> str:
             int(state.get("spent", 0)),
             slay.credits(self.ctx),
             tuple(state.get("shop_stock", ())),
+            str(state.get("shop_frozen_item", "")),
             tuple((entry["id"], entry["serial"]) for entry in slay.potion_inventory(self.ctx)),
             tuple(state.get("shop_sale_items", ())),
             tuple(sorted(state.get("shop_cycle_purchases", {}).items())),
@@ -3499,7 +3502,7 @@ def validate_client(text: str) -> None:
 
         "slay.effect_masks_for_mission(self.ctx, self.mission_id)",
 
-        "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}",
+        "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask} {mask_g}",
 
         "slay.test_potion_run_token(self.ctx)", "slay.progression_flags(self.ctx)", "slay.spear_energy_regen_stacks(self.ctx)", "slay.mercenary_upgrade_packed(self.ctx)", "slay.spear_cooldown_reduction_stacks(self.ctx)", "slay.kerrigan_upgrade_flags(self.ctx)",
 
@@ -3892,7 +3895,7 @@ def validate_galaxy(lib_text: str, apr_text: str) -> None:
 
         "APRG_MUT_ARMS_RACE", "APRG_AdvanceArmsRace", "APRG_MUT_RISING_GAS_PRICES", "APRG_ApplyRisingGasPrices",
 
-        "CatalogEntryCount(c_gameCatalogUnit)", "libNtve_gf_CatalogFieldValueModifyBasedOnDefaultValue",
+        "CatalogEntryCount(c_gameCatalogUnit)", "IntToString(MaxI(1, FixedToInt(RoundI(gasCost * 1.5))))",
 
         "APRG_BLESS_JUGGERNAUT", "APRG_ApplyJuggernaut",
 
@@ -3966,7 +3969,7 @@ def validate_galaxy(lib_text: str, apr_text: str) -> None:
 
     ]
 
-    retired_assembly = ("APRG_AssemblyTrain_Func", "APRG_AssemblyResearch_Func", "APRG_AssemblyConstruct_Func", "TriggerAddEventUnitResearchProgress", "TriggerAddEventUnitConstructProgress")
+    retired_assembly = ("APRG_AssemblyTrain_Func", "APRG_AssemblyResearch_Func", "APRG_AssemblyConstruct_Func")
 
     stale_assembly = [x for x in retired_assembly if x in apr_text]
 
@@ -4310,16 +4313,17 @@ def inject_blink_loadtime_overrides(text: str, sc2_root: pathlib.Path) -> tuple[
 
 
 
-def read_warpgate_preference(portable_root: pathlib.Path) -> str:
-    """Read the player-owned INI. Never overwrite an existing preference."""
+def read_warpgate_preference(portable_root: pathlib.Path) -> str | None:
+    """Release: optional INI only. Dev builds explicitly force W.
+
+    The dev flag is installed by the development patch, never by a release
+    installer. Release packagers must omit/delete Config/slay_dev_build.flag.
+    """
+    if (portable_root / "Config" / "slay_dev_build.flag").is_file():
+        return "W"
     ini_path = portable_root / "Config" / "slay_preferences.ini"
     if not ini_path.is_file():
-        ini_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            with ini_path.open("x", encoding="utf-8") as out:
-                out.write("[Hotkeys]\nWarpgate=W\n")
-        except FileExistsError:
-            pass  # The user or another launch may have created it meanwhile.
+        return None  # Never create a hardcoded override in a release.
     config = configparser.ConfigParser(interpolation=None)
     try:
         with ini_path.open("r", encoding="utf-8-sig") as stream:
@@ -4327,17 +4331,14 @@ def read_warpgate_preference(portable_root: pathlib.Path) -> str:
     except (OSError, configparser.Error) as exc:
         raise ValueError(f"Cannot read {ini_path}: {exc}") from exc
     key = config.get("Hotkeys", "Warpgate", fallback="").strip().upper()
-    # Keep this intentionally conservative. Invalid values must not silently
-    # restore W, which would surprise a player who edited the INI.
+    if not key:
+        return None
     if not re.fullmatch(r"(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))", key):
-        raise ValueError(
-            f"Invalid [Hotkeys] Warpgate={key!r} in {ini_path}. "
-            "Use one letter, digit, or F1-F12 (for example, Warpgate=E)."
-        )
+        raise ValueError(f"Invalid [Hotkeys] Warpgate={key!r} in {ini_path}.")
     return key
 
 
-def patch_mod_game_hotkeys(text: str, hotkey: str = "W") -> str:
+def patch_mod_game_hotkeys(text: str, hotkey: str | None = None) -> str:
 
 
 
@@ -4361,14 +4362,14 @@ def patch_mod_game_hotkeys(text: str, hotkey: str = "W") -> str:
 
         ending = "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
 
-        if not found:
+        if not found and hotkey is not None:
             lines[i] = f"UI/Hotkey/WarpIn={hotkey}{ending}"
         else:
             lines[i] = ""  # Remove duplicate overrides from older installs.
 
         found = True
 
-    if not found:
+    if not found and hotkey is not None:
 
         if lines and not lines[-1].endswith(("\n", "\r")):
 
@@ -4850,9 +4851,10 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
     ET.fromstring(game_data_include_new)
 
-    if f"UI/Hotkey/WarpIn={warpgate_key}" not in warpgate_game_hotkeys_new:
-
+    if warpgate_key is not None and f"UI/Hotkey/WarpIn={warpgate_key}" not in warpgate_game_hotkeys_new:
         raise RuntimeError(f"Failed to prepare mod-local WarpIn={warpgate_key} GameHotkeys override")
+    if warpgate_key is None and "UI/Hotkey/WarpIn=" in warpgate_game_hotkeys_new:
+        raise RuntimeError("Release Warpgate override was not removed")
 
     if "Button/Name/APRogueBuildDrakkenLaserDrillButton=BUILD DRAKKEN LASER DRILL" not in aprogue_game_strings_new:
 
@@ -4888,7 +4890,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
     post_checks = {
 
-        client: ["mission_launch_summary", "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask}", "slay.progression_flags", "slay.spear_energy_regen_stacks", "slay.mercenary_upgrade_packed", "slay.spear_cooldown_reduction_stacks", "slay.kerrigan_upgrade_flags", "slay.apply_kerrigan_options", "slay.apply_purchased_kerrigan_tech(self.ctx, zerg_items)", "def _cmd_addtest", "def _cmd_cleartest", "def _cmd_canceltest", "def _cmd_victory", "def _cmd_boon", "def _cmd_credits", "def _cmd_godmode", "slay.queue_test_effect", "slay.queue_test_clear", "slay.queue_auto_victory", "slay.grant_test_boon", "slay.grant_test_credits", "slay.queue_godmode", "slay.godmode_for_mission", "slay.mission_layer_for_mission", "slay.mission_flags_for_mission", "slay.test_potion_run_token", "slay.consume_auto_victory_skip", "slay.rewrite_print_json_for_effective_rewards(self, args)", "slay.prepare_dependency_variant(ctx, mission_id)"],
+        client: ["mission_launch_summary", "?APRogue {mask_a} {mask_b} {mask_c} {mask_d} {mask_e} {mask_f} {auto_repair_stacks} {progression_flags} {spear_energy_regen_stacks} {mercenary_upgrade_packed} {spear_cooldown_reduction_stacks} {kerrigan_upgrade_flags} {deadly_weapons_stacks} {commander_hero_index} {godmode} {mission_layer} {mission_flags} {mercenary_upgrade_packed2} {test_potion_run_token} {potion_slot0_id} {potion_slot0_serial} {potion_slot1_id} {potion_slot1_serial} {potion_merc_mask} {mask_g}", "slay.progression_flags", "slay.spear_energy_regen_stacks", "slay.mercenary_upgrade_packed", "slay.spear_cooldown_reduction_stacks", "slay.kerrigan_upgrade_flags", "slay.apply_kerrigan_options", "slay.apply_purchased_kerrigan_tech(self.ctx, zerg_items)", "def _cmd_addtest", "def _cmd_cleartest", "def _cmd_canceltest", "def _cmd_victory", "def _cmd_boon", "def _cmd_credits", "def _cmd_godmode", "slay.queue_test_effect", "slay.queue_test_clear", "slay.queue_auto_victory", "slay.grant_test_boon", "slay.grant_test_credits", "slay.queue_godmode", "slay.godmode_for_mission", "slay.mission_layer_for_mission", "slay.mission_flags_for_mission", "slay.test_potion_run_token", "slay.consume_auto_victory_skip", "slay.rewrite_print_json_for_effective_rewards(self, args)", "slay.prepare_dependency_variant(ctx, mission_id)"],
 
         trigger_doc_info: ["ArchipelagoCore.SC2Mod", "ArchipelagoTradeSystem.SC2Mod", "ArchipelagoPatches.SC2Mod"],
 
@@ -4902,7 +4904,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         gui: ["size_hint_x=0.80", "size_hint_x=0.10", "SLAY_MISSION_GAP = 36", "button.to_window(x, y, initial=True)", "width=1.8", "source_t = min(", "slay_edge_geometry_trigger"],
 
-        runtime_target: [ "DANGER_OUTLIER_MARGIN = 250", "DANGER_CREDIT_BONUS = 100", "_mission_is_difficulty_outlier_in_nodes", "SPEAR_COOLDOWN_REDUCTION", "SPEAR_PRICE_DISCOUNT", "KERRIGAN_PRICE_DISCOUNT", "KERRIGAN_RECKLESS_POWER", "KERRIGAN_RECKLESS_SPEED", "spear_cooldown_reduction_stacks", "kerrigan_upgrade_flags", "Kerrigan available", "warfields_reinforcements", "energy_overload", "heroes_of_the_storm", "too_many_wraiths", "not_enough_energy", "void_thrashers", "viking_raids", "nuclear_annihilation", "darkness", "adrenaline", "picky_eaters", "explosive_armor", "instant_workers", "arms_race", "rising_gas_prices", "juggernaut", "assembly_line", "elite_soldiers", "squishy", "forced_variety", "occasional_thor_mutation", "enemy_regeneration", "blinding_light", "specialists", "fortifications", "baneling_stream", "tychus", "zagaras_aid", "logistics", "occasional_thor_blessing", "occasional_ultralisk_blessing", "occasional_colossus_blessing", "unexpected_evolution", "another_gorgon_blessing", "another_gorgon_mutation", "burrowed_zerglings", "sniper_thor", "horde_mode", "tower_defense", "cloaked_nightmare", "rapid_repair", "blink_blessing", "power_overwhelming", "drakken_laser_drill_blessing", "jetpacks", "stealth_tunnels", "lurker_defense", "combat_workers", "rapid_evolution_mutation", "no_deaths_allowed", "glass_cannons", "victory_is_temporary", "odin", "nuclear_workers", "bounty_kills", "tactical_binoculars", "building_overcharge", "ghost_reporting", "taldarim_reinforcements", "double_time", "shrinkage", "mineral_thieves", "active_enemies", "reflective_armor", "buddy_system", "torrasque", "nexus_shield", "gargantuan_enemies", "raynors_raiders", "boon_defender", "boon_fire_power", "boon_roachling_mines", "boon_broodling_evolution", "boon_adamantium_blades", "boon_enhanced_control", "boon_banshee_swarm", "boon_enlarged_banelings", "permanent_boons", "shop_expansion", "shop_cycle_purchases", "effective_bought", "route_horizontal_positions", "route_layout_x_fractions", "remember_route_layout_x_fractions", "_is_deprecated_item", "SHOP_STOCK_LOGIC_VERSION = 114", "MISSION_FLAG_LAB_RAT_OPENING = 8192", "MISSION_FLAG_IMMORTAL_ZERGLING = 16384", "def test_potion_run_token", "immortal_zergling", "_stock_after_progression_unlock", "DEFENSIVE_STRUCTURE_ITEMS", "shop_sections", "BOON_PREFIX", "sync_duplicate_item_replacements", "FIVE_X_GENERIC_UPGRADE_ITEMS", "STACKABLE_GENERAL_UPGRADE_ITEMS", "_effective_actual_item_count", "'purifier': (4, 512)", "_same_shop_50_percent_price", "_is_general_upgrade_item", "announce_mission_effects", "test_mission_overrides", "_test_override_for_mission", "RACE_GLOBAL_UPGRADE_ITEMS", "TERRAN_CONTRACTS", "ZERG_CONTRACTS", "KERRIGAN_UNLOCK", "SPEAR_UNLOCK", "SPEAR_ENERGY_REGEN", "progression_flags", "spear_energy_regen_stacks", "mercenary_upgrade_packed", "MERCENARY_CUSTOM_UPGRADE_ITEMS", "MERCENARY_SHOP_PRICE_OVERRIDES", "apply_kerrigan_options", "apply_purchased_kerrigan_tech", "Terran Upgrades", "Mercenary Contracts", "Spear of Adun", "boon_corrosive_claws", "boon_unlimited_power", "boon_unstable_colossi", "boon_hyrda_storms", "boon_mobile_siege", "spear_of_adun_blessing", "dehakas_pack", "zombie_apocalypse", "resource_swap", "boon_missile_defense", "boon_chaos_blessings", "maskE=", "maskF=", "autoRepairStacks=", "50% chance", "allied infested terran"],
+        runtime_target: [ "DANGER_OUTLIER_MARGIN = 450", "DANGER_CREDIT_BONUS = 100", "_mission_is_difficulty_outlier_in_nodes", "SPEAR_COOLDOWN_REDUCTION", "SPEAR_PRICE_DISCOUNT", "KERRIGAN_PRICE_DISCOUNT", "KERRIGAN_RECKLESS_POWER", "KERRIGAN_RECKLESS_SPEED", "spear_cooldown_reduction_stacks", "kerrigan_upgrade_flags", "Kerrigan available", "warfields_reinforcements", "energy_overload", "heroes_of_the_storm", "too_many_wraiths", "not_enough_energy", "void_thrashers", "viking_raids", "nuclear_annihilation", "darkness", "adrenaline", "picky_eaters", "explosive_armor", "instant_workers", "arms_race", "rising_gas_prices", "juggernaut", "assembly_line", "elite_soldiers", "squishy", "forced_variety", "occasional_thor_mutation", "enemy_regeneration", "blinding_light", "specialists", "fortifications", "baneling_stream", "tychus", "zagaras_aid", "logistics", "occasional_thor_blessing", "occasional_ultralisk_blessing", "occasional_colossus_blessing", "unexpected_evolution", "another_gorgon_blessing", "another_gorgon_mutation", "burrowed_zerglings", "sniper_thor", "horde_mode", "tower_defense", "cloaked_nightmare", "rapid_repair", "blink_blessing", "power_overwhelming", "drakken_laser_drill_blessing", "jetpacks", "stealth_tunnels", "lurker_defense", "combat_workers", "rapid_evolution_mutation", "no_deaths_allowed", "glass_cannons", "victory_is_temporary", "odin", "nuclear_workers", "bounty_kills", "tactical_binoculars", "building_overcharge", "ghost_reporting", "taldarim_reinforcements", "double_time", "shrinkage", "mineral_thieves", "active_enemies", "reflective_armor", "buddy_system", "torrasque", "nexus_shield", "gargantuan_enemies", "raynors_raiders", "boon_defender", "boon_fire_power", "boon_roachling_mines", "boon_broodling_evolution", "boon_adamantium_blades", "boon_enhanced_control", "boon_banshee_swarm", "boon_enlarged_banelings", "permanent_boons", "shop_expansion", "shop_cycle_purchases", "effective_bought", "route_horizontal_positions", "route_layout_x_fractions", "remember_route_layout_x_fractions", "_is_deprecated_item", "SHOP_STOCK_LOGIC_VERSION = 114", "MISSION_FLAG_LAB_RAT_OPENING = 8192", "MISSION_FLAG_IMMORTAL_ZERGLING = 16384", "def test_potion_run_token", "immortal_zergling", "_stock_after_progression_unlock", "DEFENSIVE_STRUCTURE_ITEMS", "shop_sections", "BOON_PREFIX", "sync_duplicate_item_replacements", "FIVE_X_GENERIC_UPGRADE_ITEMS", "STACKABLE_GENERAL_UPGRADE_ITEMS", "_effective_actual_item_count", "'purifier': (4, 512)", "_same_shop_50_percent_price", "_is_general_upgrade_item", "announce_mission_effects", "test_mission_overrides", "_test_override_for_mission", "RACE_GLOBAL_UPGRADE_ITEMS", "TERRAN_CONTRACTS", "ZERG_CONTRACTS", "KERRIGAN_UNLOCK", "SPEAR_UNLOCK", "SPEAR_ENERGY_REGEN", "progression_flags", "spear_energy_regen_stacks", "mercenary_upgrade_packed", "MERCENARY_CUSTOM_UPGRADE_ITEMS", "MERCENARY_SHOP_PRICE_OVERRIDES", "apply_kerrigan_options", "apply_purchased_kerrigan_tech", "Terran Upgrades", "Mercenary Contracts", "Spear of Adun", "boon_corrosive_claws", "boon_unlimited_power", "boon_unstable_colossi", "boon_hyrda_storms", "boon_mobile_siege", "spear_of_adun_blessing", "dehakas_pack", "zombie_apocalypse", "resource_swap", "boon_missile_defense", "boon_chaos_blessings", "maskE=", "maskF=", "autoRepairStacks=", "50% chance", "allied infested terran"],
 
         launcher_target: [f'PACKAGE_VERSION = "{package_version}"', "SLAY_LAUNCHER_MODE", "SLAY_RUN_DIR", "def generate_run", "class ServerProcess", "def install_launcher_tab"],
 
@@ -5020,6 +5022,10 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
         aprogue_data_target.write_text(aprogue_data_text, encoding="ascii")
 
         shutil.copy2(bundled_runtime, runtime_target)
+        # Crew Challenge's independent ledger and workbook-derived whitelist.
+        for crew_file in ('crew_auto.py', 'crew_bank_receipts.py', 'crew_batch.py', 'crew_bridge.py', 'crew_catalog.py', 'crew_challenge.py', 'crew_field_build.py', 'crew_live_bot.py', 'crew_native_train.py', 'crew_queue_budget.py', 'crew_runtime.py', 'crew_sc2_adapter.py', 'crew_tags.py', 'crew_rules.json', 'crew_effects.json'):
+            shutil.copy2(source / crew_file, runtime_target.parent / crew_file)
+            shutil.copy2(source / crew_file, ap_root / crew_file)
 
         shutil.copy2(bundled_launcher, launcher_target)
 
@@ -5122,7 +5128,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
 
 
-    if os.environ.get("SLAY_PORTABLE_BUILD", "").strip().lower() in {"1", "true", "yes", "on"}:
+    if warpgate_key is None or os.environ.get("SLAY_PORTABLE_BUILD", "").strip().lower() in {"1", "true", "yes", "on"}:
 
         changed_hotkeys = []
 
@@ -5134,7 +5140,10 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         print(f"  Warpgate hotkey: applied WarpIn={warpgate_key} to {len(changed_hotkeys)} custom profile(s).")
 
-    print(f"  Warpgate hotkey: installed mod-local UI/Hotkey/WarpIn={warpgate_key} override at {warpgate_game_hotkeys}")
+    if warpgate_key is None:
+        print("  Warpgate hotkey: no Slay override (native/user SC2 bindings preserved).")
+    else:
+        print(f"  Warpgate hotkey: installed mod-local UI/Hotkey/WarpIn={warpgate_key} override at {warpgate_game_hotkeys}")
 
     print(f"  Blink UI: installed {blink_override_count} explicit load-time CUnit command-card override(s); runtime command-card writes are no longer used.")
 
@@ -5362,11 +5371,176 @@ def patch_live_consumable_bot(text: str) -> str:
     return text.replace(anchor, insertion, 1)
 
 
+def patch_crew_live_bot(text: str) -> str:
+    """Install a dormant-until-staged Crew-only periodic BotAI transport poll.
+
+    Fail loudly on an unrecognized upstream client layout rather than patching
+    arbitrary Galaxy/SC2 code or changing Standard/Campaign behavior.
+    """
+    # Stage at the beginning of the actual BotAI.on_step, before the normal
+    # first-step `setup_done` transition sends its mission configuration.
+    # Do not stage when the player merely selects a mission in the shop UI.
+    staging='slay.crew_ensure_mission_staged(self.ctx, self.mission_id)'
+    if staging not in text:
+        setup='    async def on_step(self, iteration: int):\n'
+        if text.count(setup)!=1:
+            raise RuntimeError('Could not identify Crew-safe SC2 on_step setup')
+        text=text.replace(setup,setup +
+            '        if not self.setup_done and slay.crew_mode(self.ctx):\n'
+            '            from . import crew_live_bot\n'
+            '            crew_live_bot.probe_note(self.ctx, "bot-start", f"Crew BotAI started mission={self.mission_id}")\n'
+            '            if not slay.state_ready(self.ctx):\n'
+            '                crew_live_bot.probe_note(self.ctx, "waiting-state", "Slay saved state is not ready")\n'
+            '                return\n'
+            '            slay.crew_ensure_mission_staged(self.ctx, self.mission_id)\n'
+            '            crew_live_bot.probe_note(self.ctx, "staged", f"Crew mission={self.mission_id} staged")\n',1)
+    marker='await crew_live_bot.auto_step(self)'
+    if marker in text:return text
+    anchor='            slay.crew_ensure_mission_staged(self.ctx, self.mission_id)\n'
+    if text.count(anchor)!=1:
+        raise RuntimeError('Could not locate Crew staged BotAI.on_step')
+    insert=(
+        '        if iteration > 0 and iteration % 22 == 0 and self.setup_done and slay.crew_mode(self.ctx):\n'
+        '            try:\n'
+        '                from . import crew_live_bot\n'
+        '                await crew_live_bot.auto_step(self)\n'
+        '            except Exception as crew_exc:\n'
+        '                detail = str(type(crew_exc).__name__) + ": " + str(crew_exc)\n'
+        '                if getattr(self.ctx, "_slay_crew_last_error", None) != detail:\n'
+        '                    print("Crew transport halted: " + detail, flush=True)\n'
+        '                    crew_live_bot.probe_note(self.ctx, "transport-error", detail)\n'
+        '                    self.ctx._slay_crew_last_error = detail\n'
+    )
+    return text.replace(anchor,anchor+insert,1)
+
+
+def patch_crew_game_end(text: str) -> str:
+    """Hook real SC2 game termination so Crew On Field tags never remain stale.
+
+    AP-confirmed victories are still processed by AP's normal on_step. This
+    additional callback can reconcile an interrupted/ended Crew session and
+    report an SC2 Result.Victory when the scripted victory bit was missed.
+    """
+    marker='await crew_live_bot.crew_game_ended(self, result)'
+    if marker in text:return text
+    anchor='    async def on_step(self, iteration: int):\n'
+    if text.count(anchor)!=1:
+        raise RuntimeError('Could not locate the Archipelago SC2 BotAI on_step')
+    hook=('    async def on_end(self, result):\n'
+          '        if slay.crew_mode(self.ctx):\n'
+          '            from . import crew_live_bot\n'
+          '            await crew_live_bot.crew_game_ended(self, result)\n\n')
+    return text.replace(anchor,hook+anchor,1)
+
+
+def _patch_crew_victory_safely(source: str) -> str:
+    """Patch only the Archipelago SC2 bot victory handler, using Python syntax.
+
+    Older Crew clients can have comments/blank lines between the exception's
+    early return and the AP victory check. Never rewrite unrelated returns.
+    """
+    import ast
+    ast.parse(source)
+    lines = source.splitlines(keepends=True)
+    tree = ast.parse(source)
+    classes = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'ArchipelagoBot']
+    if len(classes) != 1:
+        raise RuntimeError('Expected one ArchipelagoBot class; refusing unsafe patch')
+    bot = classes[0]
+    steps = [n for n in bot.body if isinstance(n, ast.AsyncFunctionDef) and n.name == 'on_step']
+    if len(steps) != 1:
+        raise RuntimeError('Expected ArchipelagoBot.on_step; refusing unsafe patch')
+    step = steps[0]
+    wins = [n for n in ast.walk(step) if isinstance(n, ast.If)
+            and ''.join(ast.get_source_segment(source, n.test).split()) ==
+            'game_state&(1<<1)andnotself.mission_completed']
+    if len(wins) != 1:
+        raise RuntimeError('Expected the AP victory-bit branch; refusing unsafe patch')
+    win = wins[0]
+    # Anchor only the single authoritative victory check in this branch.
+    checks = [n for n in win.body if isinstance(n, ast.Assign)
+              and any(isinstance(t, ast.Name) and t.id == 'victory_locations' for t in n.targets)
+              and 'get_location_id(self.mission_id, 0)' in ast.get_source_segment(source, n)]
+    if len(checks) != 1:
+        raise RuntimeError('Expected AP victory_locations assignment; refusing unsafe patch')
+    check = checks[0]
+    targets = []
+    has_crew_hook = any(isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                        and n.func.attr == 'victory_step'
+                        and isinstance(n.func.value, ast.Name) and n.func.value.id == 'crew_live_bot'
+                        for n in ast.walk(win))
+    if has_crew_hook:
+        # Only strip early exits from the error handler of this exact call.
+        protected = [n for n in ast.walk(win) if isinstance(n, ast.Try)
+                     and any(isinstance(k, ast.Call) and isinstance(k.func, ast.Attribute)
+                             and k.func.attr == 'victory_step'
+                             and isinstance(k.func.value, ast.Name)
+                             and k.func.value.id == 'crew_live_bot'
+                             for body in n.body for k in ast.walk(body))]
+        if len(protected) != 1 or not protected[0].handlers:
+            raise RuntimeError('Unrecognized Crew victory try/except; refusing unsafe patch')
+        for handler in protected[0].handlers:
+            for node in ast.walk(handler):
+                if isinstance(node, ast.Return):
+                    if node.value is not None or node.lineno != node.end_lineno:
+                        raise RuntimeError('Unexpected Crew victory return; refusing unsafe patch')
+                    targets.append((node.lineno - 1, node.end_lineno,
+                                    ' ' * node.col_offset + 'try:\n' +
+                                    ' ' * (node.col_offset + 4) + 'crew_live_bot.crew_live_note(self.ctx, \"victory-accounting-deferred\", detail)\n' +
+                                    ' ' * node.col_offset + 'except Exception:\n' +
+                                    ' ' * (node.col_offset + 4) + 'pass  # Crew ledger failure must not swallow AP victory\n'))
+    else:
+        # This also supports an older installed client without a Crew victory
+        # callback, as long as the normal AP win branch is recognized.
+        indent = ' ' * check.col_offset
+        code = (indent + 'if slay.crew_mode(self.ctx):\n'
+                + indent + '    try:\n'
+                + indent + '        from . import crew_live_bot\n'
+                + indent + '        await crew_live_bot.victory_step(self)\n'
+                + indent + '    except Exception as crew_exc:\n'
+                + indent + '        detail = type(crew_exc).__name__ + ": " + str(crew_exc)\n'
+                + indent + '        print("Crew victory settlement deferred: " + detail, flush=True)\n')
+        targets.append((check.lineno - 1, check.lineno - 1, code))
+    if 'await crew_live_bot.crew_game_ended(self, result)' not in source:
+        callbacks = [n for n in bot.body if isinstance(n, ast.AsyncFunctionDef) and n.name == 'on_end']
+        if len(callbacks) > 1:
+            raise RuntimeError('Multiple SC2 on_end handlers; refusing unsafe patch')
+        if callbacks:
+            existing = callbacks[0]
+            if not any(a.arg == 'result' for a in existing.args.args):
+                raise RuntimeError('SC2 on_end lacks result parameter; refusing unsafe patch')
+            idx = existing.body[0].lineno - 1
+            indent = ' ' * existing.body[0].col_offset
+            code = (indent + 'if slay.crew_mode(self.ctx):\n'
+                    + indent + '    from . import crew_live_bot\n'
+                    + indent + '    await crew_live_bot.crew_game_ended(self, result)\n')
+            targets.append((idx, idx, code))
+        else:
+            idx = step.lineno - 1
+            code = ('    async def on_end(self, result):\n'
+                    '        if slay.crew_mode(self.ctx):\n'
+                    '            from . import crew_live_bot\n'
+                    '            await crew_live_bot.crew_game_ended(self, result)\n\n')
+            targets.append((idx, idx, code))
+    for begin, end, new in sorted(targets, reverse=True):
+        lines[begin:end] = [new]
+    updated = ''.join(lines)
+    ast.parse(updated)
+    if 'await crew_live_bot.crew_game_ended(self, result)' not in updated:
+        raise RuntimeError('SC2 game-end hook missing after patch')
+    if 'await crew_live_bot.victory_step(self)' not in updated:
+        raise RuntimeError('SC2 victory hook missing after patch')
+    return updated
+
+
+def patch_crew_authoritative_victory(text: str) -> str:
+    return _patch_crew_victory_safely(text)
+
 def patch_client(text):
     global _endless_client_patcher
     if _endless_client_patcher is None:
         _endless_client_patcher = _load_endless_client_patcher()
-    return patch_live_consumable_bot(_endless_client_patcher(_native_patch_client(text)))
+    return patch_crew_game_end(patch_crew_authoritative_victory(patch_crew_live_bot(patch_live_consumable_bot(_endless_client_patcher(_native_patch_client(text))))))
 
 def main() -> int:
 

@@ -1,0 +1,930 @@
+{
+  "mutation": {
+    "golden_armada": {
+      "title": "Golden Armada",
+      "eligible": true,
+      "description": "The Golden Armada patrols the map",
+      "severity": 2,
+      "notes": "avoids within range 24 of player-allied structures until 6 min. Avoids within range 12 of player-allied structures until 12 min. Unrestricted after that."
+    },
+    "low_quality_minerals": {
+      "title": "Low-Quality Minerals",
+      "eligible": false,
+      "description": "Mineral resource patches have fewer minerals",
+      "severity": 2,
+      "notes": ""
+    },
+    "conga_line": {
+      "title": "Meat Grinder",
+      "eligible": true,
+      "description": "Zerglings, marines, and/or zealots constantly spawn from 3 randomly-selected enemy buildings and attack your base",
+      "severity": 3,
+      "notes": "not present on the crucible, or any other mission that does not have an enemy town hall"
+    },
+    "ten_minutes_until_destruction": {
+      "title": "10 Minutes Until Destruction",
+      "eligible": true,
+      "description": "After 10 minutes all enemies will attack your base",
+      "severity": 4,
+      "notes": ""
+    },
+    "darkness": {
+      "title": "Darkness",
+      "eligible": true,
+      "description": "Reduce the the vision range of all of your units by 3",
+      "severity": 2,
+      "notes": ""
+    },
+    "adrenaline": {
+      "title": "Adrenaline",
+      "eligible": true,
+      "description": "Enemies move and attack 30% faster",
+      "severity": 3,
+      "notes": ""
+    },
+    "siege_mode": {
+      "title": "Siege Mode",
+      "eligible": true,
+      "description": "The enemy has sieged tanks scattered around the map",
+      "severity": 1,
+      "notes": "10 sieged tanks. None spawn within range 15 of a player or player-allied structure."
+    },
+    "drakken_laser_drill_enemy": {
+      "title": "Drakken Laser Drill",
+      "eligible": true,
+      "description": "The enemy has a Drakken Laser Drill",
+      "severity": 4,
+      "notes": "Becomes operational 3 minutes after base established. \"The Drakken Laser Drill is Operational\" at that point. The player should always have vision of the laser drill once it arrives."
+    },
+    "arms_race": {
+      "title": "Arms Race",
+      "eligible": true,
+      "description": "Enemy damage is increased by 10% every 2 minutes",
+      "severity": 3,
+      "notes": ""
+    },
+    "dark_archons": {
+      "title": "Archons",
+      "eligible": true,
+      "description": "Archons patrol the map",
+      "severity": 1,
+      "notes": "10 archons on separate patrols. Start patrolling 2 minutes after base established. Patrol cannot take them within range 20 player or player-allied structures until 8 minutes. At that point they cannot get within range 10 until 12 minutes. After that they have no restrictions to their patrol path. Except on island maps, they always spawn in places pathable to the player base."
+    },
+    "sniper_thor": {
+      "title": "Sniper Thor",
+      "eligible": true,
+      "description": "A thor with enhanced health, range, and damage is somewhere on the map",
+      "severity": 1,
+      "notes": "Does not patrol. triple to all listed stats. Located in an enemy-controlled area that isn't more than range 50 from the player base (or further range if no suitable location is found) but not within range 20 of player base. At 16 minutes after base established it attacks toward the player base."
+    },
+    "tower_defense": {
+      "title": "Tower Defense",
+      "eligible": true,
+      "description": "Hostile probes continually build photon cannons, shield batteries, and pylons around the map",
+      "severity": 2,
+      "notes": "Spawn a new probe in a hostile-controlled area every 30 seconds and have it start trying to build anywhere, even in the player base"
+    },
+    "cloaked_nightmare": {
+      "title": "Cloaked Nightmare",
+      "eligible": true,
+      "description": "All enemies are cloaked",
+      "severity": 5,
+      "notes": ""
+    },
+    "rising_gas_prices": {
+      "title": "Rising Gas Prices",
+      "eligible": false,
+      "description": "Units cost 50% more vespene gas",
+      "severity": 2,
+      "notes": ""
+    },
+    "drop_pods": {
+      "title": "Drop Pods",
+      "eligible": true,
+      "description": "Drop pods filled with terran infantry randomly drop around the map",
+      "severity": 3,
+      "notes": "They can drop anywhere and then attack move towards the nearest player building every 40-80 seconds. 3-5 marines, 0-2 marauders or 0-3 firebats, 0-2 medics. First drop is 4 minutes after base established."
+    },
+    "viking_raids": {
+      "title": "Viking Raids",
+      "eligible": true,
+      "description": "Vikings periodically try to land in your mineral lines",
+      "severity": 2,
+      "notes": "Every 20-180 seconds spawn 1-3 vikings in enemy territory to fly directly to a player mineral line and land. Every 2 minutes, increase the upper bound of number of vikings by 1 and every 3 minute increase the lower bound of number of vikings by 1, but also increase the lower bound of the viking spawn time by 3 seconds. First spawn is always 3 minutes after base established."
+    },
+    "dark_templar": {
+      "title": "Dark Templar",
+      "eligible": true,
+      "description": "Dark Templar attack your base",
+      "severity": 3,
+      "notes": "Every 60-160 seconds a group of 1-3 dark templar spawn in enemy territory and attack towards the player base. Increase the upper bound of how many dark templar can spawn by 1 every time they spawn, but increase the spawn cooldown by 10 seconds every time they spawn. First spawn is 5 minutes after base established."
+    },
+    "fragile_workers": {
+      "title": "Fragile Workers",
+      "eligible": false,
+      "description": "Your workers have 1 hit point",
+      "severity": 1,
+      "notes": "probes also only have 1 shield"
+    },
+    "squishy": {
+      "title": "Squishy",
+      "eligible": false,
+      "description": "Your units have all 0 armor, even with upgrades",
+      "severity": 2,
+      "notes": "cannot have with any blessings that give armor"
+    },
+    "picky_eaters": {
+      "title": "Picky Eaters",
+      "eligible": false,
+      "description": "Supply structures and bases provide far less supply",
+      "severity": 2,
+      "notes": "Supply depots, overlords, pylons, and main bases only provide 4 supply each. Include variants like overseers and enhanced supply depots"
+    },
+    "decay": {
+      "title": "Decay",
+      "eligible": false,
+      "description": "Each of your units gain one stack of decay every minute. For each stack of decay, a unit takes 1 damage every 10 seconds.",
+      "severity": 3,
+      "notes": "does not affect structures"
+    },
+    "forced_variety": {
+      "title": "Forced Variety",
+      "eligible": false,
+      "description": "Building a unit increases its cost for the rest of the mission",
+      "severity": 2,
+      "notes": "Increase the mineral/gas cost of a unit by 2% every time it is successfully built"
+    },
+    "zombies_mutation": {
+      "title": "Zombies",
+      "eligible": true,
+      "description": "Whenever any unit dies, they spawn a hostile infested terran",
+      "severity": 3,
+      "notes": "all zombies attack towards the nearest player building every 20 seconds. Zombies do not spawn other zombies"
+    },
+    "jetpacks": {
+      "title": "Jetpacks",
+      "eligible": true,
+      "description": "All enemy marines, zealots, and zerglings can fly and sometimes attack your base",
+      "severity": 2,
+      "notes": "Eligible Marine/Zealot/Zergling variants use the Mutalisk-shell flying implementation, and Slay sends existing Jetpacked units in attack waves: 4:00≈50 minerals, 6:00≈100, +50/minute to a 1000 mineral cost cap; never spawn extra units for the wave, just send existing units on the battlefield."
+    },
+    "limited_bank": {
+      "title": "Limited Bank",
+      "eligible": false,
+      "description": "You cannot store more than 1700 total resources at a time",
+      "severity": 1,
+      "notes": "Every few seconds just check if the total is more than 1700 between minerals and gas and reduce whichever one is greater until the sum is 1700"
+    },
+    "leviathan_in_orbit": {
+      "title": "Leviathan in Orbit",
+      "eligible": true,
+      "description": "Many zerg drop pods constantly rain down",
+      "severity": 5,
+      "notes": "Every 20 seconds spawn a zerg drop pod at a random location on the map and have them attack move towards the nearest player building every 20 seconds. Pods have 2-6 zerglings, 0-2 roaches or 0-2 hydralisks, and a 25% chance of having a queen. 50% of drop pods should specifically try to land on player units. Every minute, decrease the drop pod cooldown by 1 second to a minimum of 2 seconds. Drops start 4 minutes after base established."
+    },
+    "heroes_of_the_storm": {
+      "title": "Heroes of the Storm",
+      "eligible": true,
+      "description": "Enemy heroes wander the map (Warning: some may be cloaked)",
+      "severity": 3,
+      "notes": "3 + X random heroes in different locations on different random patrols where X is the mission layer. Start patrolling at 5 minutes but are not allowed within range 20 of a player or player-allied building until after 15 minutes at which point they can patrol anywhere on the map. They spawn in pathable locations to the player base except for island missions."
+    },
+    "too_many_wraiths": {
+      "title": "Too many Wraiths",
+      "eligible": true,
+      "description": "Independent enemy wraiths attack from all sides",
+      "severity": 2,
+      "notes": "Starting 2 minutes after base established, every 10-60 seconds a wraith spawns on a random map edge and attacks towards the player. Gradually increase spawn rate until 13 minutes after base established when it should be a wraith every 2-10 seconds."
+    },
+    "nuclear_annihilation": {
+      "title": "Nuclear Annihilation",
+      "eligible": true,
+      "description": "Every 30 seconds, a nuke can land ANYWHERE",
+      "severity": 3,
+      "notes": "Do the full animation for the nuke beginning to appear and such so the player has time to react."
+    },
+    "void_thrashers": {
+      "title": "Void Thrashers",
+      "eligible": true,
+      "description": "Void Thrashers spawn to siege your base",
+      "severity": 5,
+      "notes": "Every 1.5 minutes spawn a void thrasher as close to the player base as possible without being within range 30. It shoots its long ranged shots at player buildings. First one doesn't spawn until 4 minutes after base established."
+    },
+    "not_enough_energy": {
+      "title": "Energy Leak",
+      "eligible": true,
+      "description": "Your units and structures all lose 1 energy every 3 seconds",
+      "severity": 1,
+      "notes": ""
+    },
+    "occasional_thor_mutation": {
+      "title": "Occasional Thor",
+      "eligible": true,
+      "description": "Some enemy units are actually Thors",
+      "severity": 1,
+      "notes": "Every minute, one out of 80 enemy units are turned into a thor, prioritizing transforming zerglings, zealots, and marines. 6 minutes after a thor is created this way it is sent to attack the player."
+    },
+    "occasional_ultralisk_mutation": {
+      "title": "Occasional Ultralisk",
+      "eligible": true,
+      "description": "Some enemy units are actually Ultralisks",
+      "severity": 1,
+      "notes": "Every minute, one out of 80 enemy units are turned into an ultralisk, prioritizing transforming zerglings, zealots, and marines. 6 minutes after an ultralisk is created this way it is sent to attack the player."
+    },
+    "occasional_colossus_mutation": {
+      "title": "Occasional Colossus",
+      "eligible": true,
+      "description": "Some enemy units are actually Colossi",
+      "severity": 1,
+      "notes": "Every minute, one out of 80 enemy units are turned into a colossus, prioritizing transforming zerglings, zealots, and marines. 6 minutes after a colossus is created this way it is sent to attack the player."
+    },
+    "enemy_regeneration": {
+      "title": "Enemy Regeneration",
+      "eligible": true,
+      "description": "Enemy units and structures all recover 5 life and shield per second",
+      "severity": 3,
+      "notes": ""
+    },
+    "another_gorgon_mutation": {
+      "title": "ANOTHER GORGON",
+      "eligible": true,
+      "description": "The enemy sends many gorgons at you, but they are quite fragile",
+      "severity": 2,
+      "notes": "Make gorgons only have 100 hit points and spawn every 60 seconds. First one doesn't spawn until 3 minutes after base established."
+    },
+    "burrowed_zerglings": {
+      "title": "Burrowed Zerglings",
+      "eligible": true,
+      "description": "There are 150 burrowed zerglings scattered throughout the map",
+      "severity": 1,
+      "notes": "Zerglings unburrow to attack you when you get near. They do not spawn in the player base."
+    },
+    "miras_mercenaries": {
+      "title": "Mira's Mercenaries",
+      "eligible": true,
+      "description": "Mira Han has mercenaries on the map on the enemy team. If you have 6000 minerals you purchase them for yourself for this mission only.",
+      "severity": 2,
+      "notes": "They are automatically given to the player once they have 6000 minerals and the minerals are then removed. The mercenaries are 6 siege breakers, 10 spartan company, 20 war pigs, 10 hammer securities, 5 hel's angels, 5 devil dogs, 2 nightwings. Until given to the player, they are hostile to the player. Every minute, a random 2 of the mercenary units attack the player. They do not spawn near player buildings or player allies. First attack from them is 3 minutes after base established."
+    },
+    "tactical_binoculars": {
+      "title": "Tactical Binoculars",
+      "eligible": true,
+      "description": "Enemies have double range",
+      "severity": 4,
+      "notes": ""
+    },
+    "taldarim_reinforcements": {
+      "title": "Tal'darim Reinforcements",
+      "eligible": true,
+      "description": "Absurdly Deadly Tal'darim armies repeatedly attack after the 20 minute mark",
+      "severity": 4,
+      "notes": "Make a text chat appear saying \"The Tal'Darim have arrived\". Make it 20 minutes game time, not 20 minutes after establishing a base. In various enemy locations, spawn 1-4 tal'darim motherships, 25-35 supplicants, 15-20 slayers, 2-10 blood hunters, 2-10 ascendants, 5-15 havocs, 5-10 vanguards, 3-8 wrathwalkers, 5-10 destroyers, and alarak (only once). They all attack the player base. Spawn half as many units for the first wave, and then every 2 minutes spawn another wave that is 20% bigger up to the full amount."
+    },
+    "no_deaths_allowed": {
+      "title": "No Deaths Allowed",
+      "eligible": true,
+      "description": "Whenever one of your units die, spawn an enemy ultralisk with timed life in its place",
+      "severity": 7,
+      "notes": "The ultralisks should have 10 seconds of timed life. Show timed life bars like for archon cannon mini archon boon. Only spawn for \"real\" units that the player can control. Do not spawn for deaths of larva, eggs, or units the player cannot control. Do spawn for workers and other combat units that the player can control."
+    },
+    "victory_is_temporary": {
+      "title": "Victory is Temporary",
+      "eligible": true,
+      "description": "Enemy units have a 50% chance of respawning 1 minute after they die",
+      "severity": 5,
+      "notes": "They respawn in the same place where they died."
+    },
+    "nuclear_workers": {
+      "title": "Nuclear Workers",
+      "eligible": true,
+      "description": "Your workers set off a nuclear explosion when they die",
+      "severity": 1,
+      "notes": ""
+    },
+    "double_time": {
+      "title": "Double Time",
+      "eligible": true,
+      "description": "All units move and attack twice as fast.",
+      "severity": 1,
+      "notes": "both enemy and player units."
+    },
+    "shrinkage": {
+      "title": "Shrinkage",
+      "eligible": false,
+      "description": "Your units continually shrink over time",
+      "severity": 3,
+      "notes": "non-worker Player units lose 1% (additive) max hp, movement speed, attack damage, size, range, and speed every 6 seconds. Stacks up to 90 times. Affects units individually such that new units spawn with 0 stacks of shrinkage. By 90 stacks they should only have 10% of each of their stats."
+    },
+    "mineral_thieves": {
+      "title": "Mineral Thieves",
+      "eligible": false,
+      "description": "The enemy repeatedly calls down MULEs to steal your mineral fields",
+      "severity": 1,
+      "notes": "1 mule every 1-60 seconds. Reduce the maximum cooldown by 3s every minute of game time up to 1-2 seconds. Only called down on mineral fields that you have workers or a base somewhat nearby."
+    },
+    "active_enemies": {
+      "title": "Active enemies",
+      "eligible": true,
+      "description": "Enemies move around independently a lot more",
+      "severity": 2,
+      "notes": "Give every enemy independently a new patrol route every 2-4 minutes, starting at minute 3 after base established. They should still have normal combat AI as they move around. They cannot patrol within range 15 of a player of player-allied building until 6 minutes after base established."
+    },
+    "zagaras_banelings": {
+      "title": "Zagara's Banelings",
+      "eligible": true,
+      "description": "Every 10 minutes, zagara sends 100 banelings towards your base",
+      "severity": 3,
+      "notes": "First spawn at the 10 minute mark. Put a text notification \"BANELINGS INCOMING\" in the chat on baneling spawns. make sure the banelings attack both units and structures they pass by. They should spawn in a single large clump in the enemy base and attack towards the player base. Play voice campaigns\\swarmstory.sc2campaign\\enus.sc2assets\\localizeddata\\sounds\\vo\\zmission_char01_roguequeen_091.ogg on the first spawn, campaigns\\swarmstory.sc2campaign\\enus.sc2assets\\localizeddata\\sounds\\vo\\zmission_char01_roguequeen_056.ogg on second baneling wave and campaigns\\swarmstory.sc2campaign\\enus.sc2assets\\localizeddata\\sounds\\vo\\zmission_char01_roguequeen_057.ogg on third baneling wave. Do not play any animations with those voice lines."
+    },
+    "buddy_system": {
+      "title": "Buddy System",
+      "eligible": true,
+      "description": "Your units rapidly take damage when not near an ally",
+      "severity": 3,
+      "notes": "Every second check each player unit and deal 50 dmg to them if they are more than range 7.5 from an ally. Structures count as allies. Wait until base established. Structures are not affected."
+    },
+    "torrasque": {
+      "title": "Torrasque",
+      "eligible": true,
+      "description": "The Torrasque attacks your base. Every time you kill him he gets stronger",
+      "severity": 3,
+      "notes": "He respawns 5 seconds after death in enemy territory (not within range 20 of any player unit, otherwise his spawn waits). First attack is 4 minutes after base established. Use a buffed ultralisk with +100% hp, +25% size, +25% damage, +2 armor. Every time he dies, he gains an additional (additive) 8% hp, 1% size, 2% damage."
+    },
+    "raynors_raiders": {
+      "title": "Raynor's Raiders",
+      "eligible": true,
+      "description": "The Hyperion regularly flies by your base along with many of Raynor's reinforcements",
+      "severity": 6,
+      "notes": "Hyperion flies to a random one of 5 nearest player buildings, drops a bunch of terran drop pods, then retreats to a different/random deep enemy safe point each time. Repair pods occasionally drop while stopped in safe territory 1 SCV each. SCVs use the repair command on the hyperion (make sure they can afford it), or if repair is bugged then hyperion should just gain a passive regen while at least 1 scv is near. Raynor's first flyby should be 6.5 minutes after base established and then as soon as full hp or after 3 minutes have passed every time after that."
+    },
+    "purifier": {
+      "title": "Purifier",
+      "eligible": true,
+      "description": "The purifier with a golden armada escort slowly approaches your base",
+      "severity": 4,
+      "notes": "The purifier starts on the opposite side of the map and slowly starts approaching your base 2 minutes after base established. Starting 2 minutes after base established, its warp-in cooldowns begin. Every 50 seconds it warps in (warp in animation) a scout, phoenix, void ray, or carrier to stay near it and protect it. Every 2 minutes 5 zealots and 5 stalkers warp in underneath it (Warp in animation) and attack towards the player base. Once the purifier is over your main base it fires its planet cracker purification beam. Warp in each zealot and stalker 1 at a time rapidly over the course of 2 seconds to make it look cooler. When the purifier reaches 50% hp, it warps in 4 void rays."
+    },
+    "nexus_shield": {
+      "title": "Nexus Shield",
+      "eligible": true,
+      "description": "The enemy has a special nexus somewhere. All enemy units have 300 shields until it is destroyed.",
+      "severity": 4,
+      "notes": "increase their shields by 300 rather than setting it to account for units that already have shields. nexus is in an enemy base area and cannot spawn near a player-controlled or player-allied building"
+    },
+    "gargantuan_enemies": {
+      "title": "Gargantuan Enemies",
+      "eligible": true,
+      "description": "Enemy units are gargantuan and have 50% more health, damage, size, and range",
+      "severity": 5,
+      "notes": "make enemy models 50% bigger."
+    },
+    "dehakas_pack": {
+      "title": "Dehaka's Pack",
+      "eligible": true,
+      "description": "Dehaka and swarms of primal zerg constantly attack your base",
+      "severity": 6,
+      "notes": "4 minutes after base established, every 20 seconds send 0-8 primal lings, 0-2 primal hydras, 0-2 primal roaches, 0-2 primal mutas, 0-1 primal ultralisk. Spawn at different enemy-controlled locations and each unit individually attacks towards a different player building, finding a new random target every 30 seconds. 7 minutes after base established improve the spawn rate to every 12 seconds, after 10 minutes improve to 8 seconds, and after 13 minutes improve to every 6 seconds. Also, starting at 6 minutes after base established, once every 3 minutes spawn dehaka if he isn't already alive and have him follow the same attack pattern. For the ultralisk category, make it a 75% chance of spawning 0. Dehaka should be visible to the player always"
+    },
+    "zombie_apocalypse": {
+      "title": "Zombie Apocalypse",
+      "eligible": true,
+      "description": "Every unit that dies spawns multiple infested terran that attack your base",
+      "severity": 5,
+      "notes": "Obviously infested terran do not spawn more on death. They spawn from player and enemy units, but not from the deaths of larva, eggs, or broodlings. They always spawn 1-3 melee infested terran (like the other zombies mutation), but also a 20% chance of spawning an additional gun infested terran (like what infestors spawn). All spawned infested terran are enemies to the player."
+    },
+    "arguments": {
+      "title": "Arguments",
+      "eligible": false,
+      "description": "Your units occasionally get in arguments and fight each other",
+      "severity": 2,
+      "notes": "Every 20-60 seconds, choose one player unit. Have it attack command against another player unit (not attack move towards, but actually attack the unit directly). The player still technically controls it so if they react fast they can get it to stop."
+    },
+    "combat_pay": {
+      "title": "Combat Pay",
+      "eligible": false,
+      "description": "You lose 4 minerals every time you kill an enemy unit",
+      "severity": 2,
+      "notes": ""
+    },
+    "nuclear_structures": {
+      "title": "Nuclear Structures",
+      "eligible": true,
+      "description": "Enemy structures detonate in a nuclear explosion on death",
+      "severity": 1,
+      "notes": ""
+    },
+    "resource_swap": {
+      "title": "Resource Swap",
+      "eligible": false,
+      "description": "When you obtain vespene gas, obtain minerals instead. when you obtain minerals, obtain vespene gas instead.",
+      "severity": 1,
+      "notes": "Also make sure to swap starting resources. If dynamically swapping all sources of income is too difficult then we can change this to only swap vespene geysers and mineral fields to provide the opposite resource type."
+    },
+    "marauder_kill_teams": {
+      "title": "Marauder Kill Teams",
+      "eligible": true,
+      "description": "After 5 minutes, 2 Marauder Kill Teams begin patrolling the map",
+      "severity": 2,
+      "notes": "Play the 2 relevant horner voice lines and mark them on your map. Use the actual kill team marauders and medics. Spawn 15 marauders and 3 medics in each kill team. The patrols should patrol between several random non-player-controlled points around the map (or controlled by player allies). If they happen to walk through the player base then that is allowed, but the actual patrol points should be enemy or neutral areas. They should spawn in enemy territory 5 minutes after base established. Note that marauders in marauder kill teams should have +4 damage and +2 armor from normal marauders. They are not allowed within range 15 of a player or player-allied building until the 12 minute mark at which point they can patrol anywhere on the map."
+    },
+    "hellion_run_by": {
+      "title": "Hellion Run-by",
+      "eligible": true,
+      "description": "Hellions try to run into your mineral lines",
+      "severity": 3,
+      "notes": "Every 45 seconds after 4 minutes have passed after base established, 1 hellion spawns in enemy territory to move directly into a random player-controlled mineral line. Increase the number of hellions by 1 every time they spawn and increase the spawn cooldown by 4 seconds each time they spawn as well (so it gets slower over time). Does not appear on island missions."
+    },
+    "diamondback_wanderers": {
+      "title": "Diamondbacks",
+      "eligible": true,
+      "description": "50 diamondbacks wander all over the place",
+      "severity": 2,
+      "notes": "starting 60 seconds after base established, choose 3 diamondbacks every second to give it a move command to a random part of the map. Rotate through the diamondbacks so they all get commands on repeat until dead or until the end of the mission. They should have 90% chance of moving to an enemy-base area and 10% chance of moving to any pathable area (including player base areas). Every minute, change the percentage that could go to any pathable area by 5%."
+    },
+    "leviathan_outside_base": {
+      "title": "Leviathan Approaching",
+      "eligible": true,
+      "description": "The Leviathan floats outside your base spawning mutalisks and brood lords",
+      "severity": 5,
+      "notes": "Use WoL leviathan. It starts in enemy territory after base established. 5 minutes after base established it should fly towards the player base until it is within range 30 of a player-controlled building. It should then spawn 1 mutalisk every 30 seconds and 1 brood lord every 55 seconds that attack towards the player base. It should gradually increase spawn rate until the 20 minute mark when it should spawn 1 mutalisk every 2 seconds and 1 brood lord every 4.5 seconds. Use the leviathan's actual \"spawn mutalisk\" and \"spawn broodlord\" abilities. It should be visible on the map. When the leviathan first takes damage, it should instantly use its mutalisk ability an extra time. Once it reaches below half hp it should rapidly use its mutalisk ability 20 times over the next 4 seconds. Reduce the leviathan's movement speed to 0.5."
+    },
+    "odin": {
+      "title": "Odin",
+      "eligible": true,
+      "description": "The enemy base has an odin in it. After about 14 minutes it attacks your base.",
+      "severity": 3,
+      "notes": "It should use its special cannons ability. This mutation should not be on island maps. It spawns 14 minutes after base established"
+    },
+    "combined_raids": {
+      "title": "Ultimate Harassment",
+      "eligible": true,
+      "description": "The enemy sends many wraiths, vikings, and hellions bother you",
+      "severity": 5,
+      "notes": "combine the effects of \"viking raids\" \"too many wraiths\" and \"hellion run-by\". It should stack with any of those mutations."
+    },
+    "brakk_primal_army": {
+      "title": "Brakk's Pack",
+      "eligible": true,
+      "description": "Brakk and a massive primal army awaits on the map. It attacks after about 11 minutes.",
+      "severity": 5,
+      "notes": "Have brakk in enemy territory along with 20 primal mutalisks, 40 primal zerglings, 10 primal guardians, 20 primal hydralisks, 20 primal roaches, and 10 primal ultralisks. They attack the player base 11 minutes after base established. Not available on island maps."
+    },
+    "orlan_fortress": {
+      "title": "Orlan's Planetary Fortress",
+      "eligible": true,
+      "description": "Colonel Orlan has a well-defended Planetary Fortress on the map that gains 1 range every 30 seconds.",
+      "severity": 4,
+      "notes": "The planetary has Jackson's Revenge right above it and 3 sieged siegebreakers near it, and 3 missile turrets near it. Also spawn 20 scvs in a circle around it that should move command towards it to fully surround it and then try to repair it whenever it is damaged. The planetary should spawn more than range 40 from the player-controlled or player-allied buildings but less than 60. It should be visible to the player and it should be within the boundries of the map and pathable to the player base unless it is an island map. Not available on defense missions."
+    },
+    "enemy_spear_of_adun": {
+      "title": "Enemy Spear of Adun",
+      "eligible": false,
+      "description": "The enemy has the Spear of Adun. Let's see how YOU like it",
+      "severity": 7,
+      "notes": "passives: guardian shell. Normal Actives: orbital strike, shield overcharge, solar lance, temporal field, deploy fenix. Special actives: Purifier beam, solar bombardment, time stop. Every 30 seconds the spear of adun should try to use a random one of its normal actives. Every 3 minutes it should instead try to use one of its special actives."
+    },
+    "true_golden_armada": {
+      "title": "True Golden Armada",
+      "eligible": true,
+      "description": "An absurdely massive golden armada patrols the map",
+      "severity": 6,
+      "notes": "Same logic as the normal golden armada mutation (including the logic that prevents it from attacking the player base early) but make it 10 carriers, 1 mothership (normal multiplayer mothership), 15 void rays, 10 tempests, and 20 phoenix (have the phoenix move in a circle around the golden armada, never needing to attack move since they attack while moving), and 3 oracles (they are just to cast revelation on any cloaked units, script them to do that). Make sure the mothership is always visible to the player. Once the mothership dies, just have the remaining golden armada attack towards the player base using our normal AI for that. avoids getting within range 40 of player-allied buildings until 10 min. range 30 until 15 min, range 20 until 20 min, and then no range limit after 20 min."
+    },
+    "immortal_zergling": {
+      "title": "Immortal Zergling",
+      "eligible": true,
+      "description": "A single immortal zergling attacks you constantly",
+      "severity": 1,
+      "notes": "This zergling should be untargetable, invulnerablle, and should spawn in the enemy base in a pathable area to attack towards the player 3 minutes after base established. It should use simple attack moves towards a random enemy unit that refreshes every minute."
+    },
+    "tosh_and_his_boys": {
+      "title": "Tosh and his Boys",
+      "eligible": true,
+      "description": "Tosh is somewhere on the map. While he lives, cloaked spectres periodically try to nuke your base.",
+      "severity": 3,
+      "notes": "Tosh spawns in enemy territory and patrols between enemy territories with normal attack and ability ai. He starts patrolling at 4 minutes after base established. Starting 5 minutes after base established the first spectre spawns in enemy territory and uses his calldown nuke ability on a random location within range 5 of the nearest player buliding. Another spectre spawns every minute as long as tosh is alive. Tosh and spectres spawn in pathable locations to the player base and this mutation is not available on island maps. His patrol cannot take him within range 30 of a player or player-allied building."
+    },
+    "nydus_worms": {
+      "title": "Nydus Worms",
+      "eligible": true,
+      "description": "Nydus worms periodically spawn throughout the map to send units towards your base",
+      "severity": 3,
+      "notes": "The nydus worms should do the full reveal animation, not simply spawn. If they are spawning through normal means they should make the sound like they do when they appear in the campaign. They should always appear in pathable locations from the player base otherwise they wait to spawn until a pathable location is available. First appears at 4 minutes. They then spawn on 40-50 second cooldowns. 10 seconds after spawning, they release 0-6 zerglings, 0-1 banelings, 0-2 hydralisks or 0-2 roaches, and a 25% chance of releasing a queen. They should release units again every minute until slain. The first spawn should be within range 4-25 of a player or player-allied structure, then increase the upper-bound range limit by 5 with each spawn, but they must always spawn on the map. The player should always have vision of the nydus worms until slain. When they spawn units, they should spawn a stream of 3 units per second (spread out over the second) rather than instantly spawning all at once."
+    },
+    "point_defense_drones": {
+      "title": "Point Defense Drones",
+      "eligible": true,
+      "description": "Enemy structures each have a point defense drone deployed near them to stop your projectiles",
+      "severity": 1,
+      "notes": "Spawn a point defense drone (the unit spawned from the raven ability) next to each enemy building. They should not have timed life like the normal raven point defense drones."
+    },
+    "heavily_defended_drakken_laser_drill": {
+      "title": "Heavily-Defended Drakken Laser Drill",
+      "eligible": true,
+      "description": "The enemy has a Heavily-Defended Drakken Laser Drill",
+      "severity": 6,
+      "notes": "Same logic as normal drakken laser drill mutation except it starts with 5 siege breakers and 5 missile turrets around it."
+    },
+    "multiple_air_bogies": {
+      "title": "Multiple Air Bogies",
+      "eligible": true,
+      "description": "Zerg air units occasionally attack your base",
+      "severity": 1,
+      "notes": "Starts at 5 minutes after base established and repeats every 2 minutes after that. Spawn them at a random map edge at least range 10 from any player or player-allied building. Increase the time between spawns by 10 seconds every time they spawn and every time they spawn add in 1 mutalisk. Every minute after the 10 minute mark, have a 25% chance of adding a broodlord to the spawns. First spawn has 3 mutalisks."
+    },
+    "hybrid_research": {
+      "title": "Hybrid Research",
+      "eligible": true,
+      "description": "Each enemy structure releases a random hybrid when destroyed",
+      "severity": 4,
+      "notes": "40% chance of hybrid reaver, 40% of hybrid destroyer, 10% of hybrid nemesis, 5% of hybrid behemoth, and 5% of hybrid dominator"
+    },
+    "fifty_immortals": {
+      "title": "Immortals",
+      "eligible": true,
+      "description": "There are 30 immortals patrolling around the map",
+      "severity": 3,
+      "notes": "Same behavior as archon mutation"
+    },
+    "armored_enemies": {
+      "title": "Armored Enemies",
+      "eligible": true,
+      "description": "All enemies gain +5 armor",
+      "severity": 3,
+      "notes": ""
+    }
+  },
+  "blessing": {
+    "investors": {
+      "title": "Investors",
+      "eligible": false,
+      "description": "You start with 1000 additional minerals",
+      "severity": 1,
+      "notes": ""
+    },
+    "multi_class": {
+      "title": "Multi-Class",
+      "eligible": false,
+      "description": "You start with an additional scv, drone, and probe",
+      "severity": 1,
+      "notes": ""
+    },
+    "power_overwhelming": {
+      "title": "Power Overwhelming",
+      "eligible": false,
+      "description": "Your workers can merge into archons",
+      "severity": 2,
+      "notes": ""
+    },
+    "drakken_laser_drill_blessing": {
+      "title": "Drakken Laser Drill",
+      "eligible": false,
+      "description": "Workers can construct a Drakken Laser Drill for 800 minerals and gas",
+      "severity": 4,
+      "notes": ""
+    },
+    "juggernaut": {
+      "title": "Juggernaut",
+      "eligible": false,
+      "description": "Your units gain armor equal to their supply cost but move 15% slower",
+      "severity": 1,
+      "notes": ""
+    },
+    "explosive_armor": {
+      "title": "Explosive Armor",
+      "eligible": true,
+      "description": "Your units explode on death, dealing damage to enemies proportional to their supply cost",
+      "severity": 3,
+      "notes": "baneling-sized explosion. 20x their supply cost damage. Increase explosion radius by 1 per supply cost greater than 1."
+    },
+    "speedy": {
+      "title": "Speedy",
+      "eligible": false,
+      "description": "Your units move at 2x speed",
+      "severity": 3,
+      "notes": ""
+    },
+    "assembly_line": {
+      "title": "Assembly Line",
+      "eligible": false,
+      "description": "Produce every thing 2x faster",
+      "severity": 2,
+      "notes": "includes units, upgrades, and building structures."
+    },
+    "general": {
+      "title": "(hero) Commander",
+      "eligible": true,
+      "description": "You gain (hero). They do not respawn.",
+      "severity": 2,
+      "notes": "spawns once you get a base set up. Respawn at player base 60 seconds after death. Say the hero name in the description and title. Do not include tychus in this blessing."
+    },
+    "farseers": {
+      "title": "Farseers",
+      "eligible": true,
+      "description": "You gain full map vision",
+      "severity": 1,
+      "notes": ""
+    },
+    "air_support": {
+      "title": "Air Support",
+      "eligible": false,
+      "description": "Random allied aircraft spawn to attack the enemies, but you cannot control them",
+      "severity": 2,
+      "notes": "Every minute, spawn one random allied aircraft and have it attack towards enemies using normal AI behaviors. Choose from scout, void ray, battlecruiser, carrier, tempest, banshee, brood lord, guardian, mutalisk, raven (starting with maximum energy, controlled using our unit AI), and mothership (not taldarim variant). Player cannot control it."
+    },
+    "fire_squad": {
+      "title": "Fire Squad",
+      "eligible": true,
+      "description": "Start with a squad of fiery units",
+      "severity": 1,
+      "notes": "Start with 3 firebats, 2 hellions, and 2 helbats, 1 colossus (purifier variant so it has the fire beam)"
+    },
+    "fuel_pipeline": {
+      "title": "Fuel Pipeline",
+      "eligible": false,
+      "description": "Gain 3 vespene gas every second",
+      "severity": 2,
+      "notes": ""
+    },
+    "rapid_evolution": {
+      "title": "Constant Evolution",
+      "eligible": false,
+      "description": "Your units gain 1 maximum HP every 5 seconds",
+      "severity": 2,
+      "notes": ""
+    },
+    "zombies_blessing": {
+      "title": "Zombies",
+      "eligible": true,
+      "description": "Whenever any unit dies, they spawn an allied infested terran",
+      "severity": 4,
+      "notes": "players cannot control zombies and they attack towards the nearest enemy building. Zombies do not spawn other zombies"
+    },
+    "compounding_interest": {
+      "title": "Compound Interest",
+      "eligible": false,
+      "description": "Increase your mineral supply by 10% every 30 seconds.",
+      "severity": 2,
+      "notes": "only starts after you have a base"
+    },
+    "transports": {
+      "title": "Transports",
+      "eligible": false,
+      "description": "Start with durable transports",
+      "severity": 1,
+      "notes": "start with a hercules dropship with 1000 hp, a dopperlord, warpprism, and medivac each with 500 hp"
+    },
+    "blink_blessing": {
+      "title": "Blink",
+      "eligible": false,
+      "description": "All of your units have the blink ability",
+      "severity": 2,
+      "notes": ""
+    },
+    "lost_vikings": {
+      "title": "Lost Vikings",
+      "eligible": true,
+      "description": "Every 60 seconds, gain a viking in a random location",
+      "severity": 1,
+      "notes": "Viking spawns under player control in the air in a completely random location, even the enemy base"
+    },
+    "warfields_reinforcements": {
+      "title": "Warfield's Reinforcements",
+      "eligible": true,
+      "description": "Warfield sends many allied drop pods to aid you in random locations",
+      "severity": 4,
+      "notes": "completely random, even enemy base. Every 30 seconds send 2 drop pods in random locations. Player cannot control them, they just attack move towards enemy structures. 1-4 marines, 0-1 medic, 0-1 marauder or 0-3 firebats. Occasionally sends \"tactical squad omega\" which has ghosts"
+    },
+    "instant_workers": {
+      "title": "Instant workers",
+      "eligible": false,
+      "description": "Your workers build instantly",
+      "severity": 2,
+      "notes": "Or take 0.1 seconds to build, whatever is easiest to implement"
+    },
+    "horde_mode": {
+      "title": "Horde Mode",
+      "eligible": false,
+      "description": "Your units cost half as much, build twice as fast, and have 25% fewer hit points",
+      "severity": 3,
+      "notes": "also have them use up half as much supply and be half the size"
+    },
+    "elite_soldiers": {
+      "title": "Elite Soldiers",
+      "eligible": false,
+      "description": "Your trained units and structures have a 15% increase to all of their stats",
+      "severity": 2,
+      "notes": "Stats include health, shields armor (if possible with fractions), speed, damage, attack speed, regeneration, maximum energy, energy regeneration. Only affects trained units and not units that were spawned in for free."
+    },
+    "energy_overload": {
+      "title": "Energy Overload",
+      "eligible": true,
+      "description": "Your units produce energy 3x faster",
+      "severity": 1,
+      "notes": ""
+    },
+    "occasional_thor_blessing": {
+      "title": "Occasional Thor",
+      "eligible": false,
+      "description": "Whenever you train a unit, you have a 4% chance of training a Thor instead",
+      "severity": 1,
+      "notes": ""
+    },
+    "occasional_ultralisk_blessing": {
+      "title": "Occasional Ultralisk",
+      "eligible": false,
+      "description": "Whenever you train a unit, you have a 4% chance of training an Ultralisk instead",
+      "severity": 1,
+      "notes": ""
+    },
+    "occasional_colossus_blessing": {
+      "title": "Occasional Colossus",
+      "eligible": false,
+      "description": "Whenever you train a unit, you have a 4% chance of training a Colossus instead",
+      "severity": 1,
+      "notes": ""
+    },
+    "rapid_repair": {
+      "title": "Rapid Repair",
+      "eligible": true,
+      "description": "Your SCVs repair 5x as fast",
+      "severity": 1,
+      "notes": "Terran missions only"
+    },
+    "blinding_light": {
+      "title": "Blinding Light",
+      "eligible": true,
+      "description": "Reduce the vision range of enemies by 4",
+      "severity": 2,
+      "notes": ""
+    },
+    "specialists": {
+      "title": "Specialists",
+      "eligible": false,
+      "description": "Start with a wide variety of spellcasters",
+      "severity": 1,
+      "notes": "Start with a ghost, raven, science vessel, infestor, defiler, spectre, viper, high templar, sentry, and oracle"
+    },
+    "fortifications": {
+      "title": "Fortifications",
+      "eligible": true,
+      "description": "Your buildings all have +5 armor",
+      "severity": 1,
+      "notes": ""
+    },
+    "baneling_stream": {
+      "title": "Baneling Stream",
+      "eligible": false,
+      "description": "Your main bases all spawn banelings that automatically attack the enemy base",
+      "severity": 4,
+      "notes": "Each nexus, hatchery, command center, etc. spawns 1 baneling every 5-15 seconds outside of your control that attacks towards the enemy."
+    },
+    "tychus": {
+      "title": "Tychus",
+      "eligible": false,
+      "description": "You can technically control tychus, but he is automatically issued an attack move order towards the enemy every 10-25 seconds.",
+      "severity": 1,
+      "notes": "You can technically control tychus, but he is automatically issued an attack move order towards the enemy every 10-25 seconds."
+    },
+    "unexpected_evolution": {
+      "title": "Unexpected Evolution",
+      "eligible": false,
+      "description": "When you train a unit, there is a chance to actually train a more expensive unit.",
+      "severity": 2,
+      "notes": "20% chance to find a completely random unit that costs more than what you trained and train that instead"
+    },
+    "another_gorgon_blessing": {
+      "title": "ANOTHER GORGON",
+      "eligible": false,
+      "description": "Warfield is sending gorgon after gorgon to assist you, but they are quite fragile",
+      "severity": 2,
+      "notes": "Make gorgons only have 100 hit points and spawn every 60 seconds not under your control attacking towards the enemy. Bonus points if you get warfield to play a random one of his \"send in another gorgon\" or \"ANOTHER GORGON\" voice lines every time he spawns one or one dies."
+    },
+    "zagaras_aid": {
+      "title": "Zagara's Aid",
+      "eligible": true,
+      "description": "Every 10 minutes Zagara sends 100 banelings to aid you.",
+      "severity": 2,
+      "notes": "Banelings spawn on your main base and you can control them."
+    },
+    "stealth_tunnels": {
+      "title": "Stealth Tunnels",
+      "eligible": false,
+      "description": "All of your units can move while burrowed",
+      "severity": 1,
+      "notes": "Only have this mutation on zerg missions"
+    },
+    "logistics": {
+      "title": "Logistics",
+      "eligible": false,
+      "description": "Your maximum supply is 400",
+      "severity": 1,
+      "notes": ""
+    },
+    "lurker_defense": {
+      "title": "Lurker Defense",
+      "eligible": false,
+      "description": "You start with 4 lurkers and 4 impalers to protect your base, but they move slowly",
+      "severity": 1,
+      "notes": "Make them have only 50% movement speed."
+    },
+    "building_overcharge": {
+      "title": "Building Turrets",
+      "eligible": true,
+      "description": "All of your buildings shoot lasers",
+      "severity": 3,
+      "notes": "Give every player building a weapon. Does not work on spider mines even though they are technically buildings."
+    },
+    "combat_workers": {
+      "title": "Combat Workers",
+      "eligible": true,
+      "description": "Your workers have triple health, damage, speed, and attack speed",
+      "severity": 2,
+      "notes": "Also make sure to triple the shields on probes."
+    },
+    "glass_cannons": {
+      "title": "Glass Cannons",
+      "eligible": false,
+      "description": "Your units deal double damage but have 35% less health",
+      "severity": 2,
+      "notes": ""
+    },
+    "ghost_reporting": {
+      "title": "Ghost Reporting",
+      "eligible": false,
+      "description": "You start with 3 ghosts and a ghost academy with unlimited nukes",
+      "severity": 1,
+      "notes": ""
+    },
+    "odin": {
+      "title": "Odin",
+      "eligible": true,
+      "description": "You start with the odin",
+      "severity": 4,
+      "notes": ""
+    },
+    "bounty_kills": {
+      "title": "Bounty Kills",
+      "eligible": false,
+      "description": "You gain 4 minerals and 2 gas every time you kill an enemy unit",
+      "severity": 1,
+      "notes": ""
+    },
+    "glorious_martyrs": {
+      "title": "Glorious Martyrs",
+      "eligible": false,
+      "description": "whenever one of your units die, all nearby units gain a permanent speed and attack speed bonus",
+      "severity": 4,
+      "notes": "Affects units within range 4, permanent 5% increase to movement speed and 10% to attack speed, stacks indefinitely additively"
+    },
+    "inflatable_soldiers": {
+      "title": "Inflatable Soldiers",
+      "eligible": false,
+      "description": "Your non-worker units continually grow in all ways but become become slower over time",
+      "severity": 4,
+      "notes": "all your non-worker and non-building units grow every 12 seconds, gaining +25% attack damage, +15% health and +0.1 attack range every 6 seconds, but loses 4.5% movement speed with each stack. The unit becomes immobile after the 20th stack. Attack speed no longer decays after the 10th stack, but the damage bonus will be halved for every stack after the 10th. Stacks up to 300 times."
+    },
+    "infinite_larva": {
+      "title": "Infinite Larva",
+      "eligible": false,
+      "description": "Your bases produce nearly unlimited larva",
+      "severity": 2,
+      "notes": "Maximum of 20 larva, produce larva almost instantly. Only available on zerg missions."
+    },
+    "reflective_armor": {
+      "title": "Reflective Armor",
+      "eligible": true,
+      "description": "Your units reflect 50% of incoming damage back to attackers",
+      "severity": 2,
+      "notes": ""
+    },
+    "rich_vespene": {
+      "title": "Rich Vespene",
+      "eligible": false,
+      "description": "All vespene geysers are replaced with rich vespene geysers",
+      "severity": 1,
+      "notes": ""
+    },
+    "rich_minerals": {
+      "title": "Rich Minerals",
+      "eligible": false,
+      "description": "All mineral fields are replaced with rich mineral fields",
+      "severity": 1,
+      "notes": "cannot appear on devil's playground"
+    },
+    "resource_pickups": {
+      "title": "Resource Pickups",
+      "eligible": false,
+      "description": "mineral and gas resource pickups scattered around the map",
+      "severity": 1,
+      "notes": "50 pickups available total. Each gives 50 minerals or gas."
+    },
+    "covert_assistance": {
+      "title": "Covert Assistance",
+      "eligible": true,
+      "description": "Tosh works independently to assist you. He does not respawn.",
+      "severity": 1,
+      "notes": "Tosh spawns at the 1 minute mark and is AI controlled to attack the enemy and use his abilities. The player cannot control him and he uses normal AI to attack the enemy but if he drops below 50% hp he uses his defense matrix ability and moves straight back to the player base until full health. He has 0.5 life regen per second."
+    }
+  }
+}

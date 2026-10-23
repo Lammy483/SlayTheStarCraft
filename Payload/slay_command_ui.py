@@ -11,6 +11,7 @@ from kivy.graphics import Color, Rectangle, RoundedRectangle, Line, Ellipse, Mes
 from kivy.graphics.instructions import InstructionGroup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.scatter import Scatter
 from kivy.uix.slider import Slider
 import json
@@ -85,6 +86,7 @@ SHOP_SECTION_COLUMNS={
     'Terran Units':0,'Terran Upgrades':0,'Defensive Structures & Detectors':0,
     'Zerg Units':1,'Zerg Upgrades':1,'General Upgrades':1,
     'Protoss Units':2,'Protoss Upgrades':2,'Boons':2,
+    'Terran Structures':0,'Zerg Structures':1,'Protoss Structures':2,
     'Mercenary Contracts':3,'Mercenaries':3,'Kerrigan':3,'Spear of Adun':3,'Consumables':3,
 }
 INVENTORY_SECTION_COLUMNS=dict(SHOP_SECTION_COLUMNS,**{'Blessings':2,'Mutations':2})
@@ -97,6 +99,8 @@ SECTION_PALETTE={
     'Mercenary Contracts':(.145,.175,.215,1),'Mercenaries':(.160,.190,.168,1),
     'Kerrigan':(.198,.164,.181,1),'Spear of Adun':(.225,.195,.120,1),'Consumables':(.125,.205,.215,1),
     'Boons':(.215,.145,.150,1),'Blessings':(.180,.155,.205,1),'Mutations':(.205,.150,.160,1),
+    'Terran Structures':(.155,.190,.188,1),'Zerg Structures':(.184,.158,.194,1),
+    'Protoss Structures':(.199,.190,.158,1),
 }
 
 
@@ -136,6 +140,31 @@ def control(text,callback=None,**kwargs):
     b.slay_sound='nav'
     if callback:b.bind(on_release=callback)
     return b
+
+class ReliableCloseButton(Button):
+    """Close a Kivy popup even when its release event is swallowed.
+
+    Large ScrollViews and modal focus changes can prevent on_release after a
+    perfectly valid press. Treat the initial hit-tested touch as sufficient for
+    a Close action; on_press/on_release remain redundant fallbacks. Logging
+    separates touch routing from a Popup dismissal failure in live tests.
+    """
+    def __init__(self, close_action, **kwargs):
+        super().__init__(**kwargs)
+        self._slay_close_action = close_action
+        button(self)
+        self.bind(on_press=lambda *_:close_action('press'))
+        self.bind(on_release=lambda *_:close_action('release'))
+
+    def on_touch_down(self, touch):
+        inside = (not self.disabled and self.collide_point(*touch.pos) and
+                  getattr(touch, 'button', None) not in ('scrollup', 'scrolldown'))
+        handled = super().on_touch_down(touch)
+        if inside:
+            self._slay_close_action('touch-down')
+            return True
+        return handled
+
 
 def race_icon(category):
     race='zerg' if ('Zerg' in category or category in ('Kerrigan','Mutations')) else 'prot' if ('Protoss' in category or category in ('Spear of Adun','Boons','Blessings')) else 'terr'
@@ -296,7 +325,10 @@ class RelicCard(BoxLayout):
         card_title = '[b]'+entry['name']+'[/b]'
         if shop and entry.get('sale'):
             card_title += '  [color=7CFF9B][b]SALE[/b][/color]'
-        head.add_widget(label(card_title,halign='left',valign='middle',font_size=dp(15)))
+        if shop and entry.get('frozen'):
+            card_title += '  [color=82DFF5][b]FROZEN[/b][/color]'
+        self.title_label=label(card_title,halign='left',valign='middle',font_size=dp(15))
+        head.add_widget(self.title_label)
         self.add_widget(head)
         desc=tr(entry.get('description',''))
         # Full text remains available in the right-side inspector on selection.
@@ -308,10 +340,24 @@ class RelicCard(BoxLayout):
         detail=control('Details',lambda *_:select(entry),size_hint_x=.30)
         actions.add_widget(detail)
         if shop:
-            buy=control('',lambda *_:purchase(entry['id']),font_size=dp(13))
+            buy=control('',lambda *_:purchase(entry['id'],1),font_size=dp(13))
             buy.slay_sound='command'
             buy.slay_item_id=entry['id'];self.purchase_button=buy;actions.add_widget(buy)
+            self.buy5_button=None
+            if entry.get('buy_five'):
+                self.buy5_button=control('Buy 5',lambda *_:purchase(entry['id'],5),font_size=dp(12))
+                self.buy5_button.slay_sound='command'
+                actions.add_widget(self.buy5_button)
         else:
+            if entry.get('revive_cost') is not None and entry.get('destroyed',0)>0:
+                cost=entry['revive_cost']
+                actions.add_widget(control(f'Revive 1 · {cost}c',
+                    lambda *_:purchase(entry['id'],1),font_size=dp(9),size_hint_x=.5,
+                    size_hint_y=None,height=dp(18)))
+                if entry['destroyed']>=5:
+                    actions.add_widget(control(f'Revive 5 · {cost*5}c',
+                        lambda *_:purchase(entry['id'],5),font_size=dp(9),size_hint_x=.5,
+                        size_hint_y=None,height=dp(18)))
             origins=[]
             if entry.get('ap_count'):origins.append(f"Supplies {entry['ap_count']}")
             if entry.get('shop_count'):origins.append(f"Purchased {entry['shop_count']}")
@@ -327,6 +373,8 @@ class RelicCard(BoxLayout):
 class RelicRow(BoxLayout):
     def __init__(self,entry,category,select,shop=False,purchase=None,compact=False,**kwargs):
         super().__init__(orientation='horizontal',spacing=dp(5 if compact else 12),padding=dp(4 if compact else 10),**kwargs)
+        self.entry = entry
+        self.select_entry = select
         panel(self,color=(.13,.23,.16,1) if shop and entry.get('sale') else SECTION_PALETTE.get(category,(.025,.065,.105,1)))
         portrait = shop_icon_texture(entry.get('canonical_name',entry['id']), entry.get('icon',''), category)
         if portrait is not None:
@@ -335,7 +383,10 @@ class RelicRow(BoxLayout):
         row_title='[b]'+entry['name']+'[/b]'
         if shop and entry.get('sale'):
             row_title+='  [color=7CFF9B][b]SALE[/b][/color]'
+        if shop and entry.get('frozen'):
+            row_title+='  [color=82DFF5][b]FROZEN[/b][/color]'
         title=label(row_title,halign='left',valign='top',auto_height=True,size_hint_y=None,height=dp(23 if compact else 26),font_size=dp(14 if compact else 15))
+        self.title_label=title
         title.bind(texture_size=lambda w,s:setattr(w,'height',max(dp(23 if compact else 26),s[1])))
         text.add_widget(title)
         description=label(entry.get('description',''),halign='left',valign='top',auto_height=True,size_hint_y=None)
@@ -343,15 +394,38 @@ class RelicRow(BoxLayout):
         text.add_widget(description)
         text.bind(minimum_height=lambda w,h:setattr(self,'height',max(dp(88 if compact else 108),h+dp(14 if compact else 20))))
         self.add_widget(text)
-        actions=BoxLayout(orientation='vertical',spacing=dp(6),size_hint_x=None,width=dp(128 if compact else 150))
+        actions=BoxLayout(orientation='vertical',spacing=dp(6),size_hint_x=None,width=dp(200 if entry.get('crew_inventory') else (155 if compact else 174)))
         if not compact:actions.add_widget(control('Details',lambda *_:select(entry),size_hint_y=None,height=dp(32)))
+        if not shop and entry.get('crew_inventory') and entry.get('revive_cost') is not None and entry.get('destroyed',0)>0:
+            cost=entry['revive_cost']
+            row=BoxLayout(orientation='horizontal',size_hint_y=None,height=dp(23),spacing=dp(4))
+            row.add_widget(control(f'Revive 1 · {cost}c',
+                lambda *_:purchase(entry['id'],1),font_size=dp(10)))
+            row.add_widget(control(f'Revive 5 · {cost*5}c',
+                lambda *_:purchase(entry['id'],5),font_size=dp(10),
+                disabled=entry['destroyed']<5))
+            actions.add_widget(row)
         if shop:
-            self.purchase_button=control('',lambda *_:purchase(entry['id']),font_size=dp(12),size_hint_y=None,height=dp(40 if compact else 46),halign='center',valign='middle')
+            self.purchase_button=control('',lambda *_:purchase(entry['id'],1),font_size=dp(12),size_hint_y=None,height=dp(40 if compact else 46),halign='center',valign='middle')
             self.purchase_button.bind(size=lambda w,s:setattr(w,'text_size',(max(dp(1),s[0]-dp(10)),s[1])))
             self.purchase_button.slay_sound='command'
             self.purchase_button.slay_item_id=entry['id']
             actions.add_widget(self.purchase_button)
+            self.buy5_button=None
+            if entry.get('buy_five'):
+                self.buy5_button=control('Buy 5',lambda *_:purchase(entry['id'],5),font_size=dp(12),size_hint_y=None,height=dp(35))
+                self.buy5_button.slay_sound='command'
+                actions.add_widget(self.buy5_button)
         else:
+            if not entry.get('crew_inventory') and entry.get('revive_cost') is not None and entry.get('destroyed',0)>0:
+                cost=entry['revive_cost']
+                actions.add_widget(control(f'Revive 1 · {cost}c',
+                    lambda *_:purchase(entry['id'],1),font_size=dp(9),size_hint_x=None,
+                    width=dp(77),size_hint_y=None,height=dp(19)))
+                if entry['destroyed']>=5:
+                    actions.add_widget(control(f'Revive 5 · {cost*5}c',
+                        lambda *_:purchase(entry['id'],5),font_size=dp(9),size_hint_x=None,
+                        width=dp(77),size_hint_y=None,height=dp(19)))
             actions.add_widget(label(f"Owned ×{entry.get('total',1)}",size_hint_y=None,height=dp(24)))
             origins=[]
             if entry.get('ap_count'):origins.append(f"Supplies {entry['ap_count']}")
@@ -362,13 +436,23 @@ class RelicRow(BoxLayout):
         # upgrades without consuming vertical room in every list entry.
         self.add_widget(actions)
 
+    def on_touch_up(self, touch):
+        if super().on_touch_up(touch):
+            return True
+        if self.collide_point(*touch.pos):
+            self.select_entry(self.entry)
+            return True
+        return False
+
 class CardConsole:
-    def __init__(self,manager,shop,sections,entries,sale_items=()):
+    def __init__(self,manager,shop,sections,entries,sale_items=(),crew=False):
         self.manager=manager;self.shop=shop;self.sections=sections;self.entries=entries
+        self.crew=crew
         self.category=getattr(manager,'slay_card_shop_category' if shop else 'slay_card_inventory_category',None)
         self.page=0;self.page_size=8;self.card_widgets={};self.sale_items=set(sale_items)
+        self.freeze_select_mode = False
         self.view_key='slay_shop_view_mode' if shop else 'slay_inventory_view_mode'
-        self.view_mode=getattr(manager,self.view_key,'list')
+        self.view_mode='list' if crew else getattr(manager,self.view_key,'list')
         self.page_size=16 if self.view_mode=='list' else 8
         # Stock Popup's default nine-slice modal frame and empty background
         # produced a wide light rim around the otherwise dark Slay shop.
@@ -380,11 +464,16 @@ class CardConsole:
         root=BoxLayout(orientation='vertical',spacing=dp(3),padding=[dp(2),0,dp(2),dp(1)]);panel(root,border=False)
         top=BoxLayout(size_hint_y=None,height=dp(34),spacing=dp(8))
         top.add_widget(BoxLayout(size_hint_x=None,width=dp(17)))
-        top.add_widget(label('[b]Shop[/b]' if shop else '[b]Supply Inventory[/b]',font_size=dp(23),halign='left'))
+        top.add_widget(label('[b]Shop[/b]' if shop else ('[b]Crew Reserves[/b]' if crew else '[b]Supply Inventory[/b]'),font_size=dp(23),halign='left'))
         self.credit=label('',halign='right');top.add_widget(self.credit)
+        if crew and not shop:
+            from worlds.sc2 import slay_the_starcraft as slay
+            self.credit.text=f'[b]Credits: {slay.credits(manager.ctx)}[/b]'
         self.view_button=control('',lambda *_:self.toggle_view(),size_hint_x=None,width=dp(145))
-        top.add_widget(self.view_button)
+        if not crew:top.add_widget(self.view_button)
         if shop:
+            self.freeze_button = control('Freeze', lambda *_: self.toggle_freeze(), size_hint_x=None, width=dp(170))
+            top.add_widget(self.freeze_button)
             top.add_widget(control('Inventory',lambda *_:self.navigate_to('inventory'),size_hint_x=None,width=dp(145)))
             top.add_widget(control('Exit Shop',lambda *_:self.close(),size_hint_x=None,width=dp(170)))
         else:
@@ -432,6 +521,153 @@ class CardConsole:
         self.render()
         self.resize()
 
+    def purchase(self, item_id, quantity=1):
+        from worlds.sc2 import slay_the_starcraft as slay
+        if not self.crew:
+            return self.manager._slay_buy(item_id,self.popup)
+        if not self.shop:
+            e=self.entries.get(item_id)
+            if not e or e.get('revive_cost') is None:return
+            try:
+                amount,ids=slay.crew_revive_destroyed(self.manager.ctx,
+                    e['roster_name'],e['race'],e['crew_kind'],quantity)
+                self.crew_feedback=f'Revived {len(ids)} × {e["name"]} for {amount} credits.'
+                # Reopen a fresh inventory to recalculate lost/ready counts.
+                self.popup.slay_navigate_to='inventory'
+                self.popup.dismiss()
+            except Exception as exc:
+                self.credit.text='Revive unavailable: '+str(exc)
+            return
+        entry=self.entries.get(item_id)
+        if entry is None or not self.shop:return
+        try:
+            kind=entry.get('crew_kind')
+            if kind in ('unit','structure'):
+                cost,ids=slay.crew_purchase_roster_copy(self.manager.ctx,entry['roster_name'],
+                    entry['race'],kind,entry['supply'],entry['minerals'],entry['gas'],quantity=quantity)
+                msg=f'Purchased {len(ids)} × {entry["name"]} for {cost} credits; added to Reserves.'
+            elif kind=='upgrade':
+                if quantity!=1:return
+                ok,msg=slay.crew_purchase_upgrade(self.manager.ctx,item_id)
+                if not ok:raise ValueError(msg)
+            elif kind=='boon':
+                if quantity!=1:return
+                ok,msg=slay.crew_purchase_boon(self.manager.ctx,item_id)
+                if not ok:raise ValueError(msg)
+            else:return
+            # Preserve the normal Standard shop renderer; only refresh the
+            # Crew-specific purchase eligibility and credit caption.
+            self.crew_feedback=msg
+            roster=slay.crew_roster(self.manager.ctx)
+            for row in self.entries.values():
+                row_kind=row.get('crew_kind')
+                if row_kind in ('unit','structure'):
+                    name=row.get('roster_name')
+                    count=sum(c['name']==name and c.get('status')!='lost'
+                              for c in roster['copies'])
+                elif row_kind=='upgrade':
+                    count=slay.purchased_count(self.manager.ctx,row['id'])
+                else:continue
+                row['owned_count']=count
+                display=row.get('roster_name') or slay.shop_entry_display_name(row['id'])
+                row['name']=str(display)+(f'  (already owned: {count})' if row.get('show_owned_count',True) else '')
+            # Buying does not change the rolled offers or rebuild textures/widgets.
+            # Reroll/victory is the only event that rebuilds Crew's whole shop.
+            for ident,card in self.card_widgets.items():
+                e=self.entries[ident]
+                title=getattr(card,'title_label',None)
+                if title is not None:
+                    caption='[b]'+e['name']+'[/b]'
+                    if e.get('frozen'):caption+='  [color=82DFF5][b]FROZEN[/b][/color]'
+                    title.text=caption
+            self.refresh_crew_controls()
+        except Exception as exc:
+            self.crew_feedback='Purchase unavailable: '+str(exc)
+            self.refresh_crew_controls()
+
+    def refresh_crew_controls(self):
+        if not self.crew or not self.shop:return
+        from worlds.sc2 import slay_the_starcraft as slay
+        # Some legacy embedded shop adapters expose costs but no live roster.
+        # Production Crew always has a ledger; this guard retains compatibility.
+        roster_provider=getattr(slay,'crew_roster',None)
+        roster=roster_provider(self.manager.ctx) if callable(roster_provider) else None
+        for ident,e in self.entries.items() if roster is not None else ():
+            card=self.card_widgets.get(ident)
+            kind=e.get('crew_kind')
+            if kind in ('unit','structure'):
+                new_count=sum(c['name']==e.get('roster_name') and c.get('status')!='lost'
+                              for c in roster.get('copies',()))
+            elif kind=='upgrade':
+                new_count=slay.purchased_count(self.manager.ctx,ident)
+            else:continue
+            if e.get('owned_count')!=new_count:
+                e['owned_count']=new_count
+                display=e.get('roster_name') or slay.shop_entry_display_name(ident)
+                e['name']=str(display)+(f'  (already owned: {new_count})' if e.get('show_owned_count',True) else '')
+                title=getattr(card,'title_label',None) if card is not None else None
+                if title is not None:title.text='[b]'+e['name']+'[/b]'
+        budget=slay.credits(self.manager.ctx)
+        self.credit.text=f'[b]Credits: {budget}[/b]  {getattr(self,"crew_feedback","")}'
+        # The popup owns a frozen offer snapshot. Recomputing the entire AP
+        # shop candidate pool on every refresh was both slow and capable of
+        # disabling unrelated offers when a purchase changed eligibility.
+        # Use the rolled offers from this popup, not a new random shop roll.
+        # Dev69 accidentally removed this binding, raising NameError when
+        # opening a Crew shop (and interrupting the surrounding modal).
+        boon_ids={ident for ident,row in self.entries.items()
+                  if row.get('crew_kind')=='boon'}
+        table=None
+        for ident,card in self.card_widgets.items():
+            e=self.entries[ident]
+            kind=e.get('crew_kind')
+            if kind in ('unit','structure'):
+                cost=e['credits']
+                allowed=True
+            elif kind=='boon':
+                cost=e['credits']
+                allowed=ident in boon_ids and slay.can_buy_shop_item(self.manager.ctx,ident)
+            elif kind=='upgrade':
+                cost=slay.crew_upgrade_price(self.manager.ctx, ident)
+                e['credits']=cost
+                # This offer was valid when the cycle was rolled. Only this
+                # item's OWN purchase cap can disable it; a different upgrade
+                # must never invalidate the active card.
+                if table is None:table=slay._item_table()
+                data=table.get(ident)
+                cap=slay._max_owned_copies(data) if data is not None else None
+                count=slay.purchased_count(self.manager.ctx,ident)
+                allowed=(data is not None and (cap is None or
+                    slay._effective_shop_copies(ident,count)<cap))
+            else:
+                continue
+            btn=card.purchase_button
+            btn.text=f'Buy 1 ({cost} credits)'
+            btn.disabled=not allowed or budget<cost
+            if getattr(card,'buy5_button',None) is not None:
+                card.buy5_button.disabled=budget<5*cost
+                card.buy5_button.text=f'Buy 5 ({5*cost} credits)'
+
+    def toggle_freeze(self):
+        self.freeze_select_mode = not self.freeze_select_mode
+        self.render()
+
+    def choose_entry(self, entry):
+        if not self.shop or not self.freeze_select_mode:
+            self.inspect(entry)
+            return
+        from worlds.sc2 import slay_the_starcraft as slay
+        name = entry.get('freeze_name',entry['id']) if self.crew else entry['id']
+        # Selecting another frozen offer automatically unfreezes the old one.
+        # Selecting the same offer again clears its frozen status.
+        selected = "" if name == slay.frozen_shop_item(self.manager.ctx) else name
+        if slay.freeze_shop_item(self.manager.ctx, selected):
+            for row in self.entries.values():
+                row['frozen'] = bool(selected and (row.get('freeze_name',row['id']) if self.crew else row['id']) == selected)
+            self.freeze_select_mode = False
+            self.render()
+            self.inspect(entry)
+
     def navigate_to(self, destination):
         # A single authoritative transition, handled by the popup's regular
         # dismissal listener. Never attach an accumulating on_dismiss lambda.
@@ -446,7 +682,10 @@ class CardConsole:
         self.popup.slay_navigate_to = None
         if self.shop:
             self.manager.slay_shop_reopen_pending = False
-        self.popup.dismiss()
+        _command_ui_log('Card shop/inventory close requested')
+        # A dismissal veto or the current touch-dispatch frame must not strand
+        # a nearly fullscreen modal above the command interface.
+        Clock.schedule_once(lambda _dt: self.popup.dismiss(force=True), 0)
 
     def resize(self,*_):
         # Keep all eight cards on comfortable desktop widths; narrow windows use three columns.
@@ -495,7 +734,7 @@ class CardConsole:
         self.inspect_title.text=entry['name']
         self.inspect_text.text=entry.get('description','') or 'This relic is active.'
         self.tech_panel.clear_widgets()
-        grid=technology_grid(self.manager.ctx,entry.get('canonical_name',entry['id']))
+        grid=None if self.crew else technology_grid(self.manager.ctx,entry.get('canonical_name',entry['id']))
         self.tech_panel.height=dp(180) if grid else 0
         if grid:
             self.tech_panel.add_widget(label('Related Technology',size_hint_y=None,height=dp(22),font_size=dp(12),halign='left'))
@@ -504,6 +743,11 @@ class CardConsole:
     def render(self):
         from worlds.sc2 import slay_the_starcraft as slay
         self.view_button.text=('Show Cards' if self.view_mode=='list' else 'Show List') if LANGUAGE=='zhCN' else ('Show Cards' if self.view_mode=='list' else 'Show List')
+        if self.shop:
+            from worlds.sc2 import slay_the_starcraft as slay
+            self.freeze_button.text = ('Select Item...' if self.freeze_select_mode
+                                       else 'Freeze (1)' if slay.frozen_shop_item(self.manager.ctx)
+                                       else 'Freeze Item')
         self.resize()
         if self.view_mode=='list':
             self.render_overview()
@@ -522,16 +766,21 @@ class CardConsole:
         for name in page_names:
             entry=self.entries[name]
             widget_class=RelicRow if self.view_mode=='list' else RelicCard
-            card=widget_class(entry,self.category,self.inspect,self.shop,lambda item:self.manager._slay_buy(item,self.popup),size_hint_y=None,height=dp(108 if self.view_mode=='list' else 255))
+            card=widget_class(entry,self.category,self.choose_entry,self.shop,self.purchase,size_hint_y=None,height=dp(108 if self.view_mode=='list' else 255))
             self.grid.add_widget(card);self.card_widgets[name]=card
             if self.shop:self.popup.slay_purchase_buttons[name]=card.purchase_button
         if not page_names:self.grid.add_widget(label('No supplies in this category.',size_hint_y=None,height=dp(180)))
         if page_names:self.inspect(self.entries[page_names[0]])
         self.scroll.scroll_y=1
-        if self.shop:self.manager._slay_refresh_shop_controls(self.popup)
-        else:self.credit.text=f'Catalogued {len(self.entries)} supply types'
+        if self.shop:
+            if self.crew:self.refresh_crew_controls()
+            else:self.manager._slay_refresh_shop_controls(self.popup)
+        else:
+            if self.crew:self.credit.text=f'[b]Credits: {slay.credits(self.manager.ctx)}[/b]'
+            else:self.credit.text=f'Catalogued {len(self.entries)} supply types'
 
     def render_overview(self):
+        from worlds.sc2 import slay_the_starcraft as slay
         for name,entry in self.entries.items():texture(local_icon(entry.get('canonical_name',name),entry.get('icon','')))
         self.grid.clear_widgets();self.popup.slay_purchase_buttons={};self.card_widgets={}
         self.heading.text='' if self.shop else 'All Categories'
@@ -549,33 +798,208 @@ class CardConsole:
         section_columns=SHOP_SECTION_COLUMNS if self.shop else INVENTORY_SECTION_COLUMNS
         for category,names in self.sections:
             if category=='Current Discounts' or not names:continue
-            index=min(section_columns.get(category,2),len(columns)-1)
-            group=BoxLayout(orientation='vertical',size_hint_y=None,padding=dp(4),spacing=dp(3))
-            group.bind(minimum_height=group.setter('height'))
-            panel(group,color=SECTION_PALETTE.get(category,(.18,.18,.18,1)))
-            heading = '[b]'+tr(category)+'[/b]'
-            if category == 'Consumables':
-                from worlds.sc2 import slay_the_starcraft as slay
-                count = len(slay.potion_inventory(self.manager.ctx))
-                heading += f'     [color=82DFF5]Available slots: {max(0, slay.POTION_CAPACITY - count)}/{slay.POTION_CAPACITY}[/color]'
-            heading_label=label(heading,size_hint_y=None,height=dp(26),font_size=dp(13))
-            if category == 'Consumables' and self.shop:
-                self.popup.slay_consumable_slots_label=heading_label
-            group.add_widget(heading_label)
-            for name in names:
-                entry=self.entries[name]
-                row=RelicRow(entry,category,self.inspect,self.shop,lambda item:self.manager._slay_buy(item,self.popup),compact=True,size_hint_y=None,height=dp(88))
-                group.add_widget(row);self.card_widgets[name]=row
-                if self.shop:self.popup.slay_purchase_buttons[name]=row.purchase_button
-            columns[index].add_widget(group)
+            # Crew's four-column overview: structures fill columns 1 and 2,
+            # all racial units/upgrades fill column 3, boons column 4.
+            # Standard shop/inventory is unchanged.
+            chunks=[(min(section_columns.get(category,2),len(columns)-1),names,category)]
+            if self.crew:
+                if category.endswith('Structures'):
+                    half=(len(names)+1)//2
+                    chunks=[(0,names[:half],category+' (1/2)'),
+                            (1,names[half:],category+' (2/2)')]
+                elif category.endswith('Units') or category.endswith('Upgrades'):
+                    chunks=[(2,names,category)]
+                elif category=='Boons':
+                    chunks=[(3,names,category)]
+            for index,names,display_category in chunks:
+                if not names:continue
+                self._render_overview_group(columns,index,category,display_category,names)
         align_columns()
         self.scroll.scroll_y=1
-        if self.shop:self.manager._slay_refresh_shop_controls(self.popup)
-        else:self.credit.text=f'Catalogued {len(self.entries)} supply types'
+        if self.shop:
+            if self.crew:self.refresh_crew_controls()
+            else:self.manager._slay_refresh_shop_controls(self.popup)
+        else:
+            if self.crew:self.credit.text=f'[b]Credits: {slay.credits(self.manager.ctx)}[/b]'
+            else:self.credit.text=f'Catalogued {len(self.entries)} supply types'
+
+    def _render_overview_group(self, columns, index, category, display_category, names):
+        group=BoxLayout(orientation='vertical',size_hint_y=None,padding=dp(4),spacing=dp(3))
+        group.bind(minimum_height=group.setter('height'))
+        panel(group,color=SECTION_PALETTE.get(category,(.18,.18,.18,1)))
+        heading = '[b]'+tr(display_category)+'[/b]'
+        if category == 'Consumables':
+            from worlds.sc2 import slay_the_starcraft as slay
+            count = len(slay.potion_inventory(self.manager.ctx))
+            heading += f'     [color=82DFF5]Available slots: {max(0, slay.POTION_CAPACITY - count)}/{slay.POTION_CAPACITY}[/color]'
+        heading_label=label(heading,size_hint_y=None,height=dp(26),font_size=dp(13))
+        if category == 'Consumables' and self.shop:
+            self.popup.slay_consumable_slots_label=heading_label
+        group.add_widget(heading_label)
+        for name in names:
+            entry=self.entries[name]
+            row=RelicRow(entry,category,self.choose_entry,self.shop,self.purchase,compact=True,size_hint_y=None,height=dp(156 if entry.get('revive_cost') is not None and entry.get('destroyed',0)>=5 else 132 if entry.get('revive_cost') is not None and entry.get('destroyed',0)>0 else 105 if entry.get('buy_five') else 88))
+            group.add_widget(row);self.card_widgets[name]=row
+            if self.shop:self.popup.slay_purchase_buttons[name]=row.purchase_button
+        columns[index].add_widget(group)
+
+def open_crew_console(manager, shop):
+    """Crew uses Standard's CardConsole, not a separate prototype UI.
+
+    Credits, purchases and Reserves are Crew-specific; palette, artwork,
+    descriptions, layout, navigation and inspector are the Standard renderer.
+    """
+    from worlds.sc2 import slay_the_starcraft as slay
+    if not slay.state_ready(manager.ctx):return
+    def racial_section(race,kind):
+        prefix={'terran':'Terran','zerg':'Zerg','protoss':'Protoss'}.get(race,'Terran')
+        return prefix+' '+kind
+    sections=OrderedDict()
+    entries={}
+    if shop:
+        # Capture the roster once. Its normalization and SC2 receipt status
+        # checks are expensive and are identical for every displayed offer.
+        roster=slay.crew_roster(manager.ctx)
+        groups=slay.crew_catalog_offers(manager.ctx)
+        for source in ('Structures','Units','Unit Upgrades'):
+            for index,offer in enumerate(groups.get(source,())):
+                race=offer.get('race','terran')
+                kind=('Structures' if source=='Structures' else
+                      'Units' if source=='Units' else 'Upgrades')
+                category=racial_section(race,kind)
+                key=('crew:'+race+':'+offer['name'] if source!='Unit Upgrades'
+                     else offer['id'])
+                if source=='Unit Upgrades':
+                    desc=offer.get('description','') or slay.shop_entry_description(offer['id'])
+                    item_kind='upgrade'
+                else:
+                    desc=slay.crew_shop_description(offer)
+                    item_kind=('unit' if offer['category']=='unit' or
+                               offer['name'] in ('SCV','Probe','Drone') else 'structure')
+                count=(slay.purchased_count(manager.ctx,offer['id']) if item_kind=='upgrade'
+                       else sum(c['name']==offer['name'] and c.get('status')!='lost'
+                                for c in roster['copies']))
+                entry={'id':key,'canonical_name':offer.get('id',offer['name']),
+                       'name':offer['name']+(f'  (already owned: {count})' if (item_kind!='upgrade' or offer.get('show_owned_count',True)) else ''),'description':desc,
+                       'icon':slay.shop_entry_icon(offer.get('id',offer['name'])),
+                       'credits':int(offer['credits']),
+                       'race':race,'crew_kind':item_kind,
+                       'buy_five':item_kind=='unit',
+                       'roster_name':offer['name'], 'owned_count':count,
+                       'show_owned_count':(item_kind!='upgrade' or offer.get('show_owned_count',True)),
+                       'freeze_name':offer['name'] if item_kind in ('unit','structure') else key,
+                       'frozen':slay.frozen_shop_item(manager.ctx)==(offer['name'] if item_kind in ('unit','structure') else key),
+                       'minerals':offer.get('minerals',0),'gas':offer.get('gas',0),
+                       'supply':offer.get('supply',0)}
+                entries[key]=entry
+                sections.setdefault(category,[]).append(key)
+        for offer in slay.crew_boon_offers(manager.ctx):
+            key=offer['id']
+            entries[key]={'id':key,'canonical_name':key,'name':offer['name'],
+                          'description':offer.get('description',''),
+                          'icon':slay.shop_entry_icon(key),
+                          'credits':int(offer['credits']),
+                          'crew_kind':'boon','race':'boon','buy_five':False,
+                          'frozen':slay.frozen_shop_item(manager.ctx)==key}
+            sections.setdefault('Boons',[]).append(key)
+    else:
+        for idx,entry in enumerate(slay.crew_inventory_groups(manager.ctx)):
+            kind=entry['kind']
+            category=racial_section(entry['race'],'Units' if kind=='unit' else 'Structures')
+            key='reserves:'+str(idx)
+            desc=(f"Reserves: {entry['ready']}     On field: {entry['on_field']}     "
+                  f"Pending verification: {entry['claimed']}     Destroyed: {entry['destroyed']}")
+            revive_cost=(slay.crew_revive_unit_price(entry['name'], entry['race'])
+                         if kind=='unit' else None)
+            entries[key]={'id':key,'canonical_name':entry['name'],
+                          'crew_kind':kind,'roster_name':entry['name'],'race':entry['race'],
+                          'destroyed':entry['destroyed'],'revive_cost':revive_cost,
+                          'crew_inventory':True,
+                          'name':entry['name'],'description':desc,
+                          'total':entry['available_total'],'icon':slay.shop_entry_icon(entry['name'])}
+            sections.setdefault(category,[]).append(key)
+        for category,items in slay.crew_owned_effects(manager.ctx).items():
+            for idx,name in enumerate(items):
+                key=f'crew-owned:{category}:{idx}'
+                entries[key]={'id':key,'canonical_name':name,'name':name,
+                              'description':slay.shop_entry_description(name),
+                              'icon':slay.shop_entry_icon(name),'total':1}
+                sections.setdefault(category,[]).append(key)
+    # Persist the same card/list toggle across Crew and Standard modes.
+    manager._slay_begin_modal()
+    console=CardConsole(manager,shop,list(sections.items()),entries,crew=True)
+    popup=console.popup
+    if shop:manager.slay_shop_popup=popup
+    else:manager.slay_inventory_popup=popup
+    current_description={k:e.get('description') for k,e in entries.items()}
+    if not shop:
+        initial_inventory_names=tuple((r['name'],r['race'],r['kind'])
+                                      for r in slay.crew_inventory_groups(manager.ctx))
+        def refresh_inventory(_dt):
+            if not getattr(popup,'_is_open',False):return
+            console.credit.text=f'[b]Credits: {slay.credits(manager.ctx)}[/b]'
+            rows=slay.crew_inventory_groups(manager.ctx)
+            # New mid-mission prizes/adopted types introduce new inventory
+            # categories and rows, not just updated counters. A simple
+            # description rerender cannot create them; reopen the same panel.
+            keys=tuple((r['name'],r['race'],r['kind']) for r in rows)
+            if keys!=initial_inventory_names:
+                popup.slay_navigate_to='inventory'
+                popup.dismiss()
+                return
+            for idx,row in enumerate(rows):
+                key='reserves:'+str(idx)
+                e=console.entries.get(key)
+                if e is None:return
+                desc=(f"Reserves: {row['ready']}     On field: {row['on_field']}     "
+                      f"Pending verification: {row['claimed']}     Destroyed: {row['destroyed']}")
+                if current_description.get(key)!=desc:
+                    current_description[key]=desc
+                    e['description']=desc
+                    e['total']=row['available_total']
+                    # Only rerender when counts change; avoid an every-second
+                    # scroll reset while inspecting a large inventory.
+                    previous_scroll=console.scroll.scroll_y
+                    console.render()
+                    console.scroll.scroll_y=previous_scroll
+                    return
+        watcher=Clock.schedule_interval(refresh_inventory,1.0)
+    else:
+        # A reroll can be purchased from the main Slay UI while this popup
+        # remains open. Rebuild immediately on the next UI poll, rather than
+        # leaving disabled/stale cards until the player manually closes it.
+        start_cycle=(slay.victory_count(manager.ctx),
+            int(slay.state(manager.ctx).get('shop_reroll_nonce',0)),
+            int(slay.state(manager.ctx).get('shop_expansion',0)))
+        def refresh_shop_cycle(_dt):
+            if not getattr(popup,'_is_open',False):return
+            now_cycle=(slay.victory_count(manager.ctx),
+                int(slay.state(manager.ctx).get('shop_reroll_nonce',0)),
+                int(slay.state(manager.ctx).get('shop_expansion',0)))
+            if now_cycle==start_cycle:
+                console.refresh_crew_controls()
+                return
+            popup.slay_navigate_to='shop'
+            popup.dismiss()
+        watcher=Clock.schedule_interval(refresh_shop_cycle,0.35)
+    def dismissed(_pop):
+        if watcher is not None:watcher.cancel()
+        if getattr(manager,'slay_shop_popup',None) is popup:manager.slay_shop_popup=None
+        if getattr(manager,'slay_inventory_popup',None) is popup:manager.slay_inventory_popup=None
+        manager._slay_end_modal()
+        dest=getattr(popup,'slay_navigate_to',None)
+        if dest in ('shop','inventory'):
+            Clock.schedule_once(lambda _dt:open_console(manager,dest=='shop'),0)
+    popup.bind(on_dismiss=dismissed)
+    popup.open()
 
 def open_console(manager,shop):
     from worlds.sc2 import slay_the_starcraft as slay
     if not slay.enabled(manager.ctx):return
+    if slay.crew_mode(manager.ctx):
+        if (shop and getattr(manager,'slay_shop_popup',None)) or (not shop and getattr(manager,'slay_inventory_popup',None)):
+            return
+        return open_crew_console(manager,shop)
     if shop and getattr(manager,'slay_shop_popup',None):return
     if not shop and getattr(manager,'slay_inventory_popup',None):return
     if not slay.state_ready(manager.ctx):
@@ -604,7 +1028,7 @@ def open_console(manager,shop):
                 desc,display,icon=cache['entry_data'][name] if cache and name in cache['entry_data'] else (slay.shop_entry_description(name),slay.shop_entry_display_name(name),slay.shop_entry_icon(name))
                 discounted=(name in sales and slay.price_for_item(name,manager.ctx) < slay._price_for_item_before_sale(name,manager.ctx))
                 if discounted:priced_sales.add(name)
-                entries[name]={'id':name,'canonical_name':name,'name':tr(display),'description':tr(desc),'icon':icon,'sale':discounted}
+                entries[name]={'id':name,'canonical_name':name,'name':tr(display),'description':tr(desc),'icon':icon,'sale':discounted, 'frozen':name == slay.frozen_shop_item(manager.ctx)}
         sales=priced_sales
     else:
         sales=set();by_section=defaultdict(list)

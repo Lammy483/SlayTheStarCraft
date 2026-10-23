@@ -1,4 +1,4 @@
-"""Compatibility adapter for legacy Endless saves (new mode disabled v1.2.0).
+"""Compatibility adapter for legacy Endless saves (new mode disabled v1.2.1).
 
 Avoid rebuilding mission buttons on every 0.5-second client GUI refresh.
 A replaced MissionButton can leave a KivyMD tooltip mounted on the Window,

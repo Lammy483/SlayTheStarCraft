@@ -27,6 +27,7 @@ import hashlib
 import json
 
 import math
+import os
 
 import random
 
@@ -48,9 +49,20 @@ import yaml
 
 FORMAT_VERSION = 39
 
-PACKAGE_VERSION = "1.2.0"
+PACKAGE_VERSION = "1.2.2"
 
 DEFAULT_CHOICE_LAYERS = 11
+DEFAULT_CAMPAIGN_CHOICE_LAYERS = 8
+DEFAULT_CREW_CHOICE_LAYERS = 11  # 11 choice layers plus final = 12 missions
+
+# Eligibility is sourced from the Crew column of the current XLSX.
+# Installed beside the generated script; never changes Standard/Campaign pools.
+def crew_eligibility_rules() -> dict[str, dict[str, bool]]:
+    path = Path(__file__).with_name("crew_rules.json")
+    if not path.is_file():
+        raise FileNotFoundError(f"Crew requires {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
 
 LANES = 4
 
@@ -197,7 +209,8 @@ GORGON_MISSION_EXCLUSIONS = {"fire in the sky"}
 # The Crucible has no enemy-owned structures to act as anchors.  These
 # mutations either operate on existing hostile buildings, need an enemy
 # building to spawn, or preferentially choose enemy buildings/territory when
-# creating hostile armies.  Even effects with random-map fallbacks are
+# creating hostile armies. Jetpacks is also excluded because its spawn/wave
+# behavior is incompatible with The Crucible. Even random-map fallbacks are
 # excluded: the fallback is not the intended Crucible experience.
 CRUCIBLE_ENEMY_STRUCTURE_MUTATIONS = frozenset({
     "conga_line", "nexus_shield", "nuclear_structures",
@@ -205,7 +218,7 @@ CRUCIBLE_ENEMY_STRUCTURE_MUTATIONS = frozenset({
     "true_golden_armada", "tower_defense", "heroes_of_the_storm",
     "viking_raids", "drop_pods", "dark_templar", "another_gorgon_mutation",
     "taldarim_reinforcements", "zagaras_banelings", "dehakas_pack",
-    "torrasque", "marauder_kill_teams", "tosh_and_his_boys",
+    "torrasque", "marauder_kill_teams", "tosh_and_his_boys", "jetpacks",
     "brakk_primal_army", "odin_delayed_assault", "hellion_run_by",
     "diamondback_wanderers", "raynors_raiders", "leviathan_outside_base",
     "enemy_spear_of_adun", "combined_raids",
@@ -318,9 +331,9 @@ DEFENSIVE_STRUCTURE_ITEMS = {
 
 OPENING_POOL_WEIGHTS = {
 
-    0: 0.480,
+    0: 0.430,
 
-    1: 0.380,
+    1: 0.430,
 
     2: 0.120,
 
@@ -344,7 +357,14 @@ GAMEPLAY_DIFFICULTY_MUTATION_SHIFT = {
     "medium": -4.0,
     "easy": -6.0,
 }
-RED_DANGER_MARGIN = 250
+RED_DANGER_MARGIN = 450
+# Keep Dev86's calibrated twelve-mission danger threshold.  Other lengths
+# retain Dev87's normalized classification; high risk affects mutation rolls.
+DEV86_12_MISSION_DANGER_MARGIN = 250
+
+
+def danger_margin(choice_layers: int) -> int:
+    return DEV86_12_MISSION_DANGER_MARGIN if int(choice_layers) + 1 == DEFAULT_CAMPAIGN_LENGTH else RED_DANGER_MARGIN
 
 
 
@@ -1012,7 +1032,109 @@ def _generate_active_lanes(choice_layers: int, rng: random.Random) -> list[tuple
 
 
 
-def generate_edges(choice_layers: int, rng: random.Random) -> dict[tuple[int, int], list[tuple[int, int]]]:
+def generate_campaign_edges(choice_layers: int, rng: random.Random | None = None) -> dict[tuple[int, int], list[tuple[int, int]]]:
+    """Use Standard's sparse route generator, adjusting only the slot count.
+
+    Preserve its 2-4 missions per layer, original lane geometry and branching
+    logic; Campaign changes only availability (all incoming arrows are AND).
+    """
+    if choice_layers < 1:
+        raise ValueError("Campaign requires at least two layers")
+    rng = rng if rng is not None else random.Random()
+    base = generate_edges(choice_layers, rng)
+    target = 3 * choice_layers + 1
+    if len(base) == target:
+        return base
+    original = [tuple(sorted(lane for layer, lane in base if layer == row))
+                for row in range(choice_layers)]
+    delta = target - len(base)
+    # Keep the Standard opening's three lanes. Alter other rows as little as
+    # possible, and let the normal sparse edge builder connect the result.
+    for _attempt in range(192):
+        layout = [list(row) for row in original]
+        remaining = abs(delta)
+        while remaining:
+            options = []
+            for row in range(1, choice_layers):
+                lanes = layout[row]
+                choices = ([lane for lane in range(LANES) if lane not in lanes]
+                           if delta > 0 and len(lanes) < 4 else
+                           list(lanes) if delta < 0 and len(lanes) > 2 else [])
+                for lane in choices:
+                    neighbours = set(layout[row - 1]) | (set(layout[row + 1]) if row + 1 < choice_layers else {FINAL_LANE})
+                    alignment = 2 if lane in neighbours else 0
+                    # Prefer spreading changes over different rows.
+                    used = abs(len(lanes) - len(original[row]))
+                    options.append((row, lane, max(0.1, 3 + alignment - used * 3)))
+            if not options:
+                raise RuntimeError("Cannot adjust Campaign route to required slot count")
+            row, lane, _weight = rng.choices(options, weights=[entry[2] for entry in options], k=1)[0]
+            if delta > 0:
+                layout[row].append(lane)
+            else:
+                layout[row].remove(lane)
+            remaining -= 1
+        try:
+            result = generate_edges(choice_layers, rng, active_by_layer_override=[tuple(sorted(row)) for row in layout])
+        except RuntimeError:
+            continue
+        if len(result) == target:
+            return result
+    raise RuntimeError("Could not adjust a Standard route into a legal Campaign map")
+
+
+def generate_crew_edges(choice_layers: int, rng: random.Random, mission_variants: int) -> dict[tuple[int, int], list[tuple[int, int]]]:
+    """Keep every mission unique while respecting Crew's limited Terran map pool.
+
+    Standard's 2-4-slot layer generator can require 25-30 maps for a
+    12-mission run. The pool is the player's *selected Terran race*,
+    including Terran variants of missions from other campaigns. When a
+    smaller pool is requested explicitly, reroll the route shape rather
+    than reusing mission identities.
+    Preserve first-layer 3-choice opening, the existing edge constraints,
+    the 4-column display, and deterministic generation from the run seed.
+    """
+    slots = 2 * int(choice_layers) + 2  # three opening + two/layer + final
+    if int(mission_variants) < slots:
+        raise RuntimeError(
+            f"Terran-only Crew length {choice_layers + 1} requires at least {slots} "
+            f"unique build missions; only {mission_variants} are available. "
+            "Reduce Campaign Length or enable race-swapped Terran missions."
+        )
+    # Original sparse graphs are preferred, only narrow layouts are kept.
+    for _ in range(512):
+        result = generate_edges(choice_layers, rng)
+        if len(result) <= mission_variants:
+            return result
+    # A deterministic legal 2-lane fallback avoids a rare unlucky 512-reroll
+    # seed, and also handles catalogs containing exactly the minimum maps.
+    from itertools import combinations
+    two_lanes = list(combinations(range(LANES), 2))
+    for _ in range(256):
+        first = tuple(sorted(rng.sample(range(LANES), 3)))
+        rows = [first]
+        for _layer in range(1, choice_layers):
+            previous = set(rows[-1])
+            weights = [1.0 + 3.0 * len(previous.intersection(row)) for row in two_lanes]
+            rows.append(rng.choices(two_lanes, weights=weights, k=1)[0])
+        try:
+            result = generate_edges(choice_layers, rng, active_by_layer_override=rows)
+        except (ValueError, RuntimeError):
+            continue
+        if len(result) <= mission_variants:
+            return result
+    raise RuntimeError("Could not construct an eligible Terran-only Crew route")
+
+
+def campaign_mutation_severity_bonus(layer: int, choice_layers: int) -> int:
+    """Final three layers: +1 on two preceding rows and +2 on final."""
+    if layer >= choice_layers:
+        return 2
+    return 1 if layer >= max(0, choice_layers - 2) else 0
+
+
+def generate_edges(choice_layers: int, rng: random.Random, *,
+                   active_by_layer_override: list[tuple[int, ...]] | None = None) -> dict[tuple[int, int], list[tuple[int, int]]]:
 
 
 
@@ -1034,9 +1156,10 @@ def generate_edges(choice_layers: int, rng: random.Random) -> dict[tuple[int, in
 
 
 
-    for _layout_attempt in range(64):
+    for _layout_attempt in range(64 if active_by_layer_override is None else 4):
 
-        active_by_layer = _generate_active_lanes(choice_layers, rng)
+        active_by_layer = (_generate_active_lanes(choice_layers, rng) if active_by_layer_override is None
+                           else active_by_layer_override)
 
         edges: dict[tuple[int, int], set[tuple[int, int]]] = {
 
@@ -1405,48 +1528,39 @@ _EXPECTED_BLESSING_SEVERITY_PROFILE = (
 
 
 def expected_danger_score(
-
     layer: int, choice_layers: int, difficulty: str,
-
     mutation_frequency: Any = 1.0, blessing_frequency: Any = 1.0,
-
-    final: bool = False,
-
+    final: bool = False, crew_mode: bool = False,
 ) -> int:
+    """Preserve Dev86's *exact* danger baseline for twelve-mission runs.
 
-
-
-
-
-
-
-
-
-
-
-
-
-    frac = 1.0 if final else (0.0 if choice_layers <= 0 else layer / max(1, choice_layers))
+    Danger is used during assignment to reroll overly red forced routes and
+    add mutations to red-free routes, not merely to draw a red border. Changing
+    it at length twelve can therefore change the rolled mutation/blessing set.
+    Dev87's length-normalized baseline continues to apply at other lengths.
+    """
     if int(choice_layers) + 1 == DEFAULT_CAMPAIGN_LENGTH:
-        mutation_mean = _profile_value(_EXPECTED_MUTATION_SEVERITY_PROFILE, frac) + 1.0 + 0.25 * max(1, int(layer) + 1)
+        # Exact Dev86 formula, including its deliberately unscaled Crew danger
+        # expectation; this is the tested twelve-mission game balance.
+        frac = 1.0 if final else (0.0 if choice_layers <= 0 else layer / max(1, choice_layers))
+        mutation_mean = (_profile_value(_EXPECTED_MUTATION_SEVERITY_PROFILE, frac)
+                         + 1.0 + 0.25 * max(1, int(layer) + 1))
         blessing_mean = _profile_value(_EXPECTED_BLESSING_SEVERITY_PROFILE, frac)
+        mutation_mean = max(0.0, mutation_mean + GAMEPLAY_DIFFICULTY_MUTATION_SHIFT[difficulty]) * _frequency_factor(mutation_frequency)
+        blessing_mean = max(0.0, blessing_mean) * _frequency_factor(blessing_frequency)
     else:
         mutation_mean, blessing_mean = _base_effect_means(layer, choice_layers, final)
-    mutation_mean = max(0.0, mutation_mean + GAMEPLAY_DIFFICULTY_MUTATION_SHIFT[difficulty]) * _frequency_factor(mutation_frequency)
-    blessing_mean = max(0.0, blessing_mean) * _frequency_factor(blessing_frequency)
+        mutation_mean = max(0.0, mutation_mean + GAMEPLAY_DIFFICULTY_MUTATION_SHIFT[difficulty])
+        mutation_factor = _frequency_factor(mutation_frequency) * (0.60 if crew_mode else 1.0)
+        blessing_factor = _frequency_factor(blessing_frequency) * (0.25 if crew_mode else 1.0)
+        mutation_mean = min(20.0, mutation_mean * mutation_factor)
+        blessing_mean = min(12.0, max(0.0, blessing_mean) * blessing_factor)
 
     layer_number = max(1, int(layer) + 1)
-
     expected_tier_zero_based = ((layer_number + 2) // 3) - 1
-
     expected_pool = target_pool(layer, choice_layers, difficulty, final)
-
     map_premium = 300.0 * (expected_pool - expected_tier_zero_based)
-
-    return int(round(map_premium + (125.0 * mutation_mean) - (100.0 * blessing_mean)))
-
-
-
+    return int(round(map_premium + 150.0 * mutation_mean - 100.0 * blessing_mean))
 
 
 def minimum_pool_for_layer(layer: int, choice_layers: int, final: bool = False) -> int:
@@ -2111,23 +2225,31 @@ def _is_past_halfway(layer: int, choice_layers: int, final: bool = False) -> boo
 
 
 def _base_effect_means(layer: int, choice_layers: int, final: bool = False) -> tuple[float, float]:
+    """Progress-normalized effect budgets for every campaign length.
+
+    Earlier versions used the calibrated 12-mission severity curve only at
+    exactly 12 missions, and an *absolute layer number* formula otherwise.
+    That made shorter runs roll disproportionately weak/strong and biased the
+    high-risk classification when campaign length was changed.
+    """
     total_missions = max(1, int(choice_layers) + 1)
     mission_number = max(1, int(layer) + 1)
-    if total_missions == DEFAULT_CAMPAIGN_LENGTH:
-        frac = 1.0 if final else (0.0 if choice_layers <= 0 else layer / max(1, choice_layers))
-        mutation_budget_profile = (1.95, 1.91, 2.80, 3.50, 4.60, 5.55, 6.45, 6.95, 8.45, 9.60, 11.15, 12.87)
-        blessing_budget_profile = (7.65, 6.95, 6.68, 6.28, 5.60, 5.20, 4.55, 4.45, 4.05, 3.65, 3.25, 3.25)
-        mut_mean = _profile_value(mutation_budget_profile, frac)
-        if final: mut_mean += 2.0
-        bless_mean = _profile_value(blessing_budget_profile, frac)
-        if final or (choice_layers >= 2 and layer >= choice_layers - 2): bless_mean -= 2.2
-        elif layer > 0: bless_mean -= 1.1
-        return mut_mean + 1.0 + 0.25 * mission_number, bless_mean
-    mut_mean = float(mission_number + 2) + (2.0 if final else 0.0)
-    third_last = max(1, total_missions - 2)
-    if mission_number >= third_last or third_last <= 1: bless_mean = 1.0
-    else: bless_mean = 7.0 - (6.0 * ((mission_number - 1) / max(1, third_last - 1)))
-    return mut_mean + 1.0 + 0.25 * mission_number, bless_mean
+    frac = 1.0 if final else (0.0 if choice_layers <= 0 else layer / max(1, choice_layers))
+    mutation_budget_profile = (1.95, 1.91, 2.80, 3.50, 4.60, 5.55, 6.45, 6.95, 8.45, 9.60, 11.15, 12.87)
+    blessing_budget_profile = (7.65, 6.95, 6.68, 6.28, 5.60, 5.20, 4.55, 4.45, 4.05, 3.65, 3.25, 3.25)
+    mut_mean = _profile_value(mutation_budget_profile, frac)
+    if final:
+        mut_mean += 2.0
+    bless_mean = _profile_value(blessing_budget_profile, frac)
+    if final or (choice_layers >= 2 and layer >= choice_layers - 2):
+        bless_mean -= 2.2
+    elif layer > 0:
+        bless_mean -= 1.1
+    # Keep the existing 12-mission behavior unchanged. Rescale the fractional
+    # per-mission severity increment so a shortened/lengthened run reaches the
+    # same late-run difficulty rather than depending on absolute layer count.
+    normalized_mission_number = 1.0 + 11.0 * frac
+    return mut_mean + 1.0 + 0.25 * normalized_mission_number, bless_mean
 
 
 def roll_effects(
@@ -2139,6 +2261,7 @@ def roll_effects(
     forbidden_mutators: Iterable[str] = (), forbidden_blessings: Iterable[str] = (), mission_pool: int = 0,
 
     mutation_frequency: Any = 1.0, blessing_frequency: Any = 1.0,
+    mutation_severity_bonus: int = 0, crew_mode: bool = False,
 
 ) -> tuple[list[str], list[str], int, int]:
 
@@ -2188,11 +2311,13 @@ def roll_effects(
 
 
 
+    crew_rules = crew_eligibility_rules() if crew_mode else None
     mutation_catalog = {
 
         name: value for name, value in MUTATORS.items()
 
         if name not in forbidden
+        and (crew_rules is None or crew_rules["mutation"].get(name) is True)
 
         and name not in DEFERRED_EFFECTS
 
@@ -2200,6 +2325,11 @@ def roll_effects(
 
     }
 
+    if crew_mode:
+        # Workbook special cases: enemy Drakken variants are +1 severity.
+        for effect_id in ("drakken_laser_drill_enemy", "heavily_defended_drakken_laser_drill"):
+            if effect_id in mutation_catalog:
+                mutation_catalog[effect_id] += 1
     blessing_catalog = {
 
         name: _blessing_severity_for_layer(name, layer)
@@ -2207,6 +2337,7 @@ def roll_effects(
         for name in BLESSINGS
 
         if name not in forbidden_help
+        and (crew_rules is None or crew_rules["blessing"].get(name) is True)
 
     }
 
@@ -2240,7 +2371,15 @@ def roll_effects(
     if not final and frac < 0.35 and int(mission_pool) >= 3:
         raw_bless_target += min(2, int(mission_pool) - 2)
 
+    # Crew: independently reduce both the severity budget and the number of
+    # distinct rolled effects, rather than reducing only severity.
+    if crew_mode:
+        # Dev84: 20% more Crew mutation severity budget (0.50 -> 0.60).
+        mut_factor *= 0.6
+        bless_factor *= 0.25
     mut_target = max(0, min(20, int(round(raw_mut_target * mut_factor))))
+    if mut_factor > 0 and mutation_severity_bonus > 0:
+        mut_target = min(20 + int(mutation_severity_bonus), mut_target + int(mutation_severity_bonus))
     bless_target = max(0, min(12, int(round(raw_bless_target * bless_factor))))
 
 
@@ -2249,13 +2388,16 @@ def roll_effects(
 
     mutators = _pick_effects_for_budget(
 
-        mutation_catalog, mut_target, rng, max_total=20,
+        mutation_catalog, mut_target, rng,
+        max_total=(20 + int(mutation_severity_bonus) if mut_factor > 0 else 20),
 
-        high_severity_bias=late_bias, max_count=(4 if late_bias else None), mutation_profile=True,
+        high_severity_bias=late_bias,
+        max_count=3 if crew_mode else (4 if late_bias else None), mutation_profile=True,
 
     )
 
-    blessings = _pick_effects_for_budget(blessing_catalog, bless_target, rng, max_total=12)
+    blessings = _pick_effects_for_budget(blessing_catalog, bless_target, rng,
+                                        max_count=2 if crew_mode else None, max_total=12)
 
 
 
@@ -2301,7 +2443,7 @@ def roll_effects(
 
 
 
-    mut_value = sum(MUTATORS[x] for x in mutators)
+    mut_value = sum(mutation_catalog[x] for x in mutators)
 
     bless_value = sum(blessing_catalog[x] for x in blessings)
 
@@ -2422,7 +2564,7 @@ def roll_effects(
     if "squishy" in mutators:
         blessings = [name for name in blessings if name not in ARMOR_GRANTING_BLESSINGS]
 
-    mut_value = sum(MUTATORS[x] for x in mutators)
+    mut_value = sum(mutation_catalog[x] for x in mutators)
 
     bless_value = sum(blessing_catalog[x] for x in blessings)
 
@@ -2523,6 +2665,25 @@ def _is_specific_upgrade_parent_type(type_name: str) -> bool:
 
 
 
+def slay_mission_difficulty_pool(short_name: str, native_pool: int) -> int:
+    """Slay-specific mission tier overrides; never alter Archipelago itself.
+
+    Outbreak is intentionally T0 regardless of the original AP difficulty
+    pool or the selected race-swapped variant.  All other missions retain
+    their native pool. The returned value is stored in each generated node,
+    so mission selection, rewards and risk scoring use the same tier.
+    """
+    base_name = str(short_name or "").strip().casefold()
+    for suffix in (" (terran)", " (zerg)", " (protoss)"):
+        if base_name.endswith(suffix):
+            base_name = base_name[:-len(suffix)].rstrip()
+            break
+    if base_name == "outbreak":
+        return 0
+    return int(native_pool)
+
+
+
 def load_archipelago_catalog(
 
     ap_root: Path, races: set[str], allow_race_swap: bool,
@@ -2605,7 +2766,7 @@ def load_archipelago_catalog(
 
             "race": mission.race.get_title(),
 
-            "pool": int(mission.pool),
+            "pool": slay_mission_difficulty_pool(mission.get_short_name(), mission.pool),
 
             "campaign": mission.campaign.campaign_name,
 
@@ -3263,6 +3424,8 @@ def _effect_exclusions_for_mission(mission: dict[str, Any]) -> tuple[set[str], s
     evacuation_key = mission_short_name.strip().casefold().split(" (")[0]
     if evacuation_key in {"evacuation", "the evacuation"}:
         forbidden_mutators.add("nuclear_annihilation")
+    if mission_short_name.strip().casefold().split(" (")[0] == "the great train robbery":
+        forbidden_mutators.add("victory_is_temporary")
     if mission_short_name.strip().casefold() == "lab rat":
         forbidden_mutators.add("tower_defense")
 
@@ -3386,7 +3549,7 @@ def _assigned_node_is_red(
 
         return float(data.get("credit_reward", 0)) > (2.5 * expected_average)
 
-    return _assigned_danger_score(data) >= int(data.get("expected_danger_score", 0)) + RED_DANGER_MARGIN
+    return _assigned_danger_score(data) >= int(data.get("expected_danger_score", 0)) + danger_margin(choice_layers)
 
 
 
@@ -3530,7 +3693,7 @@ def assign_missions(
 
     mutation_frequency: Any = 1.0, blessing_frequency: Any = 1.0,
 
-    victory_credit_reward_multiplier: float = 1.0,
+    victory_credit_reward_multiplier: float = 1.0, crew_mode: bool = False,
 
 ) -> dict[tuple[int, int], dict[str, Any]]:
 
@@ -3560,7 +3723,7 @@ def assign_missions(
 
     def finish_node(
 
-        mission: dict[str, Any], layer: int, lane: int, final: bool, *, opening_easy: bool = False
+        mission: dict[str, Any], layer: int, lane: int, final: bool
 
     ) -> dict[str, Any]:
 
@@ -3582,81 +3745,14 @@ def assign_missions(
 
 
 
-        # The cheap opening route may require injecting a free blessing.
-        # Do not do so when a reduced frequency budget is requested: in
-        # particular, a zero multiplier must generate zero blessings.
-        opening_easy_guarantee = opening_easy and _frequency_factor(blessing_frequency) >= 1.0
-        attempts = 32 if opening_easy_guarantee else 1
-
-        base_reward = 0
-
-        reward = 0
-
-        for _attempt in range(attempts):
-
-            mutators, blessings, mut_value, bless_value = roll_effects(
-
-                layer, choice_layers, difficulty, rng, final=final,
-
-                forbidden_mutators=forbidden_mutators, forbidden_blessings=forbidden_blessings,
-
-                mission_pool=int(mission["pool"]),
-
-                mutation_frequency=mutation_frequency, blessing_frequency=blessing_frequency,
-
-            )
-
-
-
-
-
-            base_reward = credit_reward(
-
-                mission["pool"], layer, mut_value, bless_value, bool(blessings), rng,
-
-                mission_name=str(mission.get("name", "")),
-
-            )
-
-            if not opening_easy_guarantee or base_reward <= 400:
-
-                break
-
-        if opening_easy_guarantee and base_reward > 400:
-
-            legal_blessings = [
-
-                name for name in BLESSINGS
-
-                if name not in forbidden_blessings
-
-            ]
-
-            if not legal_blessings:
-
-                raise RuntimeError("No legal blessing is available for the guaranteed easy opening route")
-
-            fallback_blessing = rng.choice(legal_blessings)
-
-            mutators = []
-
-            blessings = [fallback_blessing]
-
-            mut_value = 0
-
-            bless_value = _blessing_severity_for_layer(fallback_blessing, layer)
-
-            base_reward = credit_reward(
-
-                mission["pool"], layer, mut_value, bless_value, True, rng,
-
-                mission_name=str(mission.get("name", "")),
-
-            )
-
-            if base_reward > 400:
-
-                raise RuntimeError("Could not produce a <=400-credit guaranteed easy opening route")
+        # Every mission, including all three opening choices, rolls its
+        # normal mutation/blessing budget without a reserved cheap Starter lane.
+        mutators, blessings, mut_value, bless_value = roll_effects(
+            layer, choice_layers, difficulty, rng, final=final,
+            forbidden_mutators=forbidden_mutators, forbidden_blessings=forbidden_blessings,
+            mission_pool=int(mission["pool"]),
+            mutation_frequency=mutation_frequency, blessing_frequency=blessing_frequency, crew_mode=crew_mode,
+        )
 
         reward = credit_reward(
 
@@ -3686,8 +3782,8 @@ def assign_missions(
 
             "expected_danger_score": expected_danger_score(
 
-                layer, choice_layers, difficulty, mutation_frequency, blessing_frequency, final
-
+                layer, choice_layers, difficulty, mutation_frequency, blessing_frequency, final,
+                crew_mode=crew_mode,
             ),
 
             "expected_opening_credit_average": float(opening_expected_average),
@@ -3730,52 +3826,18 @@ def assign_missions(
 
 
     if canonical_three_race:
-
+        # Retain one opening option per race, but never force an AP Starter
+        # mission. All three lanes now roll their normal tier distribution.
         opening_races = list(canonical_opening_races)
-
         rng.shuffle(opening_races)
-
-
-
-
-
-
-
-        easy_races = [
-
-            race for race in opening_races
-
-            if any(str(m["race"]) == race and int(m["pool"]) == 0 for m in candidates)
-
-        ]
-
-        if not easy_races:
-
-            raise RuntimeError("No pool-0 mission is available for the guaranteed easy opening route")
-
-        easy_race = rng.choice(easy_races)
-
-        easy_index = opening_races.index(easy_race)
-
-        opening_races[0], opening_races[easy_index] = opening_races[easy_index], opening_races[0]
-
     else:
         opening_races = list(available_races)
         rng.shuffle(opening_races)
         while len(opening_races) < len(opening_lanes):
             opening_races.append(rng.choice(available_races))
-        # The inexpensive opening still applies with just one or two races.
-        easy_races = [race for race in opening_races if any(
-            str(m['race']) == race and int(m['pool']) == 0
-            for m in available_for_choices
-        )]
-        if easy_races:
-            easy_index = opening_races.index(rng.choice(easy_races))
-            opening_races[0],opening_races[easy_index]=opening_races[easy_index],opening_races[0]
 
     opening_race_by_lane = {lane: opening_races[i] for i, lane in enumerate(opening_lanes)}
 
-    easy_opening_lane = opening_lanes[0]
 
 
 
@@ -3813,11 +3875,6 @@ def assign_missions(
 
             target = target_pool(layer, choice_layers, difficulty)
 
-            opening_easy = layer == 0 and lane == easy_opening_lane and any(
-                str(m['race']) == opening_race_by_lane[lane] and int(m['pool']) == 0
-                for m in available_for_choices
-            )
-
             required_race = opening_race_by_lane.get(lane) if layer == 0 else late_race_by_layer.get(layer)
 
             mission = choose_mission(
@@ -3826,11 +3883,9 @@ def assign_missions(
 
                 min_pool=minimum_pool_for_layer(layer, choice_layers),
 
-                opening_bias=(layer == 0 and not opening_easy),
 
                 required_race=required_race,
 
-                exact_pool=(0 if opening_easy else None),
 
                 tier_weights=mission_pool_distribution(layer, choice_layers),
 
@@ -3844,7 +3899,7 @@ def assign_missions(
 
             assigned[(layer, lane)] = finish_node(
 
-                mission, layer, lane, False, opening_easy=opening_easy
+                mission, layer, lane, False
 
             )
 
@@ -4176,7 +4231,7 @@ def assign_missions(
 
             mutation_frequency=mutation_frequency,
 
-            blessing_frequency=blessing_frequency,
+            blessing_frequency=blessing_frequency, crew_mode=crew_mode,
 
         )
 
@@ -4256,7 +4311,7 @@ def assign_missions(
 
             score = _assigned_danger_score(data)
 
-            threshold = int(data.get("expected_danger_score", 0)) + RED_DANGER_MARGIN
+            threshold = int(data.get("expected_danger_score", 0)) + danger_margin(choice_layers)
 
             severity_needed = max(1, int(math.ceil(max(0, threshold - score) / 150.0)))
 
@@ -4381,7 +4436,7 @@ def assign_missions(
 
                 -coverage[pos],
 
-                max(0, int(assigned[pos].get("expected_danger_score", 0)) + RED_DANGER_MARGIN - _assigned_danger_score(assigned[pos])),
+                max(0, int(assigned[pos].get("expected_danger_score", 0)) + danger_margin(choice_layers) - _assigned_danger_score(assigned[pos])),
 
                 pos[0],
 
@@ -4404,9 +4459,136 @@ def assign_missions(
 
 
 
-def build_custom_order(choice_layers: int, assigned: dict[tuple[int, int], dict[str, Any]]) -> dict[str, Any]:
+def campaign_final_risk_score(mission_pool: int, layer: int, mutation_value: int,
+                              blessing_value: int) -> int:
+    layer_number = max(1, layer + 1)
+    return (300 * ((mission_pool + 1) - ((layer_number + 2) // 3))
+            + 150 * mutation_value - 100 * blessing_value)
+
+
+def campaign_final_risk_threshold(choice_layers: int, difficulty: str,
+                                  mutation_frequency: Any, blessing_frequency: Any) -> int:
+    """A reachable high-risk threshold even at high mutation frequency.
+
+    The existing expected-score function can exceed the maximum possible
+    mutation roll for high-frequency settings. Clamp the final's expected
+    baseline to its attainable mutation budget before applying the margin.
+    """
+    expected = expected_danger_score(choice_layers, choice_layers, difficulty,
+                                     mutation_frequency, blessing_frequency, True)
+    tier_component = 300 * (5 - ((choice_layers + 3) // 3))
+    # Roll_effects caps total natural severity at 22 with Campaign's +2.
+    attainable = tier_component + 150 * 22
+    return min(expected + danger_margin(choice_layers), attainable - 200)
+
+
+def assign_campaign_missions(
+    choice_layers: int, difficulty: str, candidates: list[dict[str, Any]],
+    edges: dict[tuple[int, int], list[tuple[int, int]]], rng: random.Random,
+    mutation_frequency: Any = 1.0, blessing_frequency: Any = 1.0,
+    victory_credit_reward_multiplier: float = 1.0,
+) -> dict[tuple[int, int], dict[str, Any]]:
+    """Assign every Campaign node without Standard's exponential path analysis."""
+    if len(candidates) < len(edges):
+        raise RuntimeError(f"Campaign needs {len(edges)} eligible mission variants")
+    used_ids, used_names = set(), set()
+    races = Counter()
+    assigned = {}
+    available_races = sorted({str(m["race"]) for m in candidates})
+    first_races = [r for r in ("Terran", "Zerg", "Protoss") if r in available_races]
+    rng.shuffle(first_races)
+    if not first_races:
+        raise RuntimeError("No eligible races")
+    # Match Standard's late-run race lock: the final three layers each
+    # contain missions from one DIFFERENT race, in a shuffled order.
+    # Keep the mixed-race opening intact for very short (<=3-layer) runs.
+    late_race_by_layer: dict[int, str] = {}
+    if len(first_races) == 3 and choice_layers >= 3:
+        late_races = list(first_races)
+        rng.shuffle(late_races)
+        late_race_by_layer = {
+            choice_layers - 2: late_races[0],
+            choice_layers - 1: late_races[1],
+            choice_layers: late_races[2],
+        }
+    final = (choice_layers, FINAL_LANE)
+    # Reserve the scarce Very Hard final mission before using the earlier pool.
+    last = choose_mission(candidates, used_ids, used_names, races,
+                          target_pool(choice_layers, choice_layers, difficulty, True), rng,
+                          required_race=late_race_by_layer.get(choice_layers),
+                          exact_pool=4, tier_weights=mission_pool_distribution(choice_layers, choice_layers, True))
+    reserved_name = last["short_name"]
+    eligible = [m for m in candidates if m["short_name"] != reserved_name]
+    average = expected_opening_credit_average(difficulty, mutation_frequency, blessing_frequency,
+                                               victory_credit_reward_multiplier)
+    for layer, lane in sorted(edges):
+        is_final = (layer, lane) == final
+        if is_final:
+            mission = last
+        else:
+            required_race = (first_races[sorted(node_lane for node_layer, node_lane in edges if node_layer == 0).index(lane) % len(first_races)]
+                             if layer == 0 else late_race_by_layer.get(layer))
+            mission = choose_mission(eligible, used_ids, used_names, races,
+                target_pool(layer, choice_layers, difficulty), rng,
+                min_pool=minimum_pool_for_layer(layer, choice_layers),
+                required_race=required_race,
+                tier_weights=mission_pool_distribution(layer, choice_layers))
+        used_ids.add(mission["id"])
+        used_names.add(mission["short_name"])
+        races[mission["race"]] += 1
+        forbidden_mut, forbidden_bless = _effect_exclusions_for_mission(mission)
+        # Unlike Standard, the Campaign final must be a high-risk roll.
+        # Use the same mutation rules and +2 severity budget on each attempt.
+        # At zero mutation frequency there is no legal way to roll additional
+        # mutations; the Very Hard final is still explicitly High Risk.
+        risk_threshold = campaign_final_risk_threshold(choice_layers, difficulty,
+                                                       mutation_frequency, blessing_frequency) if is_final else None
+        best = None
+        for _risk_attempt in range(256 if is_final and _frequency_factor(mutation_frequency) > 0 else 1):
+            rolled = roll_effects(
+                layer, choice_layers, difficulty, rng, final=is_final,
+                forbidden_mutators=forbidden_mut, forbidden_blessings=forbidden_bless,
+                mission_pool=int(mission["pool"]), mutation_frequency=mutation_frequency,
+                blessing_frequency=blessing_frequency,
+                mutation_severity_bonus=campaign_mutation_severity_bonus(layer, choice_layers),
+            )
+            risk_score = campaign_final_risk_score(int(mission["pool"]), layer, rolled[2], rolled[3])
+            if best is None or risk_score > best[0]:
+                best = risk_score, rolled
+            if not is_final or risk_score >= risk_threshold:
+                break
+        # Even when a very unusual restriction prevents meeting the threshold,
+        # retain the strongest legal roll rather than breaking seed generation.
+        mutations, blessings, mutation_value, blessing_value = best[1]
+        if is_final:
+            final_high_risk = True
+        else:
+            final_high_risk = False
+        reward = credit_reward(mission["pool"], layer, mutation_value, blessing_value,
+                               bool(blessings), rng, mission_name=str(mission.get("name", "")),
+                               victory_credit_reward_multiplier=victory_credit_reward_multiplier)
+        assigned[(layer, lane)] = {
+            **mission, "layer": layer, "lane": lane, "mutators": mutations,
+            "blessings": blessings, "mutation_value": mutation_value,
+            "blessing_value": blessing_value,
+            "expected_danger_score": expected_danger_score(layer, choice_layers, difficulty,
+                                           mutation_frequency, blessing_frequency, is_final),
+            "expected_opening_credit_average": float(average),
+            "credit_reward": reward,
+            "next_positions": edges[(layer, lane)],
+            "high_risk": final_high_risk,
+        }
+    return assigned
+
+
+def build_custom_order(choice_layers: int, assigned: dict[tuple[int, int], dict[str, Any]], game_mode: str = "adventure") -> dict[str, Any]:
 
     mission_overrides: list[dict[str, Any]] = []
+    incoming = {pos: [] for pos in assigned}
+    if game_mode == "campaign":
+        for source, data in assigned.items():
+            for target in data["next_positions"]:
+                incoming[target].append(source)
 
     for pos, data in sorted(assigned.items()):
 
@@ -4436,6 +4618,17 @@ def build_custom_order(choice_layers: int, assigned: dict[tuple[int, int], dict[
 
         }
 
+        if game_mode == "campaign":
+            # Sparse branches use AND for their own incoming edges. The final
+            # additionally requires every earlier mission, including branches
+            # not directly connected to the final node.
+            requirements = (sorted(node for node in assigned if node != pos)
+                            if layer == choice_layers else incoming[(layer, lane)])
+            if requirements:
+                entry["entry_rules"] = [{"scope": [
+                    f"Slay the StarCraft/Run/{canvas_index(choice_layers, parent_layer, parent_lane)}"
+                    for parent_layer, parent_lane in requirements
+                ]}]
         mission_overrides.append(entry)
 
 
@@ -4490,6 +4683,7 @@ def build_run_json(
 
     game_speed: str = "default", extra_shop_slots: int = 0,
     start_with_spear: bool = False, start_with_kerrigan: bool = False,
+    game_mode: str = "adventure",
 
 ) -> dict[str, Any]:
 
@@ -4554,6 +4748,8 @@ def build_run_json(
             "expected_opening_credit_average": float(data.get("expected_opening_credit_average", 0.0)),
 
         }
+        if game_mode == "campaign":
+            nodes[str(mission_id)]["high_risk"] = bool(data.get("high_risk", False))
 
 
 
@@ -4606,6 +4802,8 @@ def build_run_json(
     }, sort_keys=True, separators=(",", ":"))
 
     import hashlib
+    if game_mode in {"campaign", "crew"}:
+        identity_payload += ":" + game_mode
 
     run_id = hashlib.sha256(identity_payload.encode("utf-8")).hexdigest()[:16]
 
@@ -4614,6 +4812,7 @@ def build_run_json(
         "format_version": FORMAT_VERSION,
 
         "enabled": True,
+        "game_mode": game_mode,
 
         "run_id": run_id,
 
@@ -4943,13 +5142,14 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--name", default="Player", help="Archipelago player/slot name")
 
-    parser.add_argument("--layers", type=int, default=DEFAULT_CHOICE_LAYERS, help="Number of 3-choice layers before the final mission (default 11 = 12 missions along a route; 1-30)")
+    parser.add_argument("--game-mode", choices=("adventure", "campaign", "crew"), default="adventure")
+    parser.add_argument("--layers", type=int, default=None, help="Choice layers before final (Standard and Crew: 11 choice layers = 12 missions; Campaign: 8 = 9 missions)")
 
     parser.add_argument("--difficulty", choices=list(GAME_DIFFICULTY), default="brutal")
 
     parser.add_argument("--game-speed", choices=list(GAME_SPEEDS), default="default", help="SC2 game speed override; default follows Archipelago's normal behavior")
 
-    parser.add_argument("--starting-credits", type=int, default=700, help="Starting shop credits (default 700)")
+    parser.add_argument("--starting-credits", type=int, default=None, help="Starting shop credits (Standard 700, Campaign 400)")
 
     parser.add_argument("--mutation-frequency", dest="mutation_frequency", default=None, help=argparse.SUPPRESS)
 
@@ -4985,6 +5185,48 @@ def parse_args() -> argparse.Namespace:
 
 
 
+
+
+def generate_archipelago_with_diagnostics(ap_root: Path, player_dir: Path, run_seed: int) -> tuple[int,int]:
+    """Generate AP seed with bounded retries and durable diagnostic traces.
+
+    The Slay route seed stays fixed. Only AP item placement seed changes on a
+    failed attempt. Generator stdout/stderr is retained for postmortems.
+    """
+    logdir = ap_root.parent / "Logs"
+    logdir.mkdir(parents=True, exist_ok=True)
+    logpath = logdir / "SlayAPGenerate.log"
+    parts = []
+    last_code = 1
+    selected_seed = int(run_seed)
+    for attempt in range(3):
+        selected_seed = ((int(run_seed) + attempt * 104729 - 1) % (2**63 - 1)) + 1
+        cmd = [sys.executable, str(ap_root / "Generate.py"),
+               "--player_files_path", str(player_dir), "--multi", "1",
+               "--seed", str(selected_seed), "--outputpath", str(ap_root / "output")]
+        print(f"Archipelago generation attempt {attempt + 1}/3 (AP seed {selected_seed})", flush=True)
+        try:
+            result = subprocess.run(cmd, cwd=ap_root, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, text=True, errors="replace")
+            code = int(result.returncode)
+            output = result.stdout or ""
+        except OSError as exc:
+            code, output = 1, f"Could not start Generate.py: {exc}"
+        parts.append(f"=== Attempt {attempt+1}/3; AP seed={selected_seed}; exit={code} ===\n{output}\n")
+        logpath.write_text("\n".join(parts), encoding="utf-8", errors="replace")
+        if code == 0:
+            print(f"Archipelago generated successfully. Diagnostic log: {logpath}")
+            return 0, selected_seed
+        last_code = code
+        tail = "\n".join(output.splitlines()[-30:])
+        print(f"Archipelago attempt {attempt+1} failed (code {code}).\n{tail}",file=sys.stderr,flush=True)
+        # A missing runtime, bad YAML, or import error isn't a randomized
+        # placement failure. Don't hide it by retrying the same broken config.
+        lowered = output.casefold()
+        if any(x in lowered for x in ("no module named", "modulenotfounderror", "syntaxerror", "filenotfounderror", "invalid yaml", "yaml.scanner.scannererror")):
+            break
+    print(f"ERROR: Archipelago Generate.py failed. Complete traceback/output: {logpath}", file=sys.stderr)
+    return last_code, selected_seed
 
 
 def validate_singleplayer_player_dir(player_dir: Path, intended_yaml: Path) -> None:
@@ -5024,6 +5266,12 @@ def validate_singleplayer_player_dir(player_dir: Path, intended_yaml: Path) -> N
 def main() -> int:
 
     args = parse_args()
+    # Crew is enabled on the development branch, including generation
+    # from the command line. Mission stage and receipts remain enforced in SC2.
+    if args.layers is None:
+        args.layers = (DEFAULT_CAMPAIGN_CHOICE_LAYERS if args.game_mode == "campaign"
+                       else DEFAULT_CREW_CHOICE_LAYERS if args.game_mode == "crew"
+                       else DEFAULT_CHOICE_LAYERS)
 
     ap_root = args.archipelago.resolve()
 
@@ -5039,6 +5287,12 @@ def main() -> int:
 
         return 2
 
+
+    if args.starting_credits is None:
+        args.starting_credits = 400 if args.game_mode == "campaign" else 600 if args.game_mode == "crew" else 700
+    if args.game_mode == "crew" and (args.start_with_spear or args.start_with_kerrigan):
+        print("ERROR: Crew does not support starting Spear or Kerrigan", file=sys.stderr)
+        return 2
     if args.starting_credits < 0:
 
         print("ERROR: --starting-credits cannot be negative", file=sys.stderr)
@@ -5066,7 +5320,15 @@ def main() -> int:
         return 2
 
 
-    races = list(dict.fromkeys(args.races))
+    victory_reward_multiplier = (args.victory_credit_reward_multiplier / 4.0
+                                if args.game_mode == "campaign" else args.victory_credit_reward_multiplier)
+    item_reward_credits = (int((args.item_credit_reward / 3.0) + 0.5)
+                           if args.game_mode == "campaign" else args.item_credit_reward)
+
+    # Crew restricts the PLAYER race, not the original mission campaign.
+    # Keep race-swapped Terran variants enabled (default --race-swap).
+    # Standard/Campaign continue to use the caller's independent race list.
+    races = ["terran"] if args.game_mode == "crew" else list(dict.fromkeys(args.races))
 
     run_seed = args.seed if args.seed is not None else random.SystemRandom().randrange(1, 2**63 - 1)
 
@@ -5082,17 +5344,27 @@ def main() -> int:
 
         )
 
-        edges = generate_edges(args.layers, rng)
+        # Crew has no Lab Rat: its scripted start is incompatible with the
+        # persistent purchased-production rules. Other modes keep the mission.
+        if args.game_mode == "crew":
+            candidates = [m for m in candidates if not str(m.get("short_name", m.get("name", ""))).strip().casefold().startswith("lab rat")
+                          and not str(m.get("name", "")).strip().casefold().startswith("lab rat")]
 
-        validate_graph(args.layers, edges)
+        edges = (generate_campaign_edges(args.layers, rng) if args.game_mode == "campaign"
+                 else generate_crew_edges(args.layers, rng, len(candidates)) if args.game_mode == "crew"
+                 else generate_edges(args.layers, rng))
 
-        assigned = assign_missions(
+        if args.game_mode != "campaign":
+            validate_graph(args.layers, edges)
+
+        assigned = (assign_campaign_missions if args.game_mode == "campaign" else assign_missions)(
 
             args.layers, args.difficulty, candidates, edges, rng,
 
             mutation_frequency=mutation_frequency, blessing_frequency=blessing_frequency,
 
-            victory_credit_reward_multiplier=args.victory_credit_reward_multiplier,
+            victory_credit_reward_multiplier=victory_reward_multiplier,
+            **({"crew_mode": True} if args.game_mode == "crew" else {}),
 
         )
 
@@ -5104,7 +5376,7 @@ def main() -> int:
 
         shop_pool = list(dict.fromkeys(shop_candidates))
 
-        custom_order = build_custom_order(args.layers, assigned)
+        custom_order = build_custom_order(args.layers, assigned, args.game_mode)
 
         run_data = build_run_json(
 
@@ -5114,17 +5386,46 @@ def main() -> int:
 
             mutation_frequency, blessing_frequency,
 
-            args.victory_credit_reward_multiplier, args.item_credit_reward, args.game_speed,
-            args.extra_shop_slots, args.start_with_spear, args.start_with_kerrigan,
+            victory_reward_multiplier, item_reward_credits, args.game_speed,
+            args.extra_shop_slots, args.start_with_spear, args.start_with_kerrigan, args.game_mode,
 
         )
 
         yaml_data = build_yaml(args.name, run_seed, args.difficulty, races, args.race_swap, custom_order, banned_items, args.game_speed)
+        if args.game_mode == "crew":
+            sc2_settings = yaml_data.get("Starcraft 2")
+            if sc2_settings is None:
+                sc2_settings = yaml_data.get("StarCraft 2")
+            if sc2_settings is None:
+                sc2_settings = next((v for v in yaml_data.values() if isinstance(v, dict) and "generic_upgrade_items" in v), None)
+            if not isinstance(sc2_settings, dict):
+                raise RuntimeError("Cannot find SC2 YAML options to configure Crew upgrades")
+            sc2_settings["generic_upgrade_items"] = "individual_items"
+            sc2_settings["generic_upgrade_research"] = "always_auto"
+            # Shop-bought progressive upgrades are injected into the AP client
+            # separately. They should NOT occupy random mission reward slots.
+            # Keep AP's real item definitions, since purchased upgrades still
+            # need those IDs for automatic research.
+            from worlds.sc2.item.item_tables import get_full_item_list
+            crew_excluded = sc2_settings.setdefault("excluded_items", {})
+            for item_name, item_data in get_full_item_list().items():
+                item_type = str(getattr(getattr(item_data, "type", None), "display_name", "")).casefold()
+                lowered = str(item_name).casefold()
+                if ("general upgrade" in item_type or
+                    (lowered.startswith("progressive ") and any(term in lowered for term in (
+                     "infantry weapon", "infantry armor", "vehicle weapon", "vehicle armor",
+                     "ship weapon", "ship armor", "ground weapon", "ground armor",
+                     "flyer weapon", "flyer armor", "air weapon", "air armor",
+                     "weapon/armor upgrade")))):
+                    if getattr(item_data, "code", None) is not None:
+                        crew_excluded[item_name] = -1
+            # No mandatory generic upgrades: Crew obtains them exclusively
+            # through its credit shop, not through generated item locations.
 
     except Exception as exc:
-
-        print(f"ERROR generating run: {exc}", file=sys.stderr)
-
+        print(f"ERROR generating run: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         return 1
 
 
@@ -5196,37 +5497,14 @@ def main() -> int:
 
 
     if args.generate_ap:
-
-        cmd = [
-
-            sys.executable,
-
-            str(ap_root / "Generate.py"),
-
-            "--player_files_path", str(player_dir),
-
-            "--multi", "1",
-
-            "--seed", str(run_seed),
-
-            "--outputpath", str(ap_root / "output"),
-
-        ]
-
-        print("\nRunning Archipelago generator:")
-
-        print("  " + " ".join(f'\"{x}\"' if " " in x else x for x in cmd))
-
-        result = subprocess.run(cmd, cwd=ap_root)
-
-        if result.returncode != 0:
-
-            print(f"ERROR: Generate.py exited with {result.returncode}", file=sys.stderr)
-
-            return result.returncode
-
+        result_code, ap_seed = generate_archipelago_with_diagnostics(ap_root, player_dir, run_seed)
+        if result_code != 0:
+            return result_code
+        # Preserve the AP placement seed for reproducible retries. Crew reward
+        # assignments still use the original immutable Slay route seed.
+        run_data["ap_generation_seed"] = ap_seed
+        run_path.write_text(json.dumps(run_data, indent=2), encoding="utf-8")
         print("Archipelago seed generated in the output folder.")
-
     else:
 
         print("\nNext:")

@@ -3723,5 +3723,17 @@
   "Single-Use Tools": "btn-ability-terran-stimpack-color.png",
   "BOON::single_use_tools": "btn-ability-terran-stimpack-color.png",
   "tosh_and_his_boys": "btn-unit-terran-spectre.png",
-  "Tosh and his Boys": "btn-unit-terran-spectre.png"
+  "Tosh and his Boys": "btn-unit-terran-spectre.png",
+  "Eternal Perdition": "btn-unit-terran-perditionturret.png",
+  "Speedy Buildings": "btn-unit-terran-viking.png",
+  "Enhanced Allies": "btn-unit-protoss-archon.png",
+  "Explosive Predators": "btn-unit-terran-predator.png",
+  "Harvesting Equipment": "btn-unit-terran-herc.png",
+  "Refective Diamondbacks": "btn-unit-terran-cobra.png",
+  "Psionic Guardians": "btn-unit-zerg-primalguardian.png",
+  "Improved morphs": "btn-unit-zerg-ravager.png",
+  "Psionic Lords": "btn-unit-protoss-hightemplar.png",
+  "Unlimited Scarabs": "btn-unit-protoss-reaver.png",
+  "Armor Disintegration": "btn-unit-protoss-warpray.png",
+  "Armored Enemies": "btn-upgrade-terran-infantryarmorlevel0.png"
 }

@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-PACKAGE_VERSION = "1.2.0"
+PACKAGE_VERSION = "1.2.2"
 
 
 
@@ -943,7 +943,7 @@ EFFECT_DISPLAY_NAMES: dict[str, str] = {'golden_armada': 'Golden Armada', 'low_q
 
 
 
-EFFECT_DESCRIPTIONS: dict[str, str] = {'golden_armada': 'The Golden Armada patrols the map', 'low_quality_minerals': 'Mineral resource patches have fewer minerals', 'conga_line': 'Zerglings, marines, and/or zealots constantly spawn from 3 randomly-selected enemy buildings and attack your base', 'ten_minutes_until_destruction': 'After 10 minutes all enemies will attack your base', 'siege_mode': 'The enemy has sieged tanks scattered around the map', 'drakken_laser_drill_enemy': 'The enemy has a Drakken Laser Drill', 'dark_archons': 'Archons patrol the map', 'drop_pods': 'Drop pods filled with terran infantry randomly drop around the map', 'dark_templar': 'Dark Templar attack your base', 'fragile_workers': 'Your workers have 1 hit point', 'decay': 'Each of your units gain one stack of decay every minute. For each stack of decay, a unit takes 1 damage every 10 seconds.', 'zombies_mutation': 'Whenever any unit dies, they spawn a hostile infested terran', 'limited_bank': 'You cannot store more than 1500 total resources at a time', 'leviathan_in_orbit': 'Many zerg drop pods constantly rain down', 'heroes_of_the_storm': 'Enemy heroes wander the map (Warning: some may be cloaked)', 'too_many_wraiths': 'Independent enemy wraiths attack from all sides', 'void_thrashers': 'Void Thrashers spawn to siege your base', 'not_enough_energy': 'Your units and structures all lose 1 energy every 3 seconds', 'viking_raids': 'Vikings periodically try to land in your mineral lines', 'nuclear_annihilation': 'Every 30 seconds, a nuke can land ANYWHERE', 'darkness': 'Reduce the the vision range of all of your units by 3', 'adrenaline': 'Enemies move and attack 30% faster', 'picky_eaters': 'Supply structures and bases provide far less supply', 'arms_race': 'Enemy damage is increased by 10% every 2 minutes', 'rising_gas_prices': 'Units cost 50% more vespene gas', 'squishy': 'Your units have all 0 armor, even with upgrades', 'forced_variety': 'Building a unit increases its cost for the rest of the mission', 'occasional_thor_mutation': 'Some enemy units are actually Thors', 'occasional_ultralisk_mutation': 'Some enemy units are actually Ultralisks', 'occasional_colossus_mutation': 'Some enemy units are actually Colossi', 'enemy_regeneration': 'Enemy units and structures all recover 5 life and shield per second', 'investors': 'You start with 1000 additional minerals', 'multi_class': 'You start with an additional scv, drone, and probe', 'speedy': 'Your units move at 2x speed', 'general': 'you gain (hero). They respawn 60 seconds after dying.', 'farseers': 'You gain full map vision', 'air_support': 'Allied aircraft attack the enemies, but you cannot control them', 'fire_squad': 'Start with a squad of fiery units', 'fuel_pipeline': 'Gain 3 vespene gas every second', 'rapid_evolution': 'Your units gain 1 maximum HP every 5 seconds', 'zombies_blessing': 'Whenever any unit dies, they spawn an allied infested terran', 'compounding_interest': 'Increase your mineral supply by 10% every 30 seconds.', 'transports': 'Start with durable transports', 'lost_vikings': 'Every 60 seconds, gain a viking in a random location', 'warfields_reinforcements': 'Warfield sends many allied drop pods to aid you in random locations', 'energy_overload': 'Your units produce energy 3x faster', 'explosive_armor': 'Your units explode on death, dealing damage to enemies proportional to their supply cost', 'instant_workers': 'Your workers build instantly', 'juggernaut': 'Your units gain armor equal to their supply cost but move 15% slower', 'assembly_line': 'Produce every thing 2x faster', 'elite_soldiers': 'Your units and structures have a 15% increase to all of their stats', 'blinding_light': 'Reduce the vision range of enemies by 4', 'specialists': 'Start with a wide variety of spellcasters', 'fortifications': 'Your buildings all have +5 armor', 'baneling_stream': 'Your main bases all spawn banelings that automatically attack the enemy base', 'tychus': 'You can technically control tychus, but he is automatically issued an attack move order towards the enemy every 10-25 seconds.', 'zagaras_aid': 'Every 10 minutes Zagara sends 100 banelings to aid you.', 'logistics': 'Your maximum supply is 400', 'occasional_thor_blessing': 'Whenever you train a unit, you have a 4% chance of training a Thor instead', 'occasional_ultralisk_blessing': 'Whenever you train a unit, you have a 4% chance of training an Ultralisk instead', 'occasional_colossus_blessing': 'Whenever you train a unit, you have a 4% chance of training a Colossus instead', 'unexpected_evolution': 'When you train a unit, there is a chance to actually train a more expensive unit.', 'another_gorgon_blessing': 'Warfield is sending gorgon after gorgon to assist you, but they are quite fragile', 'another_gorgon_mutation': 'The enemy sends many gorgons at you, but they are quite fragile', 'burrowed_zerglings': 'There are 150 burrowed zerglings scattered throughout the map', 'sniper_thor': 'A thor with enhanced health, range, and damage is somewhere on the map', 'horde_mode': 'Your units cost half as much, build twice as fast, and have 25% fewer hit points', 'tower_defense': 'Hostile probes continually build photon cannons, shield batteries, and pylons around the map', 'cloaked_nightmare': 'All enemies are cloaked', 'rapid_repair': 'Your SCVs repair 5x as fast', 'blink_blessing': 'All of your units have the blink ability', 'power_overwhelming': 'Your workers can merge into archons', 'drakken_laser_drill_blessing': 'Workers can construct a Drakken Laser Drill for 800 minerals and gas', 'jetpacks': 'All enemy marines, zealots, and zerglings can fly and sometimes attack your base', 'stealth_tunnels': 'All of your units can move while burrowed', 'lurker_defense': 'You start with 4 lurkers and 4 impalers to protect your base, but they move slowly', 'combat_workers': 'Your workers have triple health, damage, speed, and attack speed', 'rapid_evolution_mutation': 'Enemy units gain 1 maximum HP every 5 seconds', 'no_deaths_allowed': 'Whenever one of your units die, spawn an enemy ultralisk with timed life in its place', 'glass_cannons': 'Your units deal double damage but have 35% less health', 'victory_is_temporary': 'Enemy units have a 50% chance of respawning 1 minute after they die', 'odin': 'You start with the odin', 'nuclear_workers': 'Your workers set off a nuclear explosion when they die', 'bounty_kills': 'You gain 4 minerals and 2 gas every time you kill an enemy unit', 'tactical_binoculars': 'Enemies have double range', 'building_overcharge': 'All of your buildings shoot lasers', 'ghost_reporting': 'You start with 3 ghosts and a ghost academy with unlimited nukes', 'taldarim_reinforcements': "Absurdly Deadly Tal'darim armies repeatedly attack after the 20 minute mark", 'miras_mercenaries': 'Mira Han has mercenaries on the map on the enemy team. If you have 6000 minerals you purchase them for yourself', 'glorious_martyrs': 'whenever one of your units die, all nearby units gain a permanent speed and attack speed bonus', 'inflatable_soldiers': 'Your non-worker units continually grow in all ways but become become slower over time', 'double_time': 'All units move and attack twice as fast.', 'shrinkage': 'Your units continually shrink over time', 'mineral_thieves': 'The enemy repeatedly calls down MULEs to steal your mineral fields', 'active_enemies': 'Enemies move around independently a lot more', 'infinite_larva': 'Your bases produce nearly unlimited larva', 'zagaras_banelings': 'Every 10 minutes, zagara sends 100 banelings towards your base', 'reflective_armor': 'Your units reflect 50% of incoming damage back to attackers', 'buddy_system': 'Your units rapidly take damage when not near an ally', 'torrasque': 'The Torrasque attacks your base. Every time you kill him he gets stronger', 'nexus_shield': 'The enemy has a special nexus somewhere. All enemy units have 300 shields until it is destroyed.', 'gargantuan_enemies': 'Enemy units are gargantuan and have 50% more health, damage, size, and range', 'raynors_raiders': "The Hyperion regularly flies by your base along with many of Raynor's reinforcements", 'boon_defender': 'Your defensive structures gain 50% range and damage', 'boon_fire_power': 'Every time your fiery units kill an enemy, increase the attack speed of all fiery units by 10% until the end of the level.', 'boon_roachling_mines': 'Your spider mines spawn 5 roachlings when they are destroyed', 'boon_broodling_evolution': 'your broodlings continually evolve and become permanent every time they get kills', 'boon_adamantium_blades': "All of your units' melee attacks deal double damage", 'boon_enhanced_control': 'When you mind-control a unit, triple its health and attack speed', 'boon_banshee_swarm': 'Whenever you train a banshee, train 6 mini banshees instead', 'boon_enlarged_banelings': 'Your banelings have triple the explosion radius', 'boon_unlimited_power': 'Halve all cooldowns and energy requirements for all abilities', 'boon_unstable_colossi': 'Your colossi attack faster the lower their hp is', 'boon_archon_cannons': 'Your Photon Cannons and Dragoons shoot mini-archons with timed life', 'boon_hyrda_storms': 'Your hydralisk attack projectiles cause psionic storms when they land', 'boon_mobile_siege': 'Siege tanks can still move while sieged', 'boon_maddening_shades': 'When an adept shade successfully completes, spawn a random temporary unit at the destination', 'boon_concussed_shells': 'Marauder missiles move 99% slower but deal 10x damage.', 'purifier': 'The purifier with a golden armada escort slowly approaches your base', 'spear_of_adun_blessing': 'You have access to Spear of Adun abilities', 'spear_of_adun_overcharge': 'The spear of adun recharges energy and abilities twice as fast', 'dehakas_pack': 'Dehaka and swarms of primal zerg constantly attack your base', 'zombie_apocalypse': 'Every unit that dies spawns multiple infested terran that attack your base', 'arguments': 'Your units occasionally get in arguments and fight each other', 'combat_pay': 'You lose 4 minerals every time you kill an enemy unit', 'nuclear_structures': 'Enemy structures detonate in a nuclear explosion on death', 'resource_swap': 'When you obtain vespene gas, obtain minerals instead. when you obtain minerals, obtain vespene gas instead.', 'rich_vespene': 'All vespene geysers are replaced with rich vespene geysers', 'rich_minerals': 'All mineral fields are replaced with rich mineral fields', 'boon_missile_defense': 'Your missile turrets gain +50% damage, range, hp, and attack speed', 'boon_stretchy_spines': 'When a spine crawler kills a unit, permanently increase its range by 10%', 'boon_gargantuan_units': 'When you train a unit, it gains 50% health, damage, size, and range', 'boon_chaos_blessings': 'Randomly gain more blessings each mission', 'resource_pickups': 'mineral and gas resource pickups scattered around the map', 'marauder_kill_teams': 'After 5 minutes, 2 Marauder Kill Teams begin patrolling the map', 'dark_archons_x5': '50 enemy Archons are scattered around the map', 'siege_mode_x5': '50 enemy Siege Tanks are scattered around the map'}
+EFFECT_DESCRIPTIONS: dict[str, str] = {'golden_armada': 'The Golden Armada patrols the map', 'low_quality_minerals': 'Mineral resource patches have fewer minerals', 'conga_line': 'Zerglings, marines, and/or zealots constantly spawn from 3 randomly-selected enemy buildings and attack your base', 'ten_minutes_until_destruction': 'After 10 minutes all enemies will attack your base', 'siege_mode': 'The enemy has sieged tanks scattered around the map', 'drakken_laser_drill_enemy': 'The enemy has a Drakken Laser Drill', 'dark_archons': 'Archons patrol the map', 'drop_pods': 'Drop pods filled with terran infantry randomly drop around the map', 'dark_templar': 'Dark Templar attack your base', 'fragile_workers': 'Your workers have 1 hit point', 'decay': 'Each of your units gain one stack of decay every minute. For each stack of decay, a unit takes 1 damage every 10 seconds.', 'zombies_mutation': 'Whenever any unit dies, they spawn a hostile infested terran', 'limited_bank': 'You cannot store more than 1700 total resources at a time', 'leviathan_in_orbit': 'Many zerg drop pods constantly rain down', 'heroes_of_the_storm': 'Enemy heroes wander the map (Warning: some may be cloaked)', 'too_many_wraiths': 'Independent enemy wraiths attack from all sides', 'void_thrashers': 'Void Thrashers spawn to siege your base', 'not_enough_energy': 'Your units and structures all lose 1 energy every 3 seconds', 'viking_raids': 'Vikings periodically try to land in your mineral lines', 'nuclear_annihilation': 'Every 30 seconds, a nuke can land ANYWHERE', 'darkness': 'Reduce the the vision range of all of your units by 3', 'adrenaline': 'Enemies move and attack 30% faster', 'picky_eaters': 'Supply structures and bases provide far less supply', 'arms_race': 'Enemy damage is increased by 10% every 2 minutes', 'rising_gas_prices': 'Units cost 50% more vespene gas', 'squishy': 'Your units have all 0 armor, even with upgrades', 'forced_variety': 'Building a unit increases its cost for the rest of the mission', 'occasional_thor_mutation': 'Some enemy units are actually Thors', 'occasional_ultralisk_mutation': 'Some enemy units are actually Ultralisks', 'occasional_colossus_mutation': 'Some enemy units are actually Colossi', 'enemy_regeneration': 'Enemy units and structures all recover 5 life and shield per second', 'investors': 'You start with 1000 additional minerals', 'multi_class': 'You start with an additional scv, drone, and probe', 'speedy': 'Your units move at 2x speed', 'general': 'you gain (hero). They respawn 60 seconds after dying.', 'farseers': 'You gain full map vision', 'air_support': 'Allied aircraft attack the enemies, but you cannot control them', 'fire_squad': 'Start with a squad of fiery units', 'fuel_pipeline': 'Gain 3 vespene gas every second', 'rapid_evolution': 'Your units gain 1 maximum HP every 5 seconds', 'zombies_blessing': 'Whenever any unit dies, they spawn an allied infested terran', 'compounding_interest': 'Increase your mineral supply by 10% every 30 seconds.', 'transports': 'Start with durable transports', 'lost_vikings': 'Every 60 seconds, gain a viking in a random location', 'warfields_reinforcements': 'Warfield sends many allied drop pods to aid you in random locations', 'energy_overload': 'Your units produce energy 3x faster', 'explosive_armor': 'Your units explode on death, dealing damage to enemies proportional to their supply cost', 'instant_workers': 'Your workers build instantly', 'juggernaut': 'Your units gain armor equal to their supply cost but move 15% slower', 'assembly_line': 'Produce every thing 2x faster', 'elite_soldiers': 'Your units and structures have a 15% increase to all of their stats', 'blinding_light': 'Reduce the vision range of enemies by 4', 'specialists': 'Start with a wide variety of spellcasters', 'fortifications': 'Your buildings all have +5 armor', 'baneling_stream': 'Your main bases all spawn banelings that automatically attack the enemy base', 'tychus': 'You can technically control tychus, but he is automatically issued an attack move order towards the enemy every 10-25 seconds.', 'zagaras_aid': 'Every 10 minutes Zagara sends 100 banelings to aid you.', 'logistics': 'Your maximum supply is 400', 'occasional_thor_blessing': 'Whenever you train a unit, you have a 4% chance of training a Thor instead', 'occasional_ultralisk_blessing': 'Whenever you train a unit, you have a 4% chance of training an Ultralisk instead', 'occasional_colossus_blessing': 'Whenever you train a unit, you have a 4% chance of training a Colossus instead', 'unexpected_evolution': 'When you train a unit, there is a chance to actually train a more expensive unit.', 'another_gorgon_blessing': 'Warfield is sending gorgon after gorgon to assist you, but they are quite fragile', 'another_gorgon_mutation': 'The enemy sends many gorgons at you, but they are quite fragile', 'burrowed_zerglings': 'There are 150 burrowed zerglings scattered throughout the map', 'sniper_thor': 'A thor with enhanced health, range, and damage is somewhere on the map', 'horde_mode': 'Your units cost half as much, build twice as fast, and have 25% fewer hit points', 'tower_defense': 'Hostile probes continually build photon cannons, shield batteries, and pylons around the map', 'cloaked_nightmare': 'All enemies are cloaked', 'rapid_repair': 'Your SCVs repair 5x as fast', 'blink_blessing': 'All of your units have the blink ability', 'power_overwhelming': 'Your workers can merge into archons', 'drakken_laser_drill_blessing': 'Workers can construct a Drakken Laser Drill for 800 minerals and gas', 'jetpacks': 'All enemy marines, zealots, and zerglings can fly and sometimes attack your base', 'stealth_tunnels': 'All of your units can move while burrowed', 'lurker_defense': 'You start with 4 lurkers and 4 impalers to protect your base, but they move slowly', 'combat_workers': 'Your workers have triple health, damage, speed, and attack speed', 'rapid_evolution_mutation': 'Enemy units gain 1 maximum HP every 5 seconds', 'no_deaths_allowed': 'Whenever one of your units die, spawn an enemy ultralisk with timed life in its place', 'glass_cannons': 'Your units deal double damage but have 35% less health', 'victory_is_temporary': 'Enemy units have a 50% chance of respawning 1 minute after they die', 'odin': 'You start with the odin', 'nuclear_workers': 'Your workers set off a nuclear explosion when they die', 'bounty_kills': 'You gain 4 minerals and 2 gas every time you kill an enemy unit', 'tactical_binoculars': 'Enemies have double range', 'building_overcharge': 'All of your buildings shoot lasers', 'ghost_reporting': 'You start with 3 ghosts and a ghost academy with unlimited nukes', 'taldarim_reinforcements': "Absurdly Deadly Tal'darim armies repeatedly attack after the 20 minute mark", 'miras_mercenaries': 'Mira Han has mercenaries on the map on the enemy team. If you have 6000 minerals you purchase them for yourself', 'glorious_martyrs': 'whenever one of your units die, all nearby units gain a permanent speed and attack speed bonus', 'inflatable_soldiers': 'Your non-worker units continually grow in all ways but become become slower over time', 'double_time': 'All units move and attack twice as fast.', 'shrinkage': 'Your units continually shrink over time', 'mineral_thieves': 'The enemy repeatedly calls down MULEs to steal your mineral fields', 'active_enemies': 'Enemies move around independently a lot more', 'infinite_larva': 'Your bases produce nearly unlimited larva', 'zagaras_banelings': 'Every 10 minutes, zagara sends 100 banelings towards your base', 'reflective_armor': 'Your units reflect 50% of incoming damage back to attackers', 'buddy_system': 'Your units rapidly take damage when not near an ally', 'torrasque': 'The Torrasque attacks your base. Every time you kill him he gets stronger', 'nexus_shield': 'The enemy has a special nexus somewhere. All enemy units have 300 shields until it is destroyed.', 'gargantuan_enemies': 'Enemy units are gargantuan and have 50% more health, damage, size, and range', 'raynors_raiders': "The Hyperion regularly flies by your base along with many of Raynor's reinforcements", 'boon_defender': 'Your defensive structures gain 50% range and damage', 'boon_fire_power': 'Every time your fiery units kill an enemy, increase the attack speed of all fiery units by 2% until the end of the level.', 'boon_roachling_mines': 'Your spider mines spawn 5 roachlings when they are destroyed', 'boon_broodling_evolution': 'your broodlings continually evolve and become permanent every time they get kills', 'boon_adamantium_blades': "All of your units' melee attacks deal double damage", 'boon_enhanced_control': 'When you mind-control a unit, triple its health and attack speed', 'boon_banshee_swarm': 'Whenever you train a banshee, train 6 mini banshees instead', 'boon_enlarged_banelings': 'Your banelings have triple the explosion radius', 'boon_unlimited_power': 'Halve all cooldowns and energy requirements for all abilities', 'boon_unstable_colossi': 'Your colossi attack faster the lower their hp is', 'boon_archon_cannons': 'Your Photon Cannons and Dragoons shoot mini-archons with timed life', 'boon_hyrda_storms': 'Your hydralisk attack projectiles cause psionic storms when they land', 'boon_mobile_siege': 'Siege tanks can still move while sieged', 'boon_maddening_shades': 'When an adept shade successfully completes, spawn a random temporary unit at the destination', 'boon_concussed_shells': 'Marauder missiles move 99% slower but deal 10x damage.', 'purifier': 'The purifier with a golden armada escort slowly approaches your base', 'spear_of_adun_blessing': 'You have access to Spear of Adun abilities', 'spear_of_adun_overcharge': 'The spear of adun recharges energy and abilities twice as fast', 'dehakas_pack': 'Dehaka and swarms of primal zerg constantly attack your base', 'zombie_apocalypse': 'Every unit that dies spawns multiple infested terran that attack your base', 'arguments': 'Your units occasionally get in arguments and fight each other', 'combat_pay': 'You lose 4 minerals every time you kill an enemy unit', 'nuclear_structures': 'Enemy structures detonate in a nuclear explosion on death', 'resource_swap': 'When you obtain vespene gas, obtain minerals instead. when you obtain minerals, obtain vespene gas instead.', 'rich_vespene': 'All vespene geysers are replaced with rich vespene geysers', 'rich_minerals': 'All mineral fields are replaced with rich mineral fields', 'boon_missile_defense': 'Your missile turrets gain +50% damage, range, hp, and attack speed', 'boon_stretchy_spines': 'When a spine crawler kills a unit, permanently increase its range by 10%', 'boon_gargantuan_units': 'When you train a unit, it gains 50% health, damage, size, and range', 'boon_chaos_blessings': 'Randomly gain more blessings each mission', 'resource_pickups': 'mineral and gas resource pickups scattered around the map', 'marauder_kill_teams': 'After 5 minutes, 2 Marauder Kill Teams begin patrolling the map', 'dark_archons_x5': '50 enemy Archons are scattered around the map', 'siege_mode_x5': '50 enemy Siege Tanks are scattered around the map'}
 
 
 
@@ -1038,6 +1038,9 @@ EFFECT_DESCRIPTIONS["hybrid_research"] = "Each enemy structure releases a random
 
 # Dev43: same hostile roaming patrol logic as Archons, 30 units.
 EFFECT_BANK_BITS["fifty_immortals"] = (4, 536870912)
+EFFECT_BANK_BITS["armored_enemies"] = (4, 1073741824)
+EFFECT_DISPLAY_NAMES["armored_enemies"] = "Armored Enemies"
+EFFECT_DESCRIPTIONS["armored_enemies"] = "All enemies gain +5 armor"
 EFFECT_DISPLAY_NAMES["fifty_immortals"] = "Immortals"
 EFFECT_DESCRIPTIONS["fifty_immortals"] = "There are 30 immortals patrolling around the map"
 
@@ -1048,6 +1051,22 @@ EFFECT_DISPLAY_NAMES.update({effect_id: values[0] for effect_id, values in _V102
 EFFECT_DESCRIPTIONS.update({effect_id: values[1] for effect_id, values in _V1024_MUTATIONS.items()})
 
 
+
+# New v1.2.1 boons use their own trailing launch mask, not occupied A-F bits.
+_NEW_DEV5_BOON_KEYS: dict[str, int] = {
+    "boon_eternal_perdition": 1,
+    "boon_speedy_buildings": 2,
+    "boon_enhanced_allies": 4,
+    "boon_explosive_predators": 8,
+    "boon_harvesting_equipment": 16,
+    "boon_refective_diamondbacks": 32,
+    "boon_psionic_guardians": 64,
+    "boon_improved_morphs": 128,
+    "boon_psionic_lords": 256,
+    "boon_unlimited_scarabs": 512,
+    "boon_armor_disintegration": 1024,
+}
+EFFECT_BANK_BITS.update({name: (6, bit) for name, bit in _NEW_DEV5_BOON_KEYS.items()})
 
 
 _NEW_BOON_TITLES: dict[str, str] = {
@@ -1102,6 +1121,17 @@ _NEW_BOON_TITLES: dict[str, str] = {
 
     "purifier_alliance": "Purifier Alliance",
     "single_use_tools": "Single-Use Tools",
+    "eternal_perdition": "Eternal Perdition",
+    "speedy_buildings": "Speedy Buildings",
+    "enhanced_allies": "Enhanced Allies",
+    "explosive_predators": "Explosive Predators",
+    "harvesting_equipment": "Harvesting Equipment",
+    "refective_diamondbacks": "Refective Diamondbacks",
+    "psionic_guardians": "Psionic Guardians",
+    "improved_morphs": "Improved morphs",
+    "psionic_lords": "Psionic Lords",
+    "unlimited_scarabs": "Unlimited Scarabs",
+    "armor_disintegration": "Armor Disintegration",
 
 }
 
@@ -1170,6 +1200,7 @@ REPEATABLE_BOON_KINDS = {"auto_repair", "deadly_weapons"}
 DEFAULT_STATE: dict[str, Any] = {
 
     "chosen": [],
+    "crew_roster": None,
 
     "purchases": {},
 
@@ -1187,6 +1218,7 @@ DEFAULT_STATE: dict[str, Any] = {
     "shop_cycle": -1,
 
     "shop_stock": [],
+    "shop_frozen_item": "",
     "potion_inventory": [],
     "potion_serial": 0,
     "shop_potions_bought": [],
@@ -1263,13 +1295,13 @@ DEFAULT_STATE: dict[str, Any] = {
 # IDs are a stable wire format shared with APRogue.galaxy: do not reorder.
 POTION_PREFIX = "slay_potion::"
 POTION_DEFINITIONS = (
-    ("Mineral Reserves", 1, 'Gain 1000 minerals', "instant"),
-    ("Gas Reserves", 1, 'Gain 1000 vespene gas', "instant"),
-    ("Odin in a Bottle", 2, 'Spawn the Odin', "point"),
+    ("Mineral Reserves", 1, 'Gain 1500 minerals', "instant"),
+    ("Gas Reserves", 1, 'Gain 1500 vespene gas', "instant"),
+    ("Odin in a Bottle", 2, 'Spawn the Odin, but you cannot control it', "point"),
     ("Leviathan in a Bottle", 3, 'Spawn the WoL leviathan, but you cannot control it', "point"),
     ("Hyperion in a Bottle", 4, 'Spawn the WoL hyperion, but you cannot control it', "point"),
     ("Drop Pod Wave", 2, 'Call down 10 terran drop pods on target area.', "point"),
-    ("Mass EMP", 1, 'Reduce all shields and energy of all units to 0 and remove all cloaked for 30 seconds', "instant"),
+    ("Mass EMP", 1, 'Reduce all shields and energy of all units to 0 and remove all cloaked for 60 seconds', "instant"),
     ("Tactical Nuke", 1, 'Immediately detonate a single tactical nuke at target location', "point"),
     ("Tosh's Miners", 1, 'Drop down a flying command center with 5 scvs at target location', "point"),
     ("Stealth Protocol", 2, 'All of your units and structures become stealthed for 1 minute', "instant"),
@@ -1353,8 +1385,8 @@ def _spear_unlocked_active_ability_count(ctx: Any) -> int:
 
 def _potion_unlock_eligible(ctx: Any, name: str) -> bool:
     info = POTION_CATALOG.get(name)
-    if info is None:
-        return False
+    if info is None or info["index"] == 14:
+        return False  # Mercenary Favor is disabled across all modes.
     if info["index"] == 12:
         return _spear_unlocked_active_ability_count(ctx) >= 2
     if info["index"] == 13:
@@ -1472,6 +1504,7 @@ def potion_inventory(ctx: Any) -> list[dict[str, int | str]]:
     consumed = _potion_bank_uses(ctx)
     slots = [dict(row) for row in saved if isinstance(row, dict)
             and str(row.get("id", "")) in POTION_CATALOG
+            and str(row.get("id", "")) != POTION_PREFIX + "14"  # disabled Mercenary Favor
             and int(row.get("serial", 0)) > 0 and int(row.get("serial", 0)) not in consumed][:POTION_CAPACITY]
     if "boon_single_use_tools" not in state(ctx).get("permanent_boons", []):
         return slots
@@ -1639,6 +1672,8 @@ GOLDEN_GOOSE_MUTATIONS.update({
     "hybrid_research": 4,
     "fifty_immortals": 3,
 })
+GOLDEN_GOOSE_MUTATIONS["dehakas_pack"] = 6
+GOLDEN_GOOSE_MUTATIONS["armored_enemies"] = 3
 BLESSING_SEVERITY["covert_assistance"] = 1
 
 
@@ -2234,6 +2269,9 @@ def _fresh_state_from_config(ctx: Any) -> dict[str, Any]:
     if bool(cfg.get("start_with_kerrigan", False)):
         purchases[KERRIGAN_UNLOCK] = 1
     fresh["purchases"] = purchases
+    if str(cfg.get("game_mode", "adventure")) == "crew":
+        from .crew_challenge import default_roster
+        fresh["crew_roster"] = default_roster(cfg.get("races", ["terran"]))
     return fresh
 
 
@@ -2471,7 +2509,7 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
 
         state["spent"] = max(0, int(value.get("spent", 0)))
 
-        state["test_credit_bonus"] = max(0, int(value.get("test_credit_bonus", 0)))
+        state["test_credit_bonus"] = int(value.get("test_credit_bonus", 0))
 
         state["shop_cycle"] = int(value.get("shop_cycle", -1))
 
@@ -2499,6 +2537,7 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
         state["shop_potions_bought"] = list(dict.fromkeys(
             str(name) for name in raw_potion_purchases if str(name) in POTION_CATALOG
         ))
+    state["shop_frozen_item"] = str(value.get("shop_frozen_item", "") or "")
     raw_stock = value.get("shop_stock", [])
 
     if isinstance(raw_stock, Sequence) and not isinstance(raw_stock, (str, bytes)):
@@ -2681,6 +2720,37 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
             raise ValueError("Invalid endless floor history or candidate count")
         state["endless"] = copy.deepcopy(dict(progress))
 
+    # Crew state is durable. Dropping these extension fields during an
+    # unrelated save used to erase the rolled upgrade offers and the replay
+    # guard for free-building deaths. The latter repeatedly charged the same
+    # SC2 bank receipt on EVERY live poll (reported as thousands of credits).
+    raw_upgrade_cycle = value.get('crew_upgrade_shop_cycle')
+    if isinstance(raw_upgrade_cycle, Mapping):
+        cycle = raw_upgrade_cycle.get('cycle')
+        rows = raw_upgrade_cycle.get('rows')
+        if isinstance(cycle, str) and len(cycle) <= 256 and isinstance(rows, list):
+            valid_rows = []
+            for raw in rows[:12]:
+                if (not isinstance(raw, Mapping) or
+                    not isinstance(raw.get('id'), str) or
+                    len(raw['id']) > 200):
+                    continue
+                valid_rows.append(copy.deepcopy(dict(raw)))
+            state['crew_upgrade_shop_cycle'] = {'cycle': cycle,
+                'rows': valid_rows, 'ids': [r['id'] for r in valid_rows]}
+    charged = value.get('crew_charged_free_structure_deaths', [])
+    if isinstance(charged, list):
+        state['crew_charged_free_structure_deaths'] = list(dict.fromkeys(
+            x for x in charged if isinstance(x, str) and len(x) <= 120))
+    notifications = value.get('crew_loss_notifications', [])
+    if isinstance(notifications, list):
+        state['crew_loss_notifications'] = [str(x)[:256] for x in notifications[-100:]]
+
+    # Crew's individual roster copies belong to saved state, not the AP
+    # inventory. Never coerce a malformed roster into an empty one.
+    if value.get("crew_roster") is not None:
+        from .crew_challenge import normalized_ledger
+        state["crew_roster"] = normalized_ledger(value["crew_roster"])
     return state
 
 
@@ -2755,7 +2825,8 @@ def _persist_state(ctx: Any) -> None:
 
 
 
-DANGER_OUTLIER_MARGIN = 250
+DANGER_OUTLIER_MARGIN = 450
+DEV86_12_MISSION_DANGER_MARGIN = 250
 
 DANGER_CREDIT_BONUS = 100
 
@@ -3058,6 +3129,8 @@ def nodes(ctx: Any) -> dict[int, dict[str, Any]]:
 
 
             bonus = 0 if int(data.get("layer", -1)) == 0 else DANGER_CREDIT_BONUS
+            if campaign_mode(ctx):
+                bonus = int((bonus / 4.0) + 0.5)
 
             data["danger_credit_bonus"] = bonus
 
@@ -3199,8 +3272,11 @@ def _mission_is_difficulty_outlier_in_nodes(
 
         return False
 
-    if layer < 0 or layer >= choice_layers:
-
+    if layer < 0:
+        return False
+    if str(config.get("game_mode", "")).casefold() == "campaign" and layer >= choice_layers:
+        return bool(data.get("high_risk", False))
+    if layer >= choice_layers:
         return False
 
     if layer == 0:
@@ -3232,7 +3308,11 @@ def _mission_is_difficulty_outlier_in_nodes(
 
     baseline = _mission_expected_danger_score(config, data)
 
-    return score >= baseline + DANGER_OUTLIER_MARGIN
+    # Dev86's 12-mission classification must agree with the generator's
+    # assignment guard/hardening steps, not only the UI badge.
+    margin = (DEV86_12_MISSION_DANGER_MARGIN if choice_layers + 1 == _DEFAULT_CAMPAIGN_LENGTH
+              else DANGER_OUTLIER_MARGIN)
+    return score >= baseline + margin
 
 
 
@@ -3257,7 +3337,7 @@ MISSION_FLAG_UNRESTRICTED_GROUND_SPAWNS = 1
 MISSION_FLAG_PHANTOMS_AIR_EXCLUSION = 2
 
 MISSION_FLAG_TIMED_DEFENSE = 4
-MISSION_FLAG_ALL_IN_ELIMINATION = 8
+# Mission flag bit 8 is retired. Keep other flag values stable.
 MISSION_FLAG_HELLION_RUN_BY = 16
 MISSION_FLAG_DIAMONDBACK_WANDERERS = 32
 MISSION_FLAG_LEVIATHAN_OUTSIDE_BASE = 64
@@ -3274,6 +3354,8 @@ MISSION_FLAG_DOMINATION_ANY_PICKER = 65536
 MISSION_FLAG_ENGINE_OF_DESTRUCTION_LOKI = 131072
 MISSION_FLAG_SMASH_AND_GRAB_EXTRA_WORKERS = 262144
 MISSION_FLAG_DEVILS_PLAYGROUND_ZERG_ELIMINATION = 524288
+MISSION_FLAG_EPILOGUE_KERRIGAN = 1048576
+MISSION_FLAG_CREW_CHALLENGE = 2097152
 
 GORGON_MISSION_EXCLUSIONS = {"fire in the sky"}
 
@@ -3302,6 +3384,8 @@ def mission_flags_for_mission(ctx: Any, mission_id: int) -> int:
     mission_name = _mission_base_name(str(data.get("mission_name", "")))
 
     flags = 0
+    if crew_mode(ctx):
+        flags |= MISSION_FLAG_CREW_CHALLENGE
 
 
 
@@ -3321,9 +3405,6 @@ def mission_flags_for_mission(ctx: Any, mission_id: int) -> int:
 
         flags |= MISSION_FLAG_TIMED_DEFENSE
 
-    if mission_name.casefold() == "all-in":
-
-        flags |= MISSION_FLAG_ALL_IN_ELIMINATION
     if mission_name.casefold() == "lab rat":
 
         flags |= MISSION_FLAG_LAB_RAT_OPENING
@@ -3331,10 +3412,10 @@ def mission_flags_for_mission(ctx: Any, mission_id: int) -> int:
         flags |= MISSION_FLAG_DOMINATION_ANY_PICKER
     if mission_name.casefold() == "engine of destruction":
         flags |= MISSION_FLAG_ENGINE_OF_DESTRUCTION_LOKI
-    if mission_name.casefold() == "smash and grab":
+    if mission_name.casefold() == "smash and grab" and not crew_mode(ctx):
         flags |= MISSION_FLAG_SMASH_AND_GRAB_EXTRA_WORKERS
-    if mission_name.casefold() == "devil's playground":
-        flags |= MISSION_FLAG_DEVILS_PLAYGROUND_ZERG_ELIMINATION
+    if mission_name.casefold() in {"the essence of eternity", "essence of eternity", "amon's fall"}:
+        flags |= MISSION_FLAG_EPILOGUE_KERRIGAN
 
     mutation_flag_bits = {
         "hellion_run_by": MISSION_FLAG_HELLION_RUN_BY,
@@ -3364,6 +3445,1359 @@ def test_potion_run_token(ctx: Any) -> int:
     digest = hashlib.sha256(f"SlayTestPotion:{run_seed}".encode("utf-8")).digest()
     token = int.from_bytes(digest[:4], "big") & 0x7FFFFFFF
     return token or 1
+
+
+def crew_mode(ctx: Any) -> bool:
+    return enabled(ctx) and str(getattr(ctx,"slay_config",{}).get("game_mode","adventure")) == "crew"
+
+
+def crew_roster(ctx: Any) -> dict[str, Any]:
+    if not crew_mode(ctx):
+        raise ValueError("Crew roster is only accessible in Crew")
+    if not state_ready(ctx):
+        raise RuntimeError("Slay state has not been loaded")
+    roster = state(ctx).get("crew_roster")
+    if roster is None:
+        from .crew_challenge import default_roster
+        roster = default_roster(getattr(ctx,"slay_config",{}).get("races",["terran"]))
+        state(ctx)["crew_roster"] = roster
+        _persist_state(ctx)
+    # Dev51: legacy ``zone`` remains the transport state; the player's entire
+    # unspent roster is now a single Reserves pool. Migrate older inactive
+    # Reserve toggles instead of hiding otherwise purchased copies forever.
+    from .crew_challenge import normalized_ledger
+    migrated=normalized_ledger(roster,getattr(ctx,"slay_config",{}).get("races",["terran"]))
+    # A newly opened Slay client is NOT in its previous SC2 mission. Never
+    # carry old field tags, production claims or a bank token into the GUI.
+    # The in-process guard means normal in-game inventory refreshes cannot
+    # abandon the current mission. Confirmed deaths remain permanent.
+    if not getattr(ctx,"_slay_crew_client_roster_opened",False):
+        ctx._slay_crew_client_roster_opened=True
+        previous=migrated.get('active_mission')
+        if isinstance(previous,dict) and previous.get('terminal_snapshot') is None:
+            from .crew_challenge import abandon_interrupted_mission
+            abandon_interrupted_mission(migrated)
+    # AP has acknowledged this mission's victory. A missed SC2 on_end callback
+    # must not leave its actors On Field indefinitely. This fallback is only
+    # authorized by the *actual* AP completion location, never by a disconnect,
+    # selected node or a mere mission-window close. Preserve recorded deaths.
+    active=migrated.get('active_mission')
+    if isinstance(active,dict) and type(active.get('mission_id')) is int:
+        mid=active['mission_id']
+        try:
+            confirmed=bool(ctx.is_mission_completed(mid))
+        except (AttributeError, KeyError, TypeError, ValueError):
+            confirmed=False
+        if confirmed:
+            from .crew_challenge import abandon_interrupted_mission
+            outcome=abandon_interrupted_mission(migrated,verified_game_closed=True)
+            migrated.setdefault('settled_missions',{}).setdefault(str(mid),{
+                'returned':outcome['returned'],'lost':outcome['lost'],
+                'recovered_after_ap_completion':True})
+    if migrated!=roster:
+        roster=migrated
+        state(ctx)["crew_roster"]=roster
+        _persist_state(ctx)
+    return roster
+
+
+def crew_supply_summary(ctx: Any) -> tuple[int,int,int]:
+    from .crew_challenge import supply_capacity, supply_reserved, supply_remaining
+    roster = crew_roster(ctx)
+    return (supply_reserved(roster), supply_capacity(roster), supply_remaining(roster))
+
+
+def crew_catalog_offers(ctx: Any) -> dict[str, list[dict[str, Any]]]:
+    """Development preview only: core-unit catalog; not the complete AP catalog."""
+    from .crew_catalog import preview_catalog
+    from .crew_challenge import shop_categories
+    if not crew_mode(ctx):
+        raise ValueError('Not in Crew')
+    # Crew MVP is Terran-only, including on older mixed-race save files.
+    races=('terran',)
+    # Do not sell prototype entries which the live Crew Galaxy transport
+    # cannot actually create. The source catalog contains many future shop
+    # options, but a paid structure without a verified native spawn mapping
+    # would stay in the roster forever with no usable deployment. Keep those
+    # proposals in the development catalog until their transport is ready.
+    from .crew_sc2_adapter import NATIVE_TYPES
+    from .crew_catalog import CREW_BLOCKED_REACTOR_ITEMS
+    item_table=_item_table()
+    # Standard's actual buyable AP unit pool is the source of truth. Merely
+    # adding Standard entries to a Crew-only prototype list left illegal
+    # Royal Guard, Tauren Marine and story actors in the shop.
+    def is_standard_unit(name):
+        data=item_table.get(name)
+        if data is None or getattr(data,'code',None) is None:return False
+        typ=str(getattr(getattr(data,'type',None),'display_name',''))
+        return (_is_unit_or_morph_unlock_type(typ)
+                and not _is_mercenary_unit(name,data)
+                and not _is_deprecated_item(name,data)
+                and not _is_nova_campaign_item(name,data)
+                and not _is_royal_guard_item(name,data,item_table)
+                and str(name).casefold()!='tauren marine')
+    from .crew_catalog import CREW_NOT_STANDARD_UNITS
+    catalog=[entry for entry in preview_catalog(races)
+             if entry['name'] not in CREW_NOT_STANDARD_UNITS and
+             entry['name'] in NATIVE_TYPES and
+             entry['name'] not in CREW_BLOCKED_REACTOR_ITEMS and
+             (entry['category']!='unit' or is_standard_unit(entry['name']))]
+    # Use Standard's actual Archipelago unit-item table as the authority for
+    # purchasable campaign units. Include every verified native-mapped type,
+    # not only those in the old little Crew table. Absent CUnit mappings are
+    # tracked separately instead of offering undeliverable purchases.
+    from .crew_catalog import catalog_entry_for_standard_unit
+    included={(e['race'],e['name']) for e in catalog}
+    for name,data in item_table.items():
+        typ=str(getattr(getattr(data,'type',None),'display_name',''))
+        if not is_standard_unit(name):continue
+        race=_item_race_key(name,data)
+        if race not in races or (race,name) in included:continue
+        if name not in NATIVE_TYPES:continue
+        entry=catalog_entry_for_standard_unit(name,race)
+        if entry is not None:
+            catalog.append(entry);included.add((race,name))
+    roster=crew_roster(ctx)
+    owned={c['name'] for c in roster['copies'] if c['status']!='lost'}
+    owned.update(roster.get('discovered_unit_unlocks',()))
+    layers=max(1,int(ctx.slay_config.get('layers',10)))
+    graph=nodes(ctx)
+    completed=completed_mission_ids(ctx) & set(graph) if graph else set()
+    completed_layers=len({int(graph[mid]['layer']) for mid in completed if mid in graph}) if graph else 0
+    seed=int(ctx.slay_config.get('run_seed',0)) + 997*victory_count(ctx) + 31*int(state(ctx).get('shop_reroll_nonce',0))
+    offers=shop_categories(catalog,races,completed_layers=completed_layers,
+                           total_layers=layers,owned_units=sorted(owned),seed=seed,
+                           frozen_offer=str(state(ctx).get('shop_frozen_item','')),
+                           expansion=int(state(ctx).get('shop_expansion',0)))
+    offers['Unit Upgrades']=crew_upgrade_offers(ctx, unit_offers=offers['Units']+offers.get('Structures',[]))
+    return offers
+
+
+
+def crew_shop_description(entry: Mapping[str,Any]) -> str:
+    """Use only the existing Archipelago item documentation for Crew cards.
+
+    The roster and purchase rules are shown in their own UI; card text must
+    not invent building effects, prerequisites or persistence claims.
+    """
+    name=str(entry['name'])
+    return str(_AP_ITEM_DOCS.get(name, {}).get('description', '') or '').strip()
+
+
+
+def crew_excluded_economy_item(name: str, description: str = '') -> bool:
+    """Reject items whose benefit is bypassed by Crew's free/instant orders.
+
+    Do not reject faster combat cooldowns, movement or transformation speed.
+    """
+    title=str(name).casefold()
+    desc=' '.join(str(description).casefold().split())
+    if title in {'tech reactor (terran)', 'tech reactor', 'reactor',
+                 'barracks reactor', 'factory reactor', 'starport reactor'}:
+        return True
+    if any(k in title for k in (
+        'optimized logistics','resource efficiency',
+        'increased building construction speed','increased upgrade research speed',
+        'reduced upgrade research cost','khalai ingenuity',
+    )):return True
+    # Explicit cost-of-production discounts, not mineral-generation bonuses.
+    if ('cost' in desc or 'cheaper' in desc) and any(
+        k in desc for k in ('train','training','unit','build','construct','research','production','upgrade')) and any(
+        k in desc for k in ('mineral','vespene','gas','resource','cheaper','less to','reduc')):
+        return True
+    if any(k in desc for k in (
+        'training speed','train faster','unit training time','build time',
+        'construction speed','construct faster','production speed',
+        'production time','research time','research speed','warp-in time',
+        'warping time','warps in faster')):
+        return True
+    return False
+
+
+# These AP general Terran items are economic/mercenary, and must not appear
+# in a mode that does not buy conventional resources or mercenary contracts.
+CREW_TERRAN_GENERAL_BLOCKED = frozenset({
+    'Automated Refinery (Terran)', 'Tech Reactor (Terran)',
+    'Orbital Depots (Terran)', 'Micro-Filtering (Terran)',
+    'Advanced Construction (SCV)', 'Dual-Fusion Welders (SCV)',
+    'Construction Jump Jets (SCV)', 'Command Center Reactor (Command Center)',
+    'Mercenary Munitions (Terran)', 'Mechanical Know-how (Terran)',
+    'Extra Supplies (Command Center)',
+    'MULE (Command Center)',
+})
+
+
+# AP's Crew YAML requests generic_upgrade_items: individual_items. Match the
+# *exact* six items that this option makes available; do not offer items from
+# bundle_unit_class, bundle_weapon_and_armor, or bundle_all in the Crew shop.
+CREW_TERRAN_INDIVIDUAL_STAT_UPGRADES = frozenset({
+    'Progressive Terran Infantry Weapon',
+    'Progressive Terran Infantry Armor',
+    'Progressive Terran Vehicle Weapon',
+    'Progressive Terran Vehicle Armor',
+    'Progressive Terran Ship Weapon',
+    'Progressive Terran Ship Armor',
+})
+CREW_TERRAN_BUNDLED_STAT_UPGRADES = frozenset({
+    'Progressive Terran Infantry Upgrade',
+    'Progressive Terran Vehicle Upgrade',
+    'Progressive Terran Ship Upgrade',
+    'Progressive Terran Weapon Upgrade',
+    'Progressive Terran Armor Upgrade',
+    'Progressive Terran Weapon/Armor Upgrade',
+})
+
+
+def crew_progressive_generic_upgrade(name: str) -> bool:
+    """Only stat upgrades selected by the Crew individual-items YAML mode."""
+    return str(name) in CREW_TERRAN_INDIVIDUAL_STAT_UPGRADES
+
+
+def crew_excluded_story_upgrade(name: str, data: Any | None = None,
+                                table: Mapping[str, Any] | None = None) -> bool:
+    """No hero campaign equipment or unsupported merc/story upgrades in Crew.
+
+    Crew is Terran race-only, but the AP item table contains Nova, Royal
+    Guard, mission story and hero modules that cannot be used as Crew units.
+    """
+    if table is None:table=_item_table()
+    if data is None:data=table.get(name)
+    text=str(name).casefold()
+    type_name=str(getattr(getattr(data,'type',None),'display_name','')).casefold()
+    parents=_unit_specific_parent_names(name,table)
+    forbidden=('nova','kerrigan','tychus','raynor commando','royal guard',
+               'mercenary','spear of adun','zagara','dehaka','primal')
+    return (any(word in text or word in type_name for word in forbidden)
+            or _is_nova_campaign_item(name,data)
+            or _is_kerrigan_item(name,data) or _is_spear_item(name,data)
+            or _is_deprecated_item(name,data)
+            or _is_royal_guard_item(name,data,table)
+            or any(parent in {'Nova','Tychus','Kerrigan','Raynor Commando'}
+                   for parent in parents))
+
+
+def crew_general_terran_upgrade(name: str, data: Any | None = None,
+                                table: Mapping[str, Any] | None = None) -> bool:
+    """Admit real Standard-mode AP Terran-wide upgrades, excluding eco/mercs.
+
+    Progressive weapon/armor items are general even when the AP item type is
+    categorized separately. Other upgrades are selected from Standard's
+    explicit race-global catalog or Terran-wide Upgrade/Progressive Upgrade
+    entries, never from a unit parent such as Marine or a mercenary contract.
+    """
+    if (name in CREW_TERRAN_GENERAL_BLOCKED or name in CREW_TERRAN_BUNDLED_STAT_UPGRADES
+            or crew_excluded_story_upgrade(name,data,table)):
+        return False
+    if table is None:
+        table = _item_table()
+    if data is None:
+        data = table.get(name)
+    if data is None or _item_race_key(name, data) != 'terran':
+        return False
+    if _is_mercenary_general_upgrade(name, data) or _mercenary_contract_for_item(name, data):
+        return False
+    if _is_unit_specific_upgrade(name, table):
+        return False
+    if crew_excluded_economy_item(name, shop_entry_description(name)):
+        return False
+    if (name in RACE_GLOBAL_UPGRADE_ITEMS.get('terran', ())
+            or crew_progressive_generic_upgrade(name)):
+        return True
+    type_name = str(getattr(getattr(data, 'type', None), 'display_name', '')).casefold()
+    return (type_name in {'upgrade', 'progressive upgrade'}
+            and shop_category_for_item(name) == 'Terran Upgrades')
+
+
+def crew_upgrade_price(ctx: Any, name: str) -> int:
+    """Unit-specific upgrades cost 100; general AP upgrades keep Standard prices.
+
+    Preserve Crew's established 80-credit initial weapon/armor tier and
+    +40 credits for each previously purchased tier. Other general upgrades
+    retain the Standard AP price; no discount on unit-specific upgrades.
+    """
+    if crew_progressive_generic_upgrade(name):
+        # Crew's weapon/armor progression uses its own 80-credit base,
+        # regardless of AP Standard's current base price. Add 50% of
+        # the base per purchased tier: 80, 120, 160, 200, ...
+        prior = max(0, int(purchased_count(ctx, name)))
+        return 80 + 40 * prior
+    if _is_unit_specific_upgrade(name):
+        return 100
+    return price_for_item(name, ctx)
+
+
+def crew_upgrade_offers(ctx: Any, *, unit_offers: Sequence[Mapping[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """Stable per-shop-cycle Crew upgrade offers.
+
+    The *roll* enforces one entry per SPECIFIC unit, while generic weapon,
+    armor and shield upgrades each occupy an independent category. A purchase
+    updates the offered item's price/eligibility but NEVER rerolls the other
+    displayed offers. Only a real shop reroll/victory/expansion rerolls them.
+    """
+    if not crew_mode(ctx):
+        raise ValueError('Not in Crew')
+    if unit_offers is None:
+        unit_offers=[]
+    active_races={'terran'}
+    owned={str(x.get('name')) for x in crew_roster(ctx)['copies'] if x.get('status')!='lost'}
+    available_units=owned|{str(e.get('name')) for e in unit_offers}
+    table=_item_table()
+    candidates=[]
+    for name,data in table.items():
+        is_crew_generic=crew_general_terran_upgrade(name,data,table)
+        if not (_is_unit_specific_upgrade(name,table) or is_crew_generic):
+            continue
+        if (crew_excluded_economy_item(name,shop_entry_description(name))
+                or _is_mercenary_general_upgrade(name,data)
+                or name in CREW_TERRAN_GENERAL_BLOCKED
+                or crew_excluded_story_upgrade(name,data,table)):
+            continue
+        item_race=_item_race_key(name,data)
+        if item_race not in active_races:
+            continue
+        if not is_crew_generic and shop_category_for_item(name) not in (
+                'Terran Upgrades','Zerg Upgrades','Protoss Upgrades'):
+            continue
+        parents=([None] if is_crew_generic else [parent
+            for parent in _unit_specific_parent_names(name,table)
+            if parent in available_units])
+        if not parents:
+            continue
+        cap=_max_owned_copies(data)
+        purchased=purchased_count(ctx,name)
+        available=cap is None or _effective_shop_copies(name,purchased)<cap
+        candidates.append({'id':name,'name':shop_entry_display_name(name),
+            'parent':parents[0],'category':'upgrade','race':item_race,
+            'credits':crew_upgrade_price(ctx,name),
+            'description':shop_entry_description(name),
+            'show_owned_count':(cap is None or cap > 1),
+            'available':available})
+
+    state_row=state(ctx)
+    cycle=':'.join((str(ctx.slay_config.get('run_seed',0)),
+        str(victory_count(ctx)),str(state_row.get('shop_reroll_nonce',0)),
+        str(state_row.get('shop_expansion',0)),','.join(sorted(active_races))))
+    cache=state_row.get('crew_upgrade_shop_cycle')
+    candidate_by_id={r['id']:r for r in candidates}
+    # Existing offers are not invalidated merely because a purchase reached its
+    # cap, or unit inventory changed. A fresh cycle calculates eligible offers.
+    if isinstance(cache,dict) and cache.get('cycle')==cycle:
+        # Existing displayed offers must not disappear when the pool changes
+        # after buying a unit/upgrade, or when live AP item data is refreshed.
+        # Preserve the exact roll; only explicit reroll/victory changes IDs.
+        frozen_rows=cache.get('rows')
+        if isinstance(frozen_rows,list) and frozen_rows:
+            # Existing Dev76/77 shop snapshots may contain one of AP's bundled
+            # items from a different YAML mode. Migrate just that offer out of
+            # the frozen roll while preserving other visible upgrades.
+            if any(row.get('id') not in table
+                   or row.get('id') in CREW_TERRAN_BUNDLED_STAT_UPGRADES
+                   or crew_excluded_story_upgrade(row.get('id',''),table=table)
+                   for row in frozen_rows if isinstance(row,dict)):
+                seed='crew-upgrade:'+cycle
+                rng=random.Random(int.from_bytes(hashlib.sha256(seed.encode()).digest()[:8],'big'))
+                available_pool=[e for e in candidates if e['available']]
+                rng.shuffle(available_pool)
+                fresh=[dict(r) for r in frozen_rows if isinstance(r,dict)
+                       and r.get('id') in table
+                       and r.get('id') not in CREW_TERRAN_BUNDLED_STAT_UPGRADES
+                       and not crew_excluded_story_upgrade(r.get('id',''),table=table)]
+                wanted=min(3+max(0,min(3,int(state_row.get('shop_expansion',0)))),len(candidates))
+                used={('unit',r['parent']) if r.get('parent') is not None
+                      else ('generic',r['id']) for r in fresh}
+                for e in available_pool:
+                    if len(fresh)>=wanted:break
+                    key=('unit',e['parent']) if e['parent'] is not None else ('generic',e['id'])
+                    if key in used:continue
+                    fresh.append(dict(e));used.add(key)
+                state_row['crew_upgrade_shop_cycle']={'cycle':cycle,
+                    'ids':[r['id'] for r in fresh],'rows':[dict(r) for r in fresh]}
+                _persist_state(ctx)
+                frozen_rows=fresh
+            result=[]
+            for original in frozen_rows:
+                entry=dict(original)
+                name=entry['id']
+                entry['credits']=crew_upgrade_price(ctx,name)
+                entry['show_owned_count']=bool(candidate_by_id.get(name,{}).get('show_owned_count',True))
+                cap=_max_owned_copies(table.get(name)) if name in table else None
+                count=purchased_count(ctx,name)
+                entry['available']=(cap is None or _effective_shop_copies(name,count)<cap)
+                result.append(entry)
+            return result
+        return [candidate_by_id[name] for name in cache.get('ids',())
+                if name in candidate_by_id]
+
+    seed='crew-upgrade:'+cycle
+    rng=random.Random(int.from_bytes(hashlib.sha256(seed.encode()).digest()[:8],'big'))
+    pool=[e for e in candidates if e['available']]
+    rng.shuffle(pool)
+    distinct=[]
+    represented=set()
+    for entry in pool:
+        # Each generic upgrade is its own independent category; only upgrades
+        # specifically tied to a unit compete for that unit's single slot.
+        key=('unit',entry['parent']) if entry['parent'] is not None else ('generic',entry['id'])
+        if key in represented:
+            continue
+        represented.add(key)
+        distinct.append(entry)
+    count=min(3+max(0,min(3,int(state_row.get('shop_expansion',0)))),len(distinct))
+    result=distinct[:count]
+    frozen=frozen_shop_item(ctx)
+    frozen_row=next((r for r in distinct if r['id']==frozen),None)
+    if frozen_row is not None and all(r['id']!=frozen for r in result):
+        key=('unit',frozen_row['parent']) if frozen_row['parent'] is not None else ('generic',frozen_row['id'])
+        result=[r for r in result if (
+            ('unit',r['parent']) if r['parent'] is not None else ('generic',r['id']))!=key]
+        if len(result)>=count and result:
+            result[-1]=frozen_row
+        else:
+            result.append(frozen_row)
+    state_row['crew_upgrade_shop_cycle']={'cycle':cycle,
+        'ids':[r['id'] for r in result],
+        'rows':[dict(r) for r in result]}
+    _persist_state(ctx)
+    return result
+
+
+def crew_purchase_upgrade(ctx: Any, item_name: str) -> tuple[bool, str]:
+    """Grant a verified AP upgrade item, with Crew unit ownership eligibility."""
+    if not crew_mode(ctx):return False,'Not in Crew'
+    # Do not regenerate the entire shop when validating a purchase. It can
+    # change when a previous purchase updates AP ownership/prerequisites.
+    cache=state(ctx).get('crew_upgrade_shop_cycle')
+    original_rows=cache.get('rows',[]) if isinstance(cache,dict) else []
+    offer=next((dict(x) for x in original_rows if x.get('id')==item_name),None)
+    expected_cycle=':'.join((str(ctx.slay_config.get('run_seed',0)),
+        str(victory_count(ctx)),str(state(ctx).get('shop_reroll_nonce',0)),
+        str(state(ctx).get('shop_expansion',0)),
+        'terran'))
+    if (not isinstance(cache,dict) or cache.get('cycle') != expected_cycle):
+        return False,'Shop changed; reroll or reopen before buying this offer'
+    if item_name in CREW_TERRAN_BUNDLED_STAT_UPGRADES:
+        return False,'Bundled weapon/armor upgrades are disabled; buy individual weapon and armor items instead'
+    if offer is None:return False,'That upgrade is not currently in the Crew shop'
+    if not offer.get('available',True):return False,'Upgrade has reached its purchase limit'
+    table=_item_table()
+    data=table.get(item_name)
+    is_generic = crew_general_terran_upgrade(item_name,data,table)
+    if (data is None or not (_is_unit_specific_upgrade(item_name,table) or is_generic)
+            or crew_excluded_economy_item(item_name,shop_entry_description(item_name))
+            or _is_mercenary_general_upgrade(item_name,data)
+            or item_name in CREW_TERRAN_GENERAL_BLOCKED
+            or crew_excluded_story_upgrade(item_name,data,table)
+            or _item_race_key(item_name,data) != 'terran'):
+        return False,'Unrecognized AP upgrade'
+    cap=_max_owned_copies(data)
+    if cap is not None and _effective_shop_copies(item_name,purchased_count(ctx,item_name))>=cap:
+        return False,'Upgrade has reached its purchase limit'
+    price=crew_upgrade_price(ctx,item_name)
+    if credits(ctx)<price:return False,f'Need {price} credits; only {credits(ctx)} available.'
+    s=state(ctx)
+    copies=dict(s.get('purchases',{}))
+    copies[item_name]=int(copies.get(item_name,0))+1
+    s['purchases']=copies
+    s['spent']=int(s.get('spent',0))+price
+    if s.get('shop_frozen_item')==item_name:s['shop_frozen_item']=''
+    _persist_state(ctx)
+    _request_live_item_refresh(ctx)
+    return True,f'Purchased {shop_entry_display_name(item_name)} for {price} credits.'
+
+
+def crew_boon_offers(ctx: Any) -> list[dict[str, Any]]:
+    """Roll a durable Crew-only visible boon pool from existing boon definitions.
+
+    The vanilla stock is preferred, but Crew owns units through its roster,
+    not AP unlock items, so vanilla eligible-boon rolls can be sparse. Fill
+    the remaining slots from valid vanilla boon candidates, never fabricate
+    a new effect ID or a price. All purchases use _purchase_boon below.
+    """
+    from .crew_challenge import eligible_boon, eligible_effect
+    if not crew_mode(ctx):
+        raise ValueError('Crew boon shop is only available in Crew')
+    stock=[name for name in shop_stock(ctx) if name.startswith(BOON_PREFIX)]
+    extras=_boon_candidates(ctx)
+    extras.extend(_boon_id(k) for k in ('deadly_weapons','auto_repair',
+                                       'rapid_fire','shields_for_all','fire_power'))
+    frozen=frozen_shop_item(ctx)
+    ordered=list(dict.fromkeys(([frozen] if frozen.startswith(BOON_PREFIX) else [])
+                                 +stock+extras))
+    eligible=[]
+    for item in ordered:
+        if not item.startswith(BOON_PREFIX):
+            continue
+        title=boon_display_name(item)
+        rule_title=('Random Permanent Blessing' if title.startswith('Random Permanent Blessing (')
+                    else 'Permanent Blessing: (Blessing)' if title.startswith('Permanent Blessing: ')
+                    else title)
+        if not eligible_boon(rule_title) or crew_excluded_economy_item(title,shop_entry_description(item)):
+            continue
+        kind,payload=_parse_boon(item)
+        if kind=='permanent_blessing' and not eligible_effect(payload,'blessing'):
+            continue
+        if kind=='random_blessing' and not any(
+                eligible_effect(effect,'blessing') and severity==int(payload)
+                and effect not in state(ctx).get('permanent_blessings',())
+                for effect,severity in BLESSING_SEVERITY.items()):
+            continue
+        eligible.append(item)
+    # Stable stock per floor/reroll; freeze always survives a subsequent roll.
+    # Standard-style Crew boon shelf: three items, including a frozen offer.
+    regular=[x for x in eligible if x!=frozen]
+    keep_stock=[x for x in regular if x in stock]
+    additional=[x for x in regular if x not in stock]
+    seed=f"{ctx.slay_config.get('run_seed',0)}:crew-boons:{victory_count(ctx)}:{state(ctx).get('shop_reroll_nonce',0)}"
+    rng=random.Random(int.from_bytes(hashlib.sha256(seed.encode()).digest()[:8],'big'))
+    rng.shuffle(additional)
+    reroll=_boon_id('reroll_shop')
+    # Reroll Shop is an always-visible utility, not one of the shuffled boons.
+    names=([frozen] if frozen in eligible and frozen!=reroll else []) + [
+        x for x in keep_stock if x!=reroll]
+    names=list(dict.fromkeys(names))[:2]
+    names.extend(x for x in additional if x!=reroll and x not in names and len(names)<2)
+    names.append(reroll)
+    rows=[]
+    for item in names:
+        rows.append({'id':item,'name':boon_display_name(item),'category':'boon','race':'boon',
+                     'credits':price_for_item(item,ctx),
+                     'description':shop_entry_description(item),
+                     'available':can_buy_shop_item(ctx,item),
+                     'owned':purchased_count(ctx,item)})
+    return rows
+
+
+def crew_purchase_boon(ctx: Any, boon_id: str) -> tuple[bool, str]:
+    """Use original persistent boon engine with a Crew-specific stock guard."""
+    if not crew_mode(ctx):
+        return False,'Not in Crew'
+    offers=crew_boon_offers(ctx)
+    if boon_id not in {offer['id'] for offer in offers}:
+        return False,'That Crew boon is not in this shop'
+    if not can_buy_shop_item(ctx,boon_id):
+        return False,'That boon has reached its purchase limit'
+    price=price_for_item(boon_id,ctx)
+    if credits(ctx)<price:
+        return False,f'Need {price} credits; only {credits(ctx)} available.'
+    # Unlike purchase(), this accepts the deterministic Crew-only filler
+    # offers absent from Standard stock. It still invokes the *identical*
+    # atomic state/credit/effect implementation for every boon kind.
+    return _purchase_boon(ctx,boon_id,price)
+
+
+def crew_consumable_offers(ctx: Any) -> list[dict[str, Any]]:
+    """The original Crew excludes all consumables."""
+    if not crew_mode(ctx):
+        raise ValueError('Not in Crew')
+    return []
+
+
+def crew_purchase_consumable(ctx: Any, item: str) -> tuple[bool, str]:
+    return False, 'Consumables are not available in Crew'
+
+
+def crew_consumable_inventory(ctx: Any) -> list[str]:
+    return []
+
+
+def crew_owned_effects(ctx: Any) -> dict[str, list[str]]:
+    """Expose permanent purchased effects without changing Standard inventory."""
+    if not crew_mode(ctx):
+        raise ValueError('Not in Crew')
+    s=state(ctx)
+    return {'Boons':[EFFECT_DISPLAY_NAMES.get(str(x),str(x))
+                     for x in s.get('permanent_boons',())],
+            'Blessings':[EFFECT_DISPLAY_NAMES.get(str(x),str(x))
+                         for x in s.get('permanent_blessings',())],
+            'Mutations':[EFFECT_DISPLAY_NAMES.get(str(x),str(x))
+                         for x in s.get('permanent_mutations',())]}
+
+
+def crew_structure_catalog_price(name:str, race:str) -> int | None:
+    """Only purchasable, costed structures can incur Crew building debt."""
+    from .crew_catalog import preview_catalog
+    from .crew_challenge import credit_cost
+    from .crew_sc2_adapter import NATIVE_TYPES
+    try: rows=preview_catalog((race,))
+    except ValueError:return None
+    matches=[r for r in rows if r['name']==name and r['category']=='structure'
+             and name in NATIVE_TYPES]
+    if len(matches)!=1:return None
+    r=matches[0]
+    return credit_cost(int(r['minerals']),int(r['gas']),unit_name=name)
+
+def crew_charge_confirmed_building_losses(ctx: Any) -> list[str]:
+    """Purchases already paid for their copy: never charge them again on death."""
+    return []
+
+
+def crew_charge_free_building_deaths(ctx: Any, mission_id: int,
+                                    deaths: Any, *, verified_tags: Mapping[int,str] | None = None) -> list[str]:
+    """Charge each *free* bank-confirmed purchasable structure death once.
+
+    Galaxy emits these only for player-owned untracked structures. A session
+    token + native tag is used as the durable idempotence key, because the
+    same death bank entry is re-read on every live-bot poll.
+    """
+    if not crew_mode(ctx):return []
+    s=state(ctx)
+    active=(crew_roster(ctx).get('active_mission') or {})
+    if active.get('mission_id') != mission_id:return []
+    token=int((active.get('auto_transport') or {}).get('token',0))
+    if token<=0:return []
+    from .crew_bank_receipts import _TYPE_BY_CODE
+    from .crew_sc2_adapter import NATIVE_TYPES
+    native_to_display={v:k for k,v in NATIVE_TYPES.items()}
+    # A mission-supplied building has a real cost even if that variant has no
+    # separate item card. All buildings represented in Crew's cost catalog
+    # qualify; unsupported/unpriced scripted props do not incur guessed debt.
+    from .crew_catalog import preview_catalog
+    costs={}
+    for row in preview_catalog(('terran','zerg','protoss')):
+        if row.get('category')!='structure':continue
+        cost=crew_structure_catalog_price(row['name'],row['race'])
+        if cost is not None:
+            costs.setdefault(NATIVE_TYPES.get(row['name']), (row['name'],cost))
+    processed=set(s.get('crew_charged_free_structure_deaths',()))
+    notices=[]; debit=0
+    # A bank field is not sufficient grounds for irreversible credit debt.
+    # Match the tag and native CUnit against a *finished* structure previously
+    # seen in THIS player's SC2 observations. An incomplete foundation is free.
+    # The observer retains tags for actors
+    # that have since died, and bank tokens keep old sessions separate.
+    validated=verified_tags if isinstance(verified_tags,Mapping) else {}
+    # Per-copy exemption, NEVER per name or per building type. This protects
+    # a deployed Barracks without exempting a second starting Barracks.
+    from .crew_tags import wire_tag
+    paid_tags=set()
+    for full_tag,copy_id in active.get('tags',{}).items():
+        owned=next((c for c in crew_roster(ctx).get('copies',())
+                    if c.get('id')==copy_id),None)
+        if owned is not None and owned.get('kind')=='structure':
+            try:paid_tags.add(wire_tag(int(full_tag)))
+            except (ValueError,TypeError):pass
+    for tag,type_code in deaths:
+        if tag in paid_tags:continue
+        key=f'{mission_id}:{token}:{int(tag)}'
+        if key in processed:continue
+        native=_TYPE_BY_CODE.get(int(type_code))
+        name_cost=costs.get(native)
+        if name_cost is None or validated.get(int(tag))!=native:continue
+        processed.add(key)
+        name,cost=name_cost
+        # Never allow a malformed catalog or receipt to cause large charges.
+        if not (1<=cost<=1000):continue
+        debit+=cost
+        notices.append(f'{name} destroyed, subtracting {cost} credits')
+    if notices:
+        s['crew_charged_free_structure_deaths']=sorted(processed)
+        s['spent']=int(s.get('spent',0))+debit
+        s.setdefault('crew_loss_notifications',[]).extend(notices)
+        _persist_state(ctx)
+    return notices
+
+
+def crew_take_loss_notifications(ctx:Any) -> list[str]:
+    if not crew_mode(ctx):return []
+    notices=list(state(ctx).get('crew_loss_notifications',()))
+    if notices:
+        state(ctx)['crew_loss_notifications']=[]
+        _persist_state(ctx)
+    return notices
+
+def crew_revive_unit_price(name: str, race: str) -> int | None:
+    from .crew_challenge import credit_cost
+    from .crew_catalog import preview_catalog, catalog_entry_for_standard_unit
+    try:
+        matches=[row for row in preview_catalog((race,))
+                 if row['name']==name and row['category']=='unit']
+    except ValueError:
+        return None
+    if not matches:
+        entry=catalog_entry_for_standard_unit(name,race)
+        if entry is not None and entry.get('category')=='unit':
+            matches=[entry]
+    if len(matches)!=1:
+        return None
+    row=matches[0]
+    return credit_cost(int(row['minerals']),int(row['gas']),unit_name=name)
+
+
+def crew_revive_destroyed(ctx:Any, name:str, race:str, kind:str, quantity:int) -> tuple[int,list[str]]:
+    """Revive 1 / 5: same credit cost as buying the unit, fresh Crew IDs."""
+    from .crew_challenge import revive_destroyed
+    if not crew_mode(ctx) or kind!='unit' or quantity not in (1,5):
+        raise ValueError('Invalid Crew unit revival')
+    unit_price=crew_revive_unit_price(name,race)
+    if unit_price is None:
+        raise ValueError('Unit cannot be revived without a verified Crew catalog price')
+    charge=quantity*unit_price
+    if credits(ctx)<charge:raise ValueError(f'Need {charge} credits to revive')
+    updated=copy.deepcopy(crew_roster(ctx))
+    ids=revive_destroyed(updated,name=name,race=race,kind=kind,quantity=quantity,supply=float(next((c.get('supply',0) for c in updated['copies'] if c['name']==name and c['race']==race and c['kind']==kind),0)))
+    s=state(ctx);s['crew_roster']=updated;s['spent']=int(s.get('spent',0))+charge
+    _persist_state(ctx)
+    _request_live_item_refresh(ctx)
+    return charge,ids
+
+
+def crew_record_live_deaths(ctx: Any, mission_id: int, death_tags: Any) -> bool:
+    """Persist verified bank-reported Crew deaths without prematurely settling.
+
+    Workers or campaign freebies without a purchased Crew tag never count.
+    A dead copy remains deployed until the authenticated victory outcome.
+    """
+    if not crew_mode(ctx):return False
+    current=crew_roster(ctx)
+    active=current.get('active_mission')
+    if not isinstance(active,dict) or active.get('mission_id')!=mission_id:
+        return False
+    from .crew_tags import wire_tag
+    by_wire={}
+    for tag in active.get('tags',()):
+        full=str(int(tag))
+        code=wire_tag(int(tag))
+        if code in by_wire:raise RuntimeError('Ambiguous Crew death wire tag')
+        by_wire[code]=full
+    incoming={int(tag) for tag in death_tags if type(tag) is int and tag>0}
+    observed={by_wire[tag] for tag in incoming if tag in by_wire}
+    previous=set(active.get('live_dead_tags',()))
+    if observed<=previous:return False
+    updated=copy.deepcopy(current)
+    updated['active_mission']['live_dead_tags']=sorted(previous|observed)
+    state(ctx)['crew_roster']=updated
+    _persist_state(ctx)
+    crew_charge_confirmed_building_losses(ctx)
+    return True
+
+
+def crew_record_live_claims(ctx: Any, mission_id: int, claimed_numbers: Any) -> bool:
+    """Show bank-confirmed paid orders as unavailable without claiming their actors."""
+    if not crew_mode(ctx):return False
+    current=crew_roster(ctx)
+    active=current.get('active_mission') or {}
+    if active.get('mission_id')!=mission_id:return False
+    bought={c['id'] for c in current['copies'] if c.get('status') in ('zone','reserve')}
+    claimed=sorted({f'crew_{n}' for n in claimed_numbers if type(n) is int
+                   and n>0 and f'crew_{n}' in bought})
+    if claimed==active.get('live_claimed_copy_ids',[]):return False
+    updated=copy.deepcopy(current)
+    updated['active_mission']['live_claimed_copy_ids']=claimed
+    state(ctx)['crew_roster']=updated
+    _persist_state(ctx)
+    return True
+
+
+def crew_accept_field_builds(ctx: Any, mission_id: int, *, receipts: Any,
+                             observations: Any, ready_tags: Any,
+                             player_id: int, death_tags: Any = frozenset()) -> int:
+    """Commit fully verified Galaxy construction receipts atomically."""
+    if not crew_mode(ctx):return 0
+    from .crew_field_build import accept_galaxy_build
+    original=crew_roster(ctx)
+    updated=original
+    for receipt in receipts:
+        updated=accept_galaxy_build(updated,mission_id,receipt=receipt,
+            observations=tuple(observations),ready_tags=frozenset(ready_tags),
+            player_id=player_id,death_tags=frozenset(death_tags))
+    if updated!=original:
+        state(ctx)['crew_roster']=updated
+        _persist_state(ctx)
+    crew_charge_confirmed_building_losses(ctx)
+    return len((updated.get('active_mission') or {}).get('field_build_completed_ids',()))
+
+
+
+
+# Crew rewards are separate from AP unlocks. Mission checks grant one
+# deterministic *combat* unit type per mission and credits, targeting a
+# combined value of 150 credits per 1-indexed route layer (200 if high-risk).  Starting workers,
+# structures and nondeployable pseudo-units are never awarded.
+_CREW_REWARD_NONCOMBAT = frozenset({
+    'SCV', 'Drone', 'Probe',
+})
+
+
+def _crew_mission_reward_plan(ctx: Any) -> dict[int, dict[str, Any]]:
+    if not crew_mode(ctx):
+        return {}
+    from .crew_catalog import preview_catalog
+    from .crew_challenge import credit_cost
+    from .crew_sc2_adapter import NATIVE_TYPES
+    # Archipelago exposes mission locations via locations_for_mission_id();
+    # mission_id_to_location_ids is absent in some AP versions. Using only
+    # that optional dict caused every reward preview to say 'awaiting mapping'.
+    mapping = dict(getattr(ctx, 'mission_id_to_location_ids', {}) or {})
+    resolve = getattr(ctx, 'locations_for_mission_id', None)
+    if callable(resolve):
+        for mid in nodes(ctx):
+            try:
+                locs=tuple(resolve(int(mid)))
+            except (KeyError, TypeError, ValueError, AttributeError):
+                continue
+            if locs:
+                mapping[int(mid)] = locs
+    if not mapping:
+        return {}
+    config = getattr(ctx, 'slay_config', {})
+    races = tuple(str(r).casefold() for r in config.get('races', ['terran']))
+    available = [u for u in preview_catalog(races)
+                 if u.get('category') == 'unit'
+                 and u['name'] not in _CREW_REWARD_NONCOMBAT
+                 and u['name'] in NATIVE_TYPES
+                 and float(u.get('supply', 0)) > 0]
+    if not available:
+        return {}
+    graph = nodes(ctx)
+    seed = str(config.get('run_seed', 0))
+    result: dict[int, dict[str, Any]] = {}
+    for raw_mid, raw_locs in sorted(mapping.items(), key=lambda x: str(x[0])):
+        try:
+            mid = int(raw_mid)
+        except (TypeError, ValueError):
+            continue
+        if mid not in graph or not raw_locs:
+            continue
+        try:
+            locs = sorted({int(x) for x in raw_locs if int(x) > 0})
+        except (TypeError, ValueError):
+            continue
+        if not locs:
+            continue
+        layer = int(graph[mid].get('layer', 0)) + 1
+        target = (200 if graph[mid].get('high_risk', False) else 150) * max(1, layer)
+        race = str(graph[mid].get('race', '')).casefold()
+        candidates = [u for u in available if u['race'] == race] or available
+        rng = random.Random(int.from_bytes(hashlib.sha256(
+            f'{seed}:crew-rewards:v2:{mid}'.encode()).digest()[:8], 'big'))
+        rng.shuffle(locs)
+        unit_count = (len(locs) + 1) // 2
+        # Spend roughly half the mission budget on units.  Limit the chosen
+        # type so each unit check can award at least one affordable copy.
+        unit_budget = target if unit_count == len(locs) else target // 2
+        affordable = [u for u in candidates
+                      if 0 < credit_cost(int(u['minerals']), int(u['gas']),
+                          unit_name=str(u['name'])) <= max(1, unit_budget // unit_count)]
+        if not affordable:
+            affordable = sorted(candidates, key=lambda u:(
+                credit_cost(int(u['minerals']), int(u['gas']), unit_name=str(u['name'])),
+                str(u['name'])))[:1]
+        chosen = dict(rng.choice(affordable))
+        price = max(1, credit_cost(int(chosen['minerals']), int(chosen['gas']),
+                                   unit_name=str(chosen['name'])))
+        # Share an integer number of copies across the unit checks; the
+        # remaining budget goes to credits, with no negative credit prizes.
+        copies_per = max(1, unit_budget // (unit_count * price))
+        while copies_per > 1 and unit_count * copies_per * price > target:
+            copies_per -= 1
+        total_unit_value = unit_count * copies_per * price
+        credit_locs = locs[unit_count:]
+        remainder = max(0, target - total_unit_value)
+        # If there are no credit checks, increase copies to approach target.
+        if not credit_locs:
+            copies_per = max(1, target // (unit_count * price))
+            total_unit_value = unit_count * copies_per * price
+            remainder = max(0, target - total_unit_value)
+        for loc in locs[:unit_count]:
+            result[loc] = {'kind':'unit', 'mission_id':mid, 'name':chosen['name'],
+                           'race':chosen['race'], 'supply':chosen['supply'],
+                           'quantity':copies_per, 'value':copies_per*price}
+        for i, loc in enumerate(credit_locs):
+            value = (remainder*(i+1))//len(credit_locs) - (remainder*i)//len(credit_locs)
+            result[loc] = {'kind':'credits', 'mission_id':mid, 'credits':value}
+    return result
+
+
+def _crew_received_reward_locations(ctx: Any) -> set[int]:
+    plan = _crew_mission_reward_plan(ctx)
+    return {int(getattr(item,'location',0)) for item in getattr(ctx,'items_received',())
+            if int(getattr(item,'location',0)) in plan}
+
+def crew_sync_item_grants(ctx: Any) -> int:
+    """Credit AP mission checks as deterministic Crew unit-copy awards.
+
+    AP's original unit/upgrade items are suppressed for Crew; reward receipt
+    IDs are durable and replay-safe, and credits derive from those receipts.
+    """
+    if not crew_mode(ctx) or not state_ready(ctx):
+        return 0
+    plan = _crew_mission_reward_plan(ctx)
+    if not plan:
+        return 0
+    from .crew_challenge import acquire
+    original = crew_roster(ctx)
+    known = set(str(x) for x in original.get('award_receipts',()))
+    updated = copy.deepcopy(original)
+    added = 0
+    for item in getattr(ctx,'items_received',()):
+        try:
+            loc = int(item.location)
+            item_code = int(item.item)
+            player = int(getattr(item,'player',0))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        reward = plan.get(loc)
+        if reward is None or reward['kind'] != 'unit':
+            continue
+        key = f'{loc}:{item_code}:{player}'
+        if key in known:
+            continue
+        ids = acquire(updated,name=reward['name'],race=reward['race'],
+                      kind='unit',supply=reward['supply'],
+                      quantity=reward['quantity'],purchases=False)
+        active = updated.get('active_mission')
+        if isinstance(active,dict):
+            for identifier in ids:
+                if identifier in active.get('pending',[]):
+                    active['pending'].remove(identifier)
+                active.setdefault('purchased_during_mission',[]).append(identifier)
+        known.add(key)
+        unlocked=set(updated.get('discovered_unit_unlocks',()))
+        unlocked.add(reward['name'])
+        updated['discovered_unit_unlocks']=sorted(unlocked)
+        added += len(ids)
+    if added:
+        updated['award_receipts'] = sorted(known)
+        state(ctx)['crew_roster'] = updated
+        _persist_state(ctx)
+    return added
+
+
+def crew_adopt_live_units(ctx: Any, mission_id: int, *, player_id: int,
+                          candidates: Any, reserved_wire_tags: Any = ()) -> int:
+    """Persist valid, individually observed player-controlled units as Crew.
+
+    This creates a roster copy from the real SC2 unit, not a spawn receipt.
+    Existing paid/deployed units and pending native train completions are never
+    adopted a second time. A discovered type stays unlocked even if it dies.
+    """
+    if not crew_mode(ctx) or not state_ready(ctx):return 0
+    from .crew_catalog import preview_catalog
+    from .crew_sc2_adapter import NATIVE_TYPES, CREW_MERCENARY_NATIVE
+    from .crew_challenge import acquire, bind_unit_tag
+    from .crew_tags import wire_tag
+    from .crew_catalog import CREW_NOT_STANDARD_UNITS
+    table=_item_table()
+    allowed={}
+    for row in preview_catalog(tuple(getattr(ctx,'slay_config',{}).get('races', ['terran']))):
+        if row['category']!='unit' or row['name'] not in NATIVE_TYPES or row['name'] in CREW_NOT_STANDARD_UNITS:
+            continue
+        data=table.get(row['name'])
+        if data is None or getattr(data,'code',None) is None:continue
+        type_name=str(getattr(getattr(data,'type',None),'display_name',''))
+        if (not _is_unit_or_morph_unlock_type(type_name)
+                or _is_mercenary_unit(row['name'],data)
+                or _is_deprecated_item(row['name'],data)
+                or _is_nova_campaign_item(row['name'],data)
+                or _is_royal_guard_item(row['name'],data,table)):
+            continue
+        allowed[NATIVE_TYPES[row['name']]]=row
+    # Cutthroat and other campaign-controlled Mercenaries are valid physical
+    # Crew copies even when Archipelago does not offer their contracts in Crew.
+    # They must NOT unlock the excluded mercenary purchase/production catalog.
+    for native,(name,supply) in CREW_MERCENARY_NATIVE.items():
+        allowed[native]={"name":name,"race":"terran","supply":supply,
+                         "captured_mercenary":True}
+    if not allowed:return 0
+    original=crew_roster(ctx)
+    mission=original.get('active_mission') or {}
+    if mission.get('mission_id')!=mission_id or not (mission.get('auto_transport') or {}).get('ended'):
+        return 0
+    if mission.get('terminal_snapshot') is not None:return 0
+    updated=copy.deepcopy(original)
+    active=updated['active_mission']
+    known_tags={str(tag) for tag in active.get('tags',{})}
+    starting_tags={str(tag) for tag in active.get('adopted_tags',())}
+    blocked={int(tag) for tag in reserved_wire_tags}
+    added=0
+    for observation in candidates:
+        if (observation.owner!=player_id or observation.is_structure or
+                type(observation.tag) is not int or observation.tag<=0 or
+                str(observation.tag) in known_tags or
+                str(observation.tag) in starting_tags or
+                wire_tag(observation.tag) in blocked):
+            continue
+        row=allowed.get(observation.native_type)
+        if row is None:continue
+        copy_id=acquire(updated,name=row['name'],race=row['race'],kind='unit',
+                        supply=row['supply'],quantity=1,purchases=False)[0]
+        bind_unit_tag(updated,copy_id,observation.tag)
+        active.setdefault('adopted_tags',[]).append(str(observation.tag))
+        active.setdefault('adopted_ids',[]).append(copy_id)
+        if row.get('captured_mercenary'):
+            # Physical roster copy only: no Crew shop/production entitlement.
+            next(c for c in updated['copies'] if c['id']==copy_id)['captured_mercenary']=True
+        else:
+            discovered=set(updated.get('discovered_unit_unlocks',()))
+            discovered.add(row['name'])
+            updated['discovered_unit_unlocks']=sorted(discovered)
+        known_tags.add(str(observation.tag));added+=1
+    if added:
+        state(ctx)['crew_roster']=updated
+        _persist_state(ctx)
+    return added
+
+
+def crew_inventory_groups(ctx: Any) -> list[dict[str, Any]]:
+    crew_sync_item_grants(ctx)
+    from .crew_challenge import deployment_zone_rows
+    return deployment_zone_rows(crew_roster(ctx))
+
+
+def crew_adjust_zone(ctx: Any,name:str,quantity:int,race:str|None=None) -> tuple[int,int]:
+    from .crew_challenge import set_zone_quantity
+    if not crew_mode(ctx):
+        raise ValueError('Not in Crew')
+    ledger=crew_roster(ctx)
+    # Atomic transaction: never persist half an adjustment after a failed supply check.
+    replacement=copy.deepcopy(ledger)
+    result=set_zone_quantity(replacement,name,quantity,race=race)
+    state(ctx)['crew_roster']=replacement
+    _persist_state(ctx)
+    return result
+
+
+def crew_purchase_roster_copy(ctx: Any, name: str, race: str, kind: str,
+                              supply: float, mineral_cost: int, gas_cost: int,
+                              quantity: int = 1) -> tuple[int, list[str]]:
+    """Atomically buy one or five Crew copies at full catalog price each."""
+    from .crew_challenge import purchase_copy
+    if not crew_mode(ctx):
+        raise ValueError('Not in Crew')
+    if type(quantity) is not int or quantity not in (1, 5):
+        raise ValueError('Crew shop supports only Buy and Buy 5')
+    # Validate against known costed entries; never trust price or type from UI.
+    offers=crew_catalog_offers(ctx)
+    candidates=[e for cat,rows in offers.items() for e in rows
+                if e['name']==name and e['race']==race and e['category'] in ('unit','structure')]
+    if len(candidates)!=1:
+        raise ValueError('Crew offer not currently purchasable')
+    record=candidates[0]
+    expected_kind='unit' if record['category']=='unit' or name in {'SCV','Drone','Probe'} else 'structure'
+    if (record['minerals']!=mineral_cost or record['gas']!=gas_cost
+            or record['supply']!=supply or kind!=expected_kind):
+        raise ValueError('Crew cost or kind differs from the catalog')
+    replacement=copy.deepcopy(crew_roster(ctx))
+    cost,ids=purchase_copy(replacement,name=name,race=race,kind=kind,supply=supply,
+        minerals=mineral_cost,gas=gas_cost,credits_available=credits(ctx),
+        quantity=quantity)
+    s=state(ctx)
+    s['crew_roster']=replacement
+    s['spent']=int(s.get('spent',0))+cost
+    _persist_state(ctx)
+    _request_live_item_refresh(ctx)
+    return cost,ids
+
+
+
+# Crew's automatic receipt bridge is dormant until the protected live SC2
+# adapter is finished. The game mode is still blocked at generation/launch.
+def crew_abandon_interrupted_session(ctx: Any, *, verified_game_closed: bool=False) -> dict[str, int]:
+    """Return surviving Crew actors to Reserves when a *different SC2 game*
+    begins. Does not forgive a bank-confirmed in-mission death.
+    """
+    from .crew_challenge import abandon_interrupted_mission
+    if not crew_mode(ctx):raise ValueError('Crew session reset outside Crew mode')
+    updated=copy.deepcopy(crew_roster(ctx))
+    result=abandon_interrupted_mission(updated, verified_game_closed=verified_game_closed)
+    if updated!=state(ctx)['crew_roster']:
+        state(ctx)['crew_roster']=updated
+        _persist_state(ctx)
+    return result
+
+
+def crew_begin_tracked_mission(ctx: Any, mission_id: int) -> list[dict[str, Any]]:
+    """Stage a roster manifest without physically deploying or removing units."""
+    from . import crew_challenge, crew_bridge
+    from .crew_catalog import preview_catalog
+    if not crew_mode(ctx):
+        raise ValueError('Crew bridge is only available in Crew')
+    replacement=copy.deepcopy(crew_roster(ctx))
+    crew_challenge.begin_mission(replacement,mission_id)
+    races=tuple(str(r).casefold() for r in ctx.slay_config.get('races',['terran']))
+    instructions=crew_bridge.manifest(replacement,mission_id,preview_catalog(races))
+    state(ctx)['crew_roster']=replacement
+    _persist_state(ctx)
+    return instructions
+
+
+def crew_ensure_mission_staged(ctx: Any, mission_id: int) -> None:
+    """Stage only the actual Crew SC2 mission, once, before the bot sends config.
+
+    Choosing a mission in the GUI is not mission launch: the player must still
+    be able to purchase/rearrange Crew copies until the SC2 session opens.
+    A reconnect to the same mission preserves its deployment transaction,
+    while a different mission cannot silently replace unresolved members.
+    """
+    if not crew_mode(ctx):
+        return
+    if not state_ready(ctx):
+        raise RuntimeError('Crew roster cannot launch before run state is ready')
+    roster=crew_roster(ctx)
+    active=roster.get('active_mission')
+    if active is not None:
+        if active.get('mission_id')!=int(mission_id):
+            # A newly launched SC2 mission is a distinct game. Stale tags
+            # from an abandoned mission cannot authorize its production.
+            crew_abandon_interrupted_session(ctx)
+        else:
+            return
+    if str(int(mission_id)) in roster.get('settled_missions',{}):
+        raise RuntimeError('Crew mission was already settled')
+    crew_begin_tracked_mission(ctx,int(mission_id))
+
+
+def crew_receive_deployment(ctx: Any, mission_id: int, *, copy_id: str,
+                            tag: int, observed_name: str, observed_owner: int,
+                            player_id: int, provenance: str) -> bool:
+    """The future trusted SC2 adapter must provide every receipt explicitly."""
+    from .crew_bridge import copy_and_apply, observe_receipt
+    if not crew_mode(ctx):
+        raise ValueError('Not in Crew')
+    updated, accepted=copy_and_apply(crew_roster(ctx),observe_receipt,mission_id,
+        copy_id=copy_id,tag=tag,observed_name=observed_name,
+        observed_owner=observed_owner,player_id=player_id,provenance=provenance)
+    if accepted:
+        state(ctx)['crew_roster']=updated
+        _persist_state(ctx)
+    return accepted
+
+
+def crew_automatic_deployment_plan(ctx: Any, mission_id: int) -> list[dict[str, Any]]:
+    """Auto-order zone copies: bases/supply/production before owned units.
+
+    Actual spawning and copy consumption still require trusted bank receipts;
+    this method never writes deployed tags or manufactures ownership.
+    """
+    from .crew_auto import automatic_plan
+    from .crew_sc2_adapter import NATIVE_TYPES
+    from .crew_bridge import manifest
+    from .crew_catalog import preview_catalog
+    if not crew_mode(ctx):
+        raise ValueError('Only Crew has automatic deployments')
+    races=tuple(str(x).casefold() for x in ctx.slay_config.get('races',['terran']))
+    rows=manifest(crew_roster(ctx),mission_id,preview_catalog(races))
+    return automatic_plan(rows, NATIVE_TYPES)
+
+
+def crew_initialize_auto_transport(ctx: Any, mission_id: int, player_id: int,
+                                   starting_observations: Any = None) -> int:
+    """Persist one random Crew session token before any chat command is sent.
+
+    Reopening the same active mission reuses its durable token. A new token on
+    a process restart could cause the Galaxy handler to create duplicate units.
+    """
+    import secrets
+    from .crew_runtime import initialize
+    if not crew_mode(ctx):
+        raise ValueError('Only Crew may initialize auto deployment')
+    replacement=copy.deepcopy(crew_roster(ctx))
+    mission=replacement.get('active_mission')
+    if not isinstance(mission,dict) or mission.get('mission_id')!=mission_id:
+        raise ValueError('Crew mission must be staged before deploying')
+    previous=mission.get('auto_transport')
+    token=previous['token'] if previous is not None else secrets.randbelow(2**31-1)+1
+    initialize(replacement,mission_id,token=token,player_id=player_id,
+               starting_observations=starting_observations)
+    if previous is None:
+        state(ctx)['crew_roster']=replacement
+        _persist_state(ctx)
+    return token
+
+
+def crew_activate_direct_session(ctx: Any, mission_id: int,
+                                 token: int, player_id: int) -> bool:
+    """Release Reserves after a matching Galaxy Ready bank acknowledgment.
+
+    No native KEEP/REMOVE batch, automatic unit spawning or fake ownership.
+    On-field identity remains receipt-only and map-provided assets are free,
+    temporary, and never placed in the permanent roster automatically.
+    """
+    if not crew_mode(ctx):
+        raise ValueError('Crew direct session requires Crew mode')
+    ledger=crew_roster(ctx)
+    active=ledger.get('active_mission')
+    if not isinstance(active,dict) or active.get('mission_id')!=mission_id:
+        raise ValueError('Crew direct session mission mismatch')
+    session=active.get('auto_transport')
+    if (not isinstance(session,dict) or session.get('token')!=token or
+        session.get('player_id')!=player_id):
+        raise ValueError('Crew direct session bank token/owner mismatch')
+    if session.get('ended'):
+        return False
+    updated=copy.deepcopy(ledger)
+    direct=updated['active_mission']['auto_transport']
+    direct['ended']=True
+    direct['native_done']=True
+    direct['native_plan']=[]
+    direct['native_pending']=None
+    direct['end_requested']=False
+    direct['pending']=None
+    state(ctx)['crew_roster']=updated
+    _persist_state(ctx)
+    return True
+
+
+def crew_propose_auto_command(ctx: Any, mission_id: int, *,
+                              bank_status: Any, observations: Any,
+                              base_established: bool, home_tag: int,
+                              available_prerequisites: Any = (),
+                              in_progress_prerequisites: Any = ()) -> str | None:
+    """Persist intent to deploy BEFORE the client sends the resulting chat.
+
+    This intentionally takes verified observations and a parsed SC2 bank
+    status, not guessed unit types from the roster.
+    """
+    from .crew_runtime import propose
+    if not crew_mode(ctx):
+        raise ValueError('Only Crew may issue auto deployments')
+    from .crew_catalog import preview_catalog
+    races=tuple(str(r).casefold() for r in ctx.slay_config.get('races',['terran']))
+    current=crew_roster(ctx)
+    updated,command=propose(current,mission_id,preview_catalog(races),
+        bank=bank_status,observations=observations,base_established=base_established,
+        home_tag=home_tag,available_prerequisites=available_prerequisites,
+        in_progress_prerequisites=in_progress_prerequisites)
+    if updated != current:
+        state(ctx)['crew_roster']=updated
+        _persist_state(ctx)
+    return command
+
+
+def crew_accept_auto_bank_receipt(ctx: Any, mission_id: int, *,
+                                  receipt: Any, observations: Any) -> str:
+    """Bind a bank-verified tag durably before emitting a Galaxy ACK."""
+    from .crew_runtime import accept
+    if not crew_mode(ctx):
+        raise ValueError('Only Crew may accept auto deployment')
+    updated,ack=accept(crew_roster(ctx),mission_id,
+        receipt=receipt,observations=observations)
+    state(ctx)['crew_roster']=updated
+    _persist_state(ctx)
+    return ack
+
+
+def crew_accept_auto_skip(ctx: Any, mission_id: int, *,
+                          sequence: int, bank_status: Any) -> str:
+    """Durably skip an SC2-confirmed unplaceable copy without spending it."""
+    from .crew_runtime import accept_skip
+    if not crew_mode(ctx):
+        raise ValueError('Only Crew may skip placements')
+    updated,ack=accept_skip(crew_roster(ctx),mission_id,
+                            sequence=sequence,bank=bank_status)
+    state(ctx)['crew_roster']=updated
+    _persist_state(ctx)
+    return ack
+
+
+def crew_accept_native_bank_receipt(ctx: Any, mission_id: int, *,
+                                    receipt: Any, observations: Any) -> str:
+    """Commit the post-base native keep/removal result before native ACK."""
+    from .crew_runtime import accept_native
+    if not crew_mode(ctx):raise ValueError('Not in Crew')
+    updated,ack=accept_native(crew_roster(ctx),mission_id,
+                              receipt=receipt,observations=observations)
+    state(ctx)['crew_roster']=updated
+    _persist_state(ctx)
+    return ack
+
+
+def crew_propose_batch_command(ctx: Any, mission_id: int, *, bank_status: Any,
+                               observations: Any,
+                               available_prerequisites: Any = ()) -> str | None:
+    """Durably stage an entire Crew native/spawn chunk before chat dispatch."""
+    if not crew_mode(ctx):raise ValueError('Only Crew can batch deploy')
+    from .crew_batch import step
+    current=crew_roster(ctx)
+    rows=crew_automatic_deployment_plan(ctx,mission_id)
+    updated,command=step(current,mission_id,bank=bank_status,
+                         observations=observations,catalog_rows=rows,
+                         ready_prerequisites=available_prerequisites)
+    if updated!=current:
+        state(ctx)['crew_roster']=updated
+        _persist_state(ctx)
+    return command
+
+
+def crew_receive_unit_observation(ctx: Any, mission_id: int, *, tag: int,
+                                  observed_name: str, owner: int, player_id: int,
+                                  alive: bool, kills: int=0) -> bool:
+    from .crew_bridge import copy_and_apply, record_observation
+    if not crew_mode(ctx):
+        raise ValueError('Not in Crew')
+    updated, accepted=copy_and_apply(crew_roster(ctx),record_observation,mission_id,
+        tag=tag,observed_name=observed_name,owner=owner,
+        player_id=player_id,alive=alive,kills=kills)
+    if accepted:
+        state(ctx)['crew_roster']=updated
+        _persist_state(ctx)
+    return accepted
+
+
+def crew_record_live_snapshot(ctx: Any, mission_id: int, *,
+                              observations: Any, player_id: int) -> int:
+    """Persist verified Crew observations without treating missing tags as dead."""
+    from .crew_bridge import copy_and_apply, record_live_snapshot
+    if not crew_mode(ctx):
+        raise ValueError('Not in Crew')
+    old=crew_roster(ctx)
+    updated,count=copy_and_apply(old,record_live_snapshot,mission_id,
+                                  observations=observations,player_id=player_id)
+    if updated!=old:
+        state(ctx)['crew_roster']=updated
+        _persist_state(ctx)
+    return count
+
+
+def crew_record_terminal_snapshot(ctx: Any, mission_id: int, *,
+                                  observations: Any, player_id: int,
+                                  victory_confirmed: bool, complete: bool,
+                                  death_wire_tags=()) -> dict[str,int]:
+    """Commit victory snapshot, cross-checking Galaxy Crew death receipts."""
+    from .crew_bridge import copy_and_apply, record_terminal_snapshot
+    if not crew_mode(ctx):
+        raise ValueError('Not in Crew')
+    updated,outcome=copy_and_apply(crew_roster(ctx),record_terminal_snapshot,
+        mission_id, observations=observations,player_id=player_id,
+        victory_confirmed=victory_confirmed,complete=complete,
+        death_wire_tags=death_wire_tags)
+    state(ctx)['crew_roster']=updated
+    _persist_state(ctx)
+    return outcome
+
+
+def crew_settle_tracked_victory(ctx: Any, mission_id: int, *,
+                               victory_confirmed: bool,
+                               terminal_snapshot_complete: bool) -> dict[str,int]:
+    from .crew_bridge import copy_and_apply, settle_confirmed_victory
+    if not crew_mode(ctx):
+        raise ValueError('Not in Crew')
+    updated, outcome=copy_and_apply(crew_roster(ctx),settle_confirmed_victory,mission_id,
+        victory_confirmed=victory_confirmed,
+        terminal_snapshot_complete=terminal_snapshot_complete)
+    state(ctx)['crew_roster']=updated
+    _persist_state(ctx)
+    crew_charge_confirmed_building_losses(ctx)
+    return outcome
+
+
+def campaign_mode(ctx: Any) -> bool:
+    return enabled(ctx) and str(getattr(ctx, "slay_config", {}).get("game_mode", "adventure")) == "campaign"
+
+
+def _campaign_predecessors(graph: Mapping[int, dict[str, Any]]) -> dict[int, set[int]]:
+    result = {mid: set() for mid in graph}
+    for source, data in graph.items():
+        for dest in data.get("next", []):
+            if dest in result:
+                result[dest].add(source)
+    # A sparse Standard-style map can have optional branches which do not
+    # lead directly to the final. Campaign's final needs ALL of those missions.
+    if graph:
+        final = max(graph, key=lambda mid: int(graph[mid].get("layer", -1)))
+        if int(graph[final].get("layer", -1)) > 0 and not graph[final].get("next", []):
+            result[final] = set(graph) - {final}
+    return result
 
 
 def chosen_path(ctx: Any) -> list[int]:
@@ -3456,6 +4890,12 @@ def _raw_frontier(ctx: Any) -> list[int]:
 
         return []
 
+    if campaign_mode(ctx):
+        graph = nodes(ctx)
+        completed = completed_mission_ids(ctx)
+        predecessors = _campaign_predecessors(graph)
+        return sorted(mid for mid in graph if mid not in completed and predecessors[mid] <= completed)
+
     path = chosen_path(ctx)
 
     if not path:
@@ -3481,7 +4921,7 @@ def _raw_frontier(ctx: Any) -> list[int]:
 
 
 def sync_commit_from_checks(ctx: Any) -> bool:
-    if endless_mode(ctx):
+    if endless_mode(ctx) or campaign_mode(ctx):
         return False
 
 
@@ -3712,6 +5152,25 @@ def _mission_effect_name(ctx: Any, mission_id: int, effect_id: str) -> str:
 
 
 
+def crew_effect_description(effect_id: str, kind: str | None = None) -> str | None:
+    """XLSX Crew-only text, leaving Standard descriptions unchanged."""
+    global _CREW_EFFECT_DESCRIPTIONS
+    try:
+        cache=_CREW_EFFECT_DESCRIPTIONS
+    except NameError:
+        try:
+            _CREW_EFFECT_DESCRIPTIONS=json.loads(Path(__file__).with_name('crew_effects.json').read_text('utf8'))
+        except (OSError,ValueError):
+            _CREW_EFFECT_DESCRIPTIONS={}
+        cache=_CREW_EFFECT_DESCRIPTIONS
+    kinds=(kind,) if kind in ('mutation','blessing') else ('mutation','blessing')
+    for k in kinds:
+        row=cache.get(k,{}).get(effect_id)
+        if isinstance(row,dict) and row.get('description'):
+            return str(row['description'])
+    return None
+
+
 def _mission_effect_description(ctx: Any, mission_id: int, effect_id: str) -> str:
 
     if effect_id == "general":
@@ -3720,9 +5179,19 @@ def _mission_effect_description(ctx: Any, mission_id: int, effect_id: str) -> st
 
         if idx >= 0:
 
-            return f"You gain {COMMANDER_HERO_NAMES[idx]}. They respawn 60 seconds after dying."
+            return (f"You gain {COMMANDER_HERO_NAMES[idx]}. They do not respawn." if crew_mode(ctx)
+                    else f"You gain {COMMANDER_HERO_NAMES[idx]}. They respawn 60 seconds after dying.")
 
-    return EFFECT_DESCRIPTIONS.get(effect_id, "")
+    original=EFFECT_DESCRIPTIONS.get(effect_id, "")
+    if crew_mode(ctx):
+        m=node(ctx,mission_id) or {}
+        effect_kind=('blessing' if effect_id in (m.get('blessings') or ())
+                     else 'mutation')
+        override=crew_effect_description(effect_id,effect_kind)
+        if override:return override
+    if crew_mode(ctx) and effect_id=="miras_mercenaries":
+        return original.rstrip(". ") + " for this mission only."
+    return original
 
 
 
@@ -3750,6 +5219,11 @@ def node_status(ctx: Any, mission_id: int) -> str:
         return "completed"
 
     frontier = current_frontier(ctx)
+    if campaign_mode(ctx):
+        if mission_id in frontier:
+            selected = state(ctx).get("chosen", [])
+            return "selected" if selected and int(selected[-1]) == mission_id else "available"
+        return "future"
 
     path = chosen_path(ctx)
 
@@ -4250,6 +5724,19 @@ def commit_mission(ctx: Any, mission_id: int) -> bool:
         return False
 
     _arm_godmode_for_mission(ctx, mission_id)
+    if campaign_mode(ctx):
+        s = state(ctx)
+        fresh = not s.get("chosen") or int(s["chosen"][-1]) != mission_id
+        if fresh:
+            if int(s.get("saving_grace_charges", 0)) > 0 and str(mission_id) not in s.get("temporary_blessings", {}):
+                _assign_saving_grace(ctx, mission_id)
+            if int(state(ctx).get("risky_investment_charges", 0)) > 0:
+                _assign_risky_investment(ctx, mission_id)
+            _consume_test_overrides_for_mission(ctx, mission_id)
+        state(ctx)["chosen"] = [mission_id]
+        _persist_state(ctx)
+        _consume_auto_victory_for_mission(ctx, mission_id)
+        return True
 
     s = state(ctx)
 
@@ -4374,7 +5861,7 @@ CRUCIBLE_ENEMY_STRUCTURE_MUTATIONS = frozenset({
     "true_golden_armada", "tower_defense", "heroes_of_the_storm",
     "viking_raids", "drop_pods", "dark_templar", "another_gorgon_mutation",
     "taldarim_reinforcements", "zagaras_banelings", "dehakas_pack",
-    "torrasque", "marauder_kill_teams", "tosh_and_his_boys",
+    "torrasque", "marauder_kill_teams", "tosh_and_his_boys", "jetpacks",
     "brakk_primal_army", "odin_delayed_assault", "hellion_run_by",
     "diamondback_wanderers", "raynors_raiders", "leviathan_outside_base",
     "enemy_spear_of_adun", "combined_raids",
@@ -5043,11 +6530,24 @@ def effect_masks_for_mission(ctx: Any, mission_id: int) -> tuple[int, int, int, 
 
         bank, bit = bank_bit
 
+        if bank >= 6: continue  # v1.2.1 extras are carried by mask G
         masks[bank] |= bit
 
     return masks[0], masks[1], masks[2], masks[3], masks[4], masks[5]
 
 
+
+
+def extra_boon_mask_for_mission(ctx: Any, mission_id: int) -> int:
+    """Trailing ?APRogue mask G. Keeps existing six-bank wire format stable."""
+    if not enabled(ctx) or node(ctx, int(mission_id)) is None:
+        return 0
+    mask = 0
+    for effect in _effective_mutations(ctx, mission_id) + _effective_blessings(ctx, mission_id) + _permanent_boon_effects(ctx):
+        bank_bit = EFFECT_BANK_BITS.get(str(effect))
+        if bank_bit is not None and bank_bit[0] == 6:
+            mask |= bank_bit[1]
+    return mask
 
 
 
@@ -5405,12 +6905,24 @@ def _is_credit_replacement_location(ctx: Any, location_id: int) -> bool:
 
 
 
+    if crew_mode(ctx):
+        reward = _crew_mission_reward_plan(ctx).get(location_id)
+        return reward is not None and reward['kind']=='credits'
     if location_id not in _ordinary_mission_location_ids(ctx):
 
         return False
 
     seed = str(getattr(ctx, "slay_config", {}).get("run_seed", 0))
-
+    if campaign_mode(ctx):
+        mapping = getattr(ctx, "mission_id_to_location_ids", {})
+        signature = (seed, id(mapping), len(mapping), sum(len(v) for v in mapping.values()))
+        if getattr(ctx, "_campaign_credit_signature", None) != signature:
+            locations = _ordinary_mission_location_ids(ctx)
+            ordered = sorted(locations, key=lambda loc: hashlib.sha256(
+                f"{seed}:campaign-credit-location:{loc}".encode()).digest())
+            ctx._campaign_credit_ids = frozenset(ordered[:(2 * len(ordered)) // 3])
+            ctx._campaign_credit_signature = signature
+        return location_id in ctx._campaign_credit_ids
     digest = hashlib.sha256(f"{seed}:50-credit-location:{location_id}".encode()).digest()
 
     return digest[0] < 128
@@ -5495,6 +7007,16 @@ def _sync_launcher_manifest_credits(ctx: Any, balance: int) -> None:
 
 
 
+def crew_effective_victory_reward(ctx: Any, data: Mapping[str, Any]) -> int:
+    """Credit reward after Crew-only mission balance modifiers, UI and ledger."""
+    amount=max(0,int(data.get('credit_reward',0)))
+    if crew_mode(ctx):
+        amount //= 2  # Dev81: Crew victory credits are half the prior Crew reward.
+        if _mission_base_name(str(data.get('mission_name',''))).casefold()=='domination':
+            amount=max(0,amount-200)
+    return amount
+
+
 def credits(ctx: Any) -> int:
 
     if not enabled(ctx):
@@ -5508,14 +7030,18 @@ def credits(ctx: Any) -> int:
     for mission_id, data in nodes(ctx).items():
 
         if mission_id in completed:
-
-            earned += int(data.get("credit_reward", 0))
-
+            earned+=crew_effective_victory_reward(ctx,data)
 
 
 
 
-    earned += item_credit_reward(ctx) * len(_received_credit_replacement_locations(ctx))
+
+    if crew_mode(ctx):
+        reward_plan = _crew_mission_reward_plan(ctx)
+        earned += sum(int(reward_plan[loc]['credits']) for loc in _crew_received_reward_locations(ctx)
+                      if reward_plan[loc]['kind']=='credits')
+    else:
+        earned += item_credit_reward(ctx) * len(_received_credit_replacement_locations(ctx))
 
     if state_ready(ctx): earned += max(0, victory_count(ctx) * int(state(ctx).get("golden_goose_bonus_per_mission", 0)) - int(state(ctx).get("golden_goose_credit_offset", 0)))
 
@@ -5525,7 +7051,9 @@ def credits(ctx: Any) -> int:
 
     test_bonus = int(state(ctx).get("test_credit_bonus", 0)) if state_ready(ctx) else 0
 
-    balance = max(0, earned + test_bonus - int(state(ctx).get("spent", 0)))
+    raw_balance = earned + test_bonus - int(state(ctx).get("spent", 0))
+    # Developer /credits deductions may intentionally put any mode into debt.
+    balance = raw_balance if crew_mode(ctx) or test_bonus < 0 else max(0, raw_balance)
 
     _sync_launcher_manifest_credits(ctx, balance)
 
@@ -7531,6 +9059,52 @@ def shop_sections(ctx: Any, stock: Sequence[str] | None = None) -> list[tuple[st
 
 
 
+def frozen_shop_item(ctx: Any) -> str:
+    if not enabled(ctx) or not state_ready(ctx):
+        return ""
+    return str(state(ctx).get("shop_frozen_item", "") or "")
+
+
+def freeze_shop_item(ctx: Any, item_name: str) -> bool:
+    """One persistent frozen offer, selectable in either shop view."""
+    if not enabled(ctx) or not state_ready(ctx):
+        return False
+    name = str(item_name or "")
+    if ctx is not None and str(getattr(ctx,"slay_config",{}).get("game_mode","adventure")) == "crew":
+        # Crew stocks are counted roster offers, not normal AP unlock entries.
+        if name and name not in ({
+            e['name'] for entries in crew_catalog_offers(ctx).values() for e in entries
+        } | {e['id'] for e in crew_boon_offers(ctx)}):
+            return False
+    elif name and name not in shop_stock(ctx):
+        return False
+    state(ctx)["shop_frozen_item"] = name
+    _persist_state(ctx)
+    return True
+
+
+def _keep_frozen_shop_offer(ctx: Any, stock: Sequence[str]) -> list[str]:
+    """Carry exactly one frozen offer forward without increasing stock size."""
+    result = list(dict.fromkeys(str(item) for item in stock))
+    frozen = frozen_shop_item(ctx)
+    if not frozen or frozen in result:
+        return result
+    # Inventory capacity or current affordability never cancels a freeze.
+    # Only purchasing the frozen item (handled by purchase()) clears it.
+    category = shop_category_for_item(frozen, ctx)
+    for i, candidate in enumerate(result):
+        if candidate != _boon_id("reroll_shop") and shop_category_for_item(candidate, ctx) == category:
+            result[i] = frozen
+            return result
+    # A category may disappear when an item becomes unlocked/rare. Keep the
+    # frozen item at the expense of one non-guaranteed offer, never add a slot.
+    for i, candidate in enumerate(result):
+        if candidate != _boon_id("reroll_shop"):
+            result[i] = frozen
+            break
+    return result
+
+
 def preview_next_shop_reroll(ctx: Any) -> list[str]:
 
 
@@ -7543,7 +9117,7 @@ def preview_next_shop_reroll(ctx: Any) -> list[str]:
 
     current = list(shop_stock(ctx))
 
-    return _roll_shop_stock(
+    return _keep_frozen_shop_offer(ctx, _roll_shop_stock(
 
         ctx,
 
@@ -7553,7 +9127,7 @@ def preview_next_shop_reroll(ctx: Any) -> list[str]:
 
         previous_stock=current,
 
-    )
+    ))
 
 
 
@@ -7795,7 +9369,7 @@ def shop_entry_description(item_name: str) -> str:
 
       "defender":"Your defensive structures gain 50% range and damage",
 
-      "fire_power":"Every time your fiery units kill an enemy, all fiery units gain 10% attack speed for the rest of the mission",
+      "fire_power":"Every time your fiery units kill an enemy, all fiery units gain 2% attack speed for the rest of the mission",
 
       "roachling_mines":"Your spider mines spawn 5 roachlings when they are destroyed",
 
@@ -7957,13 +9531,22 @@ def _boon_candidates(
 
 
 
-    severities = sorted(set(BLESSING_SEVERITY.values()))
+    if crew_mode(ctx):
+        from .crew_challenge import eligible_effect
+        severities = sorted({level for effect,level in BLESSING_SEVERITY.items()
+                            if eligible_effect(effect,'blessing') and effect not in permanent})
+    else:
+        severities = sorted(set(BLESSING_SEVERITY.values()))
 
     affordable_severities = [sev for sev in severities if 250 * sev <= available_credits]
 
     if severities: result.append(_boon_id("random_blessing", str(rng.choice(affordable_severities or severities))))
 
-    unowned = [x for x in BLESSING_SEVERITY if x not in permanent]
+    if crew_mode(ctx):
+        from .crew_challenge import eligible_effect
+        unowned = [x for x in BLESSING_SEVERITY if x not in permanent and eligible_effect(x,'blessing')]
+    else:
+        unowned = [x for x in BLESSING_SEVERITY if x not in permanent]
 
     affordable_specific = [x for x in unowned if 350 * BLESSING_SEVERITY[x] <= available_credits]
 
@@ -8022,7 +9605,7 @@ def _boon_candidates(
 
       ("defender","boon_defender",sum(1 for name in DEFENSIVE_STRUCTURE_ITEMS if name in owned_unlocks) >= 2),
 
-      ("fire_power","boon_fire_power",owns(("Hellion","Firebat","Devil Dog","DevilDog","Hellbat","Colossus","Igniter","Flame","Fire"))),
+      ("fire_power","boon_fire_power",owns(("Hellion","Firebat","Devil Dog","DevilDog","Hellbat","Colossus","Igniter","Flame","Fire","Perdition Turret","PerditionTurret"))),
 
       ("roachling_mines","boon_roachling_mines",owns(("Vulture","Spider Mine"))),
 
@@ -8096,7 +9679,7 @@ def _boon_candidates(
 
       ("deadly_vultures","boon_deadly_vultures",owns(("Vulture",))),
 
-      ("immortal_immortals","boon_immortal_immortals",owns(("Immortal",))),
+      ("immortal_immortals","boon_immortal_immortals",owns(("Immortal","Stalwart","Vanguard","Annihilator"))),
 
       ("kill_streak","boon_kill_streak",owns(("Ghost","Spectre"))),
 
@@ -8108,6 +9691,17 @@ def _boon_candidates(
 
       ("purifier_alliance","boon_purifier_alliance",True),
       ("single_use_tools","boon_single_use_tools",True),
+      ("eternal_perdition","boon_eternal_perdition",owns(("Perdition Turret","PerditionTurret"))),
+      ("speedy_buildings","boon_speedy_buildings",True),
+      ("enhanced_allies","boon_enhanced_allies",True),
+      ("explosive_predators","boon_explosive_predators",owns(("Predator",))),
+      ("harvesting_equipment","boon_harvesting_equipment",owns(("HERC","Herc"))),
+      ("refective_diamondbacks","boon_refective_diamondbacks",owns(("Diamondback",))),
+      ("psionic_guardians","boon_psionic_guardians",owns(("Guardian",))),
+      ("improved_morphs","boon_improved_morphs",owns(("Igniter","Ravager","Guardian","Brood Lord","BroodLord","Overseer","Lurker","Impaler","Devourer","Baneling"))),
+      ("psionic_lords","boon_psionic_lords",owns(("Templar","Archon","Sentry","Infestor","Oracle","Ghost","Spectre","Viper","HighTemplar"))),
+      ("unlimited_scarabs","boon_unlimited_scarabs",owns(("Reaver",))),
+      ("armor_disintegration","boon_armor_disintegration",owns(("Void Ray","VoidRay","Destroyer","Pulsar"))),
 
     ]
 
@@ -8480,7 +10074,7 @@ def shop_stock(ctx: Any) -> list[str]:
 
         s["shop_stock_logic_version"] = SHOP_STOCK_LOGIC_VERSION
 
-        s["shop_stock"] = _roll_shop_stock(ctx, cycle)
+        s["shop_stock"] = _keep_frozen_shop_offer(ctx, _roll_shop_stock(ctx, cycle))
 
 
 
@@ -8628,9 +10222,9 @@ def _price_for_item_before_track_discount(item_name: str, ctx: Any | None = None
 
             return _same_shop_50_percent_price(100, reroll_buys)
 
-        fixed_prices = {"shop_expansion":200,"deadly_weapons":800,"auto_repair":500,"rapid_fire":900,"shields_for_all":1000,"heavy_armor":500,"unlimited_blink":500,"interplanetary_fortress":1000,"roach_infestation":400,"chain_reaction":1600,"aiur_recruitment":700,"toxic_observation":500,"cloning_technology":1100,"defender":500,"fire_power":400,"roachling_mines":300,"broodling_evolution":400,"adamantium_blades":900,"enhanced_control":300,"banshee_swarm":400,"enlarged_banelings":500,"viking_anchors":300,"corrosive_claws":600,"unlimited_power":1400,"unstable_colossi":400,"archon_cannons":700,"hyrda_storms":400,"maddening_shades":500,"concussed_shells":400,"missile_defense":400,"stretchy_spines":300,"gargantuan_units":1600,"chaos_blessings":800,"risky_investment":50,"golden_goose":50,
+        fixed_prices = {"shop_expansion":200,"deadly_weapons":800,"auto_repair":500,"rapid_fire":900,"shields_for_all":1000,"heavy_armor":500,"unlimited_blink":500,"interplanetary_fortress":1200,"roach_infestation":400,"chain_reaction":1600,"aiur_recruitment":700,"toxic_observation":500,"cloning_technology":1100,"defender":500,"fire_power":400,"roachling_mines":300,"broodling_evolution":400,"adamantium_blades":900,"enhanced_control":300,"banshee_swarm":400,"enlarged_banelings":500,"viking_anchors":300,"corrosive_claws":600,"unlimited_power":1400,"unstable_colossi":400,"archon_cannons":700,"hyrda_storms":400,"maddening_shades":500,"concussed_shells":400,"missile_defense":400,"stretchy_spines":300,"gargantuan_units":1600,"chaos_blessings":800,"risky_investment":50,"golden_goose":50,
 
-            "energized_queens":400,"goliaths_online":400,"regenerative_aberrations":400,"infantry_reinforcements":600,"acidic_landing_markers":500,"permanent_stimpack":400,"recycled_armor":400,"invasion_fleet":1500,"dead_man_switch":500,"reflective_carapace":400,"cell_division":400,"spine_rifling":500,"guided_shells":500,"zergling_infestation":600,"hyperion":1400,"leviathan":1200,"true_scouts":300,"true_carriers":300,"deadly_vultures":400,"immortal_immortals":700,"kill_streak":400,"hit_and_run":400,"meat_grinder":500,"reaper_blitz":400,"purifier_alliance":1300,"single_use_tools":400}
+            "energized_queens":400,"goliaths_online":400,"regenerative_aberrations":400,"infantry_reinforcements":600,"acidic_landing_markers":500,"permanent_stimpack":400,"recycled_armor":400,"invasion_fleet":1500,"dead_man_switch":500,"reflective_carapace":400,"cell_division":400,"spine_rifling":600,"guided_shells":500,"zergling_infestation":600,"hyperion":1400,"leviathan":1200,"true_scouts":300,"true_carriers":300,"deadly_vultures":400,"immortal_immortals":800,"kill_streak":400,"hit_and_run":400,"meat_grinder":500,"reaper_blitz":400,"purifier_alliance":1300,"single_use_tools":400}
 
         base = fixed_prices.get(kind, 999999)
 
@@ -9541,6 +11135,8 @@ def _reroll_future_nodes(ctx: Any, purchase_index: int) -> int:
         mission_name=_mission_base_name(original.get("mission_name",""))
 
         forbidden_mut={"limited_bank"} if mission_name in {"Devil's Playground","Cutthroat"} else set()
+        if mission_name.strip().casefold() == "the great train robbery":
+            forbidden_mut.add("victory_is_temporary")
 
         if str(mission_name).startswith("Rak'Shir"): forbidden_mut.add("burrowed_zerglings")
 
@@ -9572,9 +11168,18 @@ def _reroll_future_nodes(ctx: Any, purchase_index: int) -> int:
 
 
 
-        require_easy = int(mid) == easy_opening_mid
-
-        attempts = 32 if require_easy else 1
+        require_easy = not campaign_mode(ctx) and int(mid) == easy_opening_mid
+        is_campaign_final = (campaign_mode(ctx) and
+                             int(original.get("layer", 0)) >= int(ctx.slay_config.get("choice_layers", 11)))
+        risk_threshold = (gen.campaign_final_risk_threshold(
+            int(ctx.slay_config.get("choice_layers", 11)),
+            str(ctx.slay_config.get("difficulty", "brutal")),
+            ctx.slay_config.get("mutation_frequency", 1.0),
+            ctx.slay_config.get("blessing_frequency", 1.0)) if is_campaign_final else None)
+        attempts = (256 if is_campaign_final and
+                    gen._frequency_factor(ctx.slay_config.get("mutation_frequency", 1.0)) > 0
+                    else 32 if require_easy else 1)
+        best_final_roll = None
 
         reward = 0
 
@@ -9603,6 +11208,9 @@ def _reroll_future_nodes(ctx: Any, purchase_index: int) -> int:
                 mutation_frequency=ctx.slay_config.get("mutation_frequency", 1.0),
 
                 blessing_frequency=ctx.slay_config.get("blessing_frequency", 1.0),
+                mutation_severity_bonus=(gen.campaign_mutation_severity_bonus(
+                    int(original.get("layer", 0)), int(ctx.slay_config.get("choice_layers", 11)))
+                    if campaign_mode(ctx) else 0),
 
             )
 
@@ -9614,9 +11222,18 @@ def _reroll_future_nodes(ctx: Any, purchase_index: int) -> int:
 
             )
 
-            if not require_easy or reward <= 350:
-
+            if is_campaign_final:
+                score = gen.campaign_final_risk_score(
+                    int(original.get("mission_pool", 0)), int(original.get("layer", 0)), mv, bv)
+                if best_final_roll is None or score > best_final_roll[0]:
+                    best_final_roll = (score, list(muts), list(bless), mv, bv)
+                if score >= risk_threshold:
+                    break
+            elif not require_easy or reward <= 350:
                 break
+
+        if is_campaign_final and best_final_roll is not None:
+            _score, muts, bless, mv, bv = best_final_roll
 
 
 
@@ -9679,6 +11296,7 @@ def _reroll_future_nodes(ctx: Any, purchase_index: int) -> int:
             "credit_reward":reward,"commander_hero_index":int(commander_index),
 
             "commander_hero_name":commander_name,
+            **({"high_risk": True} if is_campaign_final else {}),
 
         }
 
@@ -9853,6 +11471,9 @@ def _purchase_boon(
     if kind=="random_blessing":
 
         sev=int(payload); pool=[x for x,v in BLESSING_SEVERITY.items() if v==sev and x not in s.get("permanent_blessings",[])]
+        if crew_mode(ctx):
+            from .crew_challenge import eligible_effect
+            pool=[x for x in pool if eligible_effect(x,'blessing')]
 
         if not pool: return False,"No unowned blessing of that rarity remains."
 
@@ -9865,6 +11486,10 @@ def _purchase_boon(
 
     elif kind=="permanent_blessing":
 
+        if crew_mode(ctx):
+            from .crew_challenge import eligible_effect
+            if not eligible_effect(payload,'blessing'):
+                return False,'That blessing is not permitted in Crew.'
         if payload in s.get("permanent_blessings",[]): return False,"That permanent blessing is already owned."
 
         s["permanent_blessings"]=list(dict.fromkeys(list(s.get("permanent_blessings",[]))+[payload])); result=f"Permanently gained {EFFECT_DISPLAY_NAMES.get(payload,payload)}."
@@ -9998,6 +11623,7 @@ def _purchase_boon(
 
             )
 
+        s["shop_stock"] = _keep_frozen_shop_offer(ctx, s["shop_stock"])
         s["shop_sale_items"] = []
 
         _roll_shop_sales(ctx)
@@ -10072,6 +11698,8 @@ def _purchase_boon(
 
     s["spent"]=int(s.get("spent",0))+price
 
+    if s.get("shop_frozen_item") == item_name:
+        s["shop_frozen_item"] = ""
     _persist_state(ctx); return True,result
 
 
@@ -10200,7 +11828,7 @@ def grant_test_credits(ctx: Any, amount: str | int) -> tuple[bool, str]:
 
     if not raw:
 
-        return False, "Usage: /credits <positive amount>"
+        return False, "Usage: /credits <signed amount>"
 
     try:
 
@@ -10208,17 +11836,17 @@ def grant_test_credits(ctx: Any, amount: str | int) -> tuple[bool, str]:
 
     except ValueError:
 
-        return False, "Usage: /credits <positive amount>"
+        return False, "Usage: /credits <signed amount>"
 
-    if grant <= 0:
+    if grant == 0:
 
-        return False, "Credit grant must be a positive integer."
-
-
+        return False, "Credit adjustment must be a nonzero integer."
 
 
 
-    grant = min(grant, 1_000_000_000)
+
+
+    grant = max(-1_000_000_000, min(grant, 1_000_000_000))
 
     s = state(ctx)
 
@@ -10226,7 +11854,7 @@ def grant_test_credits(ctx: Any, amount: str | int) -> tuple[bool, str]:
 
     _persist_state(ctx)
 
-    return True, f"TEST CREDITS: +{grant}. Balance: {credits(ctx)}."
+    return True, f"TEST CREDITS: {grant:+d}. Balance: {credits(ctx)}."
 
 
 
@@ -10385,6 +12013,8 @@ def purchase(
             list(s.get("shop_potions_bought", ())) + [item_name]
         ))
         s["spent"] = int(s.get("spent", 0)) + price
+        if s.get("shop_frozen_item") == item_name:
+            s["shop_frozen_item"] = ""
         _persist_state(ctx)
         return True, f"Purchased {POTION_CATALOG[item_name]['name']} for {price} credits ({len(slots)+1}/2 consumable slots)."
 
@@ -10430,13 +12060,14 @@ def purchase(
 
         s["shop_stock_logic_version"] = SHOP_STOCK_LOGIC_VERSION
 
-        s["shop_stock"] = _stock_after_progression_unlock(ctx, item_name, current_stock)
+        s["shop_stock"] = _keep_frozen_shop_offer(ctx, _stock_after_progression_unlock(ctx, item_name, current_stock))
 
     if item_name == KERRIGAN_UNLOCK:
 
         _normalize_kerrigan_context(ctx)
 
-
+    if s.get("shop_frozen_item") == item_name:
+        s["shop_frozen_item"] = ""
 
     _persist_state(ctx)
 
@@ -10647,9 +12278,44 @@ def _is_stackable_progressive_item(item_name: str) -> bool:
 
 
 
+def _campaign_allowed_item_reward(name: str, table: Mapping[str, Any]) -> bool:
+    data = table.get(name)
+    if data is None or getattr(data, "code", None) is None:
+        return False
+    if _is_deprecated_item(name, data) or _is_nova_campaign_item(name, data):
+        return False
+    if _is_royal_guard_item(name, data, table) or _is_shop_only_reward_item(name, data):
+        return False
+    type_name = str(getattr(getattr(data, "type", None), "display_name", ""))
+    if _is_unit_or_morph_unlock_type(type_name):
+        return True
+    if _is_unit_specific_upgrade(name, table):
+        return False
+    if _is_general_upgrade_item(name):
+        return True
+    category = _mission_reward_category(name, data)
+    return (_is_explicit_race_global_upgrade(name)
+            or (category.startswith("race-general:") and "upgrade" in type_name.lower()))
+
+
+def _campaign_allowed_reward_pool(ctx: Any, owned: set[str], table: Mapping[str, Any]) -> list[str]:
+    names = list(dict.fromkeys(list(ctx.slay_config.get("shop_pool", [])) + shop_candidates(ctx)))
+    pool = [name for name in names if name not in owned and _campaign_allowed_item_reward(name, table)
+            and not _unit_upgrade_requires_locked_unit(ctx, name)]
+    # The shop pool may eventually run out after many campaign item rewards.
+    # Fall back to the AP item table rather than silently grant an invalid item.
+    if not pool:
+        pool = [name for name in table if name not in owned and _campaign_allowed_item_reward(name, table)
+                and not _unit_upgrade_requires_locked_unit(ctx, name)]
+    return pool
+
+
 def sync_duplicate_item_replacements(ctx: Any) -> None:
 
     if not enabled(ctx) or not state_ready(ctx): return
+    if crew_mode(ctx):
+        crew_sync_item_grants(ctx)
+        return
 
     table=_item_table(); by_code={d.code:n for n,d in table.items() if d.code is not None}; s=state(ctx)
 
@@ -10686,6 +12352,26 @@ def sync_duplicate_item_replacements(ctx: Any) -> None:
         data=table.get(original)
 
         key=str(loc)
+
+        if campaign_mode(ctx) and not _campaign_allowed_item_reward(original, table):
+            existing = replacements.get(key)
+            if existing and _campaign_allowed_item_reward(str(existing), table):
+                owned.add(str(existing))
+                continue
+            pool = _campaign_allowed_reward_pool(ctx, owned, table)
+            if pool:
+                seed = int.from_bytes(hashlib.sha256(
+                    f"{ctx.slay_config.get('run_seed', 0)}:campaign-item:{loc}".encode()
+                ).digest()[:8], "big")
+                replacement = random.Random(seed).choice(pool)
+                replacements[key] = replacement
+                owned.add(replacement)
+                if key not in announced:
+                    message = f"Campaign reward: obtained {replacement} instead of {original}"
+                    _chat(ctx, message); _game_chat(ctx, message)
+                    announced.add(key)
+                changed = True
+            continue
 
 
 
@@ -10774,6 +12460,8 @@ def sync_duplicate_item_replacements(ctx: Any) -> None:
         if forced_out_of_scope or forced_shop_only or true_unique_duplicate:
 
             pool=_duplicate_pool(ctx,owned,original)
+            if campaign_mode(ctx):
+                pool = [name for name in pool if _campaign_allowed_item_reward(name, table)]
 
             if not pool: continue
 
@@ -10821,12 +12509,16 @@ def augment_network_items(ctx: Any, items: list[NetworkItem], item_list: Mapping
 
 
 
+    crew_reward_locations = _crew_mission_reward_plan(ctx) if crew_mode(ctx) else {}
+    # Crew AP mission checks never directly grant their original AP items.
+    # Only separately bought upgrades (synthetic location=0) are injected.
+    # Filter *all* ordinary location-backed AP items even if a location table
+    # has not arrived yet; otherwise irrelevant generic upgrades leak through.
     items[:] = [
-
         item for item in items
-
-        if not _is_credit_replacement_location(ctx, int(getattr(item, "location", 0)))
-
+        if (int(getattr(item,'location',0)) <= 0 if crew_mode(ctx)
+            else int(getattr(item,'location',0)) not in crew_reward_locations
+            and not _is_credit_replacement_location(ctx,int(getattr(item,'location',0))))
     ]
 
     for i,item in enumerate(list(items)):
@@ -10857,8 +12549,7 @@ def augment_network_items(ctx: Any, items: list[NetworkItem], item_list: Mapping
 
         loc=int(getattr(received,"location",0))
 
-        if _is_credit_replacement_location(ctx, loc):
-
+        if loc in crew_reward_locations or _is_credit_replacement_location(ctx, loc):
             continue
 
         item_name=by_source_code.get(getattr(received,"item",None))
@@ -10888,7 +12579,8 @@ def augment_network_items(ctx: Any, items: list[NetworkItem], item_list: Mapping
 
 
     for item_name,bought_raw in state(ctx).get("purchases",{}).items():
-
+        if crew_mode(ctx) and item_name == 'Bullfrog':
+            continue
         data=item_list.get(item_name)
 
         if data is None or data.code is None: continue
@@ -10908,6 +12600,38 @@ def augment_network_items(ctx: Any, items: list[NetworkItem], item_list: Mapping
 
 
 
+
+    if crew_mode(ctx):
+        # Real Crew shop purchases, mission prizes, and adopted units all
+        # grant the same permanent AP tech unlock. Count each unit name ONCE;
+        # paid copies remain independently tracked by banked unit tags.
+        from .crew_catalog import preview_catalog
+        from .crew_sc2_adapter import NATIVE_TYPES
+        available={row['name'] for row in preview_catalog(('terran','zerg','protoss'))
+                   if row['category']=='unit' and row['name'] in NATIVE_TYPES}
+        roster=crew_roster(ctx)
+        discovered=set(roster.get('discovered_unit_unlocks',()))
+        discovered.update(c['name'] for c in roster.get('copies',())
+                          if c.get('kind')=='unit' and c.get('status')!='lost')
+        for item_name in sorted(discovered & available):
+            data=item_list.get(item_name)
+            if data is None or getattr(data,'code',None) is None:continue
+            if by_code[data.code] == 0:
+                items.append(NetworkItem(data.code,0,0,int(data.classification)))
+                by_code[data.code]+=1
+        # PF is an Archipelago BUILDING item, not a Crew 'unit' unlock.
+        # A paid PF copy grants the native CC->PF button while that copy is
+        # owned; its conversion still spends exactly one stock/receipt.
+        # Do not grant this tech permanently after all copies are destroyed.
+        has_fortress_stock=any(
+            c.get('name')=='Planetary Fortress' and c.get('kind')=='structure'
+            and c.get('status') in ('zone','reserve','deployed')
+            for c in roster.get('copies',()))
+        if has_fortress_stock:
+            pf=item_list.get('Planetary Fortress')
+            if pf is not None and getattr(pf,'code',None) is not None and by_code[pf.code]==0:
+                items.append(NetworkItem(pf.code,0,0,int(pf.classification)))
+                by_code[pf.code]+=1
 
     if int(ctx.slay_config.get("format_version", 0)) < 30:
 
@@ -10987,8 +12711,8 @@ def rewrite_print_json_for_effective_rewards(ctx: Any, args: dict[str, Any]) -> 
 
         return args
 
-    if not _is_credit_replacement_location(ctx, location):
-
+    crew_reward = _crew_mission_reward_plan(ctx).get(location) if crew_mode(ctx) else None
+    if crew_reward is None and not crew_mode(ctx) and not _is_credit_replacement_location(ctx, location):
         return args
 
 
@@ -11029,7 +12753,11 @@ def rewrite_print_json_for_effective_rewards(ctx: Any, args: dict[str, Any]) -> 
 
             part.clear()
 
-            part.update({"text": f"{item_credit_reward(ctx)} Credits", "type": "color", "color": "green"})
+            caption = (f"{crew_reward['credits']} Credits" if crew_reward and crew_reward['kind']=='credits'
+                       else f"{crew_reward['quantity']}x {crew_reward['name']} (Reserves)" if crew_reward
+                       else 'Crew reward (awaiting mission mapping)' if crew_mode(ctx)
+                       else f"{item_credit_reward(ctx)} Credits")
+            part.update({"text": caption, "type": "color", "color": "green"})
 
             break
 
@@ -11041,6 +12769,14 @@ def rewrite_print_json_for_effective_rewards(ctx: Any, args: dict[str, Any]) -> 
 
 def exact_item_for_location(ctx: Any, location_id: int) -> str:
 
+    if crew_mode(ctx):
+        reward = _crew_mission_reward_plan(ctx).get(int(location_id))
+        if reward:
+            return (f"{reward['credits']} Credits" if reward['kind']=='credits'
+                    else f"{reward['quantity']}x {reward['name']} (Reserves)")
+        # Crew never grants the AP scout's original item at this location.
+        # Don't misrepresent a generic AP upgrade as the real Crew reward.
+        return 'Crew reward (awaiting mission mapping)'
     if _is_credit_replacement_location(ctx, int(location_id)):
 
         return f"{item_credit_reward(ctx)} Credits"
@@ -11317,7 +13053,8 @@ def item_reward_markup(item_name: str) -> str:
 
 
 
-    if re.fullmatch(r"\d+ Credits", str(item_name)):
+    if (re.fullmatch(r"\d+ Credits", str(item_name)) or
+            re.fullmatch(r"\d+x .+ \(Reserves\)", str(item_name))):
 
         return f"[color=72E09D]{item_name}[/color]"
 
@@ -11479,7 +13216,7 @@ def mission_tooltip_section(ctx: Any, mission_id: int, remaining_locations: Sequ
 
         f"Layer: {int(data.get('layer', 0)) + 1}",
 
-        f"Victory reward: +{int(data.get('credit_reward', 0))} Credits",
+        f"Victory reward: +{crew_effective_victory_reward(ctx,data)} Credits",
 
     ]
 
@@ -11521,11 +13258,12 @@ def mission_tooltip_section(ctx: Any, mission_id: int, remaining_locations: Sequ
 
     if remaining_locations:
 
-        heading = "Available Archipelago items"
+        heading = "Crew unit and credit rewards" if crew_mode(ctx) else "Available Archipelago items"
 
         if status in {"completed", "abandoned"}:
 
-            heading = "Forfeited items (eligible for shop salvage)"
+            heading = ("Forfeited Crew rewards" if crew_mode(ctx)
+                       else "Forfeited items (eligible for shop salvage)")
 
         lines.append(f"[b]{heading}[/b]")
 
@@ -11620,6 +13358,7 @@ def ui_signature(ctx: Any) -> tuple[Any, ...]:
         int(s.get("shop_cycle", -1)),
 
         tuple(s.get("shop_stock", [])),
+        str(s.get("shop_frozen_item", "")),
         tuple((row["id"], row["serial"]) for row in potion_inventory(ctx)),
 
         tuple(s.get("permanent_blessings", [])),

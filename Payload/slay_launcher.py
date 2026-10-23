@@ -47,7 +47,7 @@ from typing import Any
 
 
 
-PACKAGE_VERSION = "1.2.0"
+PACKAGE_VERSION = "1.2.2"
 
 LAUNCHER_ENV = "SLAY_LAUNCHER_MODE"
 
@@ -70,6 +70,8 @@ GAME_SPEEDS = ("default", "slower", "slow", "normal", "fast", "faster")
 DEFAULT_MUTATION_FREQUENCY_MULTIPLIER = 1.0
 DEFAULT_BLESSING_FREQUENCY_MULTIPLIER = 1.0
 DEFAULT_CAMPAIGN_LENGTH = 12
+DEFAULT_CAMPAIGN_MODE_LENGTH = 9
+DEFAULT_CREW_LENGTH = 12  # Crew default restored; Terran race-swapped missions remain eligible
 MIN_CAMPAIGN_LENGTH = 2
 MAX_CAMPAIGN_LENGTH = 31
 DEFAULT_EXTRA_SHOP_SLOTS = 0
@@ -343,20 +345,25 @@ def _run_streamed(command: list[str], cwd: Path, prefix: str) -> None:
     )
 
     assert proc.stdout is not None
-
+    # Keep diagnostic output available to the UI, rather than showing only
+    # "python.exe ... exited with code 1" for every generator failure.
+    error_tail: list[str] = []
     for raw in proc.stdout:
-
         line = raw.rstrip()
-
         if line:
-
             _server_logger.info("%s %s", prefix, line)
-
+            error_tail.append(line)
+            if len(error_tail) > 24:
+                error_tail.pop(0)
     code = proc.wait()
-
     if code != 0:
-
-        raise RuntimeError(f"{' '.join(command[:2])} exited with code {code}")
+        # The first error line is more useful than the end of a traceback
+        # and fits the Slay popup; full output is still recorded in logs.
+        errors = [line.strip() for line in error_tail if line.lstrip().startswith((
+            "ERROR:", "ERROR generating run:", "ValueError:", "RuntimeError:",
+            "ImportError:", "ModuleNotFoundError:", "TypeError:", "KeyError:"))]
+        detail = errors[0] if errors else (error_tail[-1] if error_tail else "No generator output")
+        raise RuntimeError(f"{' '.join(command[:2])} exited with code {code}: {detail[:1000]}")
 
 
 
@@ -390,7 +397,7 @@ def generate_run(
 
     item_credit_reward: int = DEFAULT_ITEM_CREDIT_REWARD,
 
-    game_speed: str = DEFAULT_GAME_SPEED, campaign_length: int = DEFAULT_CAMPAIGN_LENGTH,
+    game_speed: str = DEFAULT_GAME_SPEED, campaign_length: int | None = None,
     extra_shop_slots: int = DEFAULT_EXTRA_SHOP_SLOTS,
     start_with_spear: bool = DEFAULT_START_WITH_SPEAR,
     start_with_kerrigan: bool = DEFAULT_START_WITH_KERRIGAN,
@@ -400,9 +407,20 @@ def generate_run(
 ) -> tuple[Path, dict[str, Any]]:
 
     selected_races = normalize_races(selected_races)
+    # Crew MVP supports Terran exclusively regardless of stale UI selections.
+    if game_mode == "crew":
+        selected_races = ("terran",)
 
-    if game_mode != "adventure":
-        raise ValueError("Endless Mode is no longer available. Please generate a Standard Mode run.")
+    if game_mode not in {"adventure", "campaign", "crew"}:
+        raise ValueError("Choose Standard, Campaign, or Crew game mode.")
+    if game_mode == "crew" and (start_with_spear or start_with_kerrigan):
+        raise ValueError("Crew does not include Spear of Adun or Kerrigan")
+    # Crew runs are allowed on the development branch. The bot still requires
+    # a staged Crew mission and verified SC2 receipts before roster changes.
+    # Explicit SLAY_CREW_TEST_MODE=probe remains an optional diagnostic mode.
+    if campaign_length is None:
+        campaign_length = (DEFAULT_CAMPAIGN_MODE_LENGTH if game_mode == "campaign"
+                           else DEFAULT_CREW_LENGTH if game_mode == "crew" else DEFAULT_CAMPAIGN_LENGTH)
     if difficulty not in DIFFICULTIES:
 
         raise ValueError(f"Unsupported difficulty: {difficulty}")
@@ -469,6 +487,7 @@ def generate_run(
         "--starting-credits", str(starting_credits),
 
         "--layers", str(int(campaign_length) - 1),
+        "--game-mode", game_mode,
 
         "--mutation-frequency-multiplier", str(float(mutation_frequency)),
 
@@ -504,9 +523,7 @@ def generate_run(
 
     run_data = json.loads(transient_run.read_text(encoding="utf-8"))
 
-    # v1.2.0: Only Standard Mode may be generated. Legacy Endless saves
-    # can still be loaded without overwriting their existing mode metadata.
-    run_data["game_mode"] = "adventure"
+    run_data["game_mode"] = game_mode
     transient_run.write_text(json.dumps(run_data, indent=2), encoding="utf-8")
 
     run_id = str(run_data.get("run_id", "")).strip()
@@ -1091,39 +1108,55 @@ def install_launcher_tab(manager: Any) -> None:
 
     )
 
-    instructions = Label(
-
-        text=(
-
-            "The default settings are intended for players who are familiar with the starcraft 2 campaigns and can beat "
-
-            "them on Brutal difficulty relatively easily. This will provide a challenging playthrough and a significant "
-
-            "chance of needing to restart entirely if too many mistakes are made, but still leave room for experimenting "
-
-            "with different strategies and strange unit combinations. It will likely take you multiple attempts before "
-
-            "beating your first SlayTheStarcraft campaign. This is the intended experience.\n\n"
-
-            "If you are not comfortable playing the default campaigns on Brutal difficulty, or do not want the challenge "
-
-            "described above, then it is recommended to try on a reduced gameplay difficulty before tweaking other settings.\n\n"
-
-            "When you are satisfied with your settings, click “Generate Run”. It will automatically save as you play, and "
-
-            "when you open up this launcher again you can click “Load Existing Run” to resume your progress from any of your "
-
-            "existing runs. To delete runs, delete their corresponding “Runs” folder."
-
-        ),
-
-        font_size="18sp", halign="left", valign="top",
-
+    standard_description = (
+        "The default settings are intended for players who are familiar with the StarCraft 2 campaigns and can beat "
+        "them on Brutal difficulty relatively easily. This will provide a challenging playthrough and a significant "
+        "chance of needing to restart entirely if too many mistakes are made, but still leave room for experimenting "
+        "with different strategies and strange unit combinations. It will likely take you multiple attempts before "
+        "beating your first Slay the StarCraft campaign. This is the intended experience.\n\n"
+        "If you are not comfortable playing the default campaigns on Brutal difficulty, or do not want the challenge "
+        "described above, then it is recommended to try on a reduced gameplay difficulty before tweaking other settings."
+    )
+    campaign_description = (
+        "You will follow a Wings of Liberty style mission progression where you always have a few missions available "
+        "to you, but all missions will need to eventually be completed before the final mission is available. Your "
+        "progression will be slower and more methodical and complete failure is less likely because you will usually "
+        "have the option to postpone a tough mission until you unlock new units. However, it is still possible for "
+        "a campaign to become unwinnable due to poor decisions combined with bad luck."
+    )
+    crew_description = (
+        "You play as a Terran mercenary crew on a tight budget. Instead of buying structures and units with minerals "
+        "and gas, you buy them with credits. Rebuilding will be difficult, however your units and structures have "
+        "double hit points and there are fewer mutations overall. Keep your units and structures safe because any "
+        "units you still have at the end of your mission will carry over to the next one.\n\n"
+        "Your workers build structures instantly for free as long as you own that structure in your reserves. "
+        "Your production structures produce units instantly and for free as long as you have that unit available "
+        "in reserves.\n\n"
+        "Structures that are given to you for free at the start of each mission do not carry over from mission "
+        "to mission. However, you are responsible for paying for them if they are destroyed.\n\n"
+        "This game mode is not recommended for those who are unfamiliar with SlayTheStarCraft to avoid losing "
+        "your entire army from unknown interactions."
+    )
+    instruction_footer = (
+        "When you are satisfied with your settings, click “Generate Run”. It will automatically save as you play, "
+        "and when you open up this launcher again you can click “Load Existing Run” to resume your progress from any "
+        "of your existing runs. To delete runs, delete their corresponding “Runs” folder."
     )
 
-    instructions.bind(size=lambda inst, value: setattr(inst, "text_size", (value[0], None)))
+    from kivy.uix.scrollview import ScrollView
+    # Longer mode descriptions must be readable without covering the settings controls.
+    # Keep the existing 300dp panel and allow its contents to scroll vertically.
+    instruction_scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
+    instructions = Label(
+        text="[b]Standard Mode[/b]\n\n" + standard_description + "\n\n" + instruction_footer,
+        markup=True, font_size="18sp", halign="left", valign="top", size_hint_y=None,
+    )
 
-    instruction_shell.add_widget(instructions)
+    instructions.bind(width=lambda inst, width: setattr(inst, "text_size", (width, None)))
+    instructions.bind(texture_size=lambda inst, size: setattr(inst, "height", max(instruction_scroll.height, size[1] + dp(12))))
+    instruction_scroll.bind(height=lambda inst, height: setattr(instructions, "height", max(height, instructions.texture_size[1] + dp(12))))
+    instruction_scroll.add_widget(instructions)
+    instruction_shell.add_widget(instruction_scroll)
 
     root.add_widget(instruction_shell)
 
@@ -1223,6 +1256,9 @@ def install_launcher_tab(manager: Any) -> None:
         spinner.bind(is_open=lambda _instance, opened: Clock.schedule_once(lambda _dt: sync_option_highlights(), 0) if opened else None)
         return spinner
 
+    mode_button = make_spinner("adventure", {"adventure": "Standard", "campaign": "Campaign (BETA)", "crew": "Crew (BETA)"})
+    mode_button.slay_mode_selector = True  # Used only by the themed description heading.
+
     difficulty_button = make_spinner(DEFAULT_DIFFICULTY, {value: value.title() for value in DIFFICULTIES})
     game_speed_button = make_spinner(DEFAULT_GAME_SPEED, {
         "default": "Default", "slower": "Slower", "slow": "Slow",
@@ -1235,6 +1271,7 @@ def install_launcher_tab(manager: Any) -> None:
     item_credit_input = compact_text_input(text=str(DEFAULT_ITEM_CREDIT_REWARD), multiline=False, input_filter="int")
 
     # Column 1: campaign/gameplay.
+    add_field(0, "Game Mode", mode_button)
     add_field(0, "Gameplay Difficulty", difficulty_button)
     add_field(0, "Game Speed", game_speed_button)
     add_field(0, "Campaign Length\n(changing run length may alter difficulty in unexpected ways)", campaign_length_input)
@@ -1248,6 +1285,40 @@ def install_launcher_tab(manager: Any) -> None:
     add_field(2, "Starting Credits", credits_input)
     add_field(2, "Victory Credit Reward Multiplier", victory_multiplier_input)
     add_field(2, "Item Credit Reward", item_credit_input)
+
+    def adjust_mode_defaults(_spinner: Any, label: str) -> None:
+        mode = {"Campaign (BETA)":"campaign", "Crew (BETA)":"crew"}.get(label,"adventure")
+        mode_descriptions = {
+            "adventure": ("Standard Mode", standard_description),
+            "campaign": ("Campaign (BETA)", campaign_description),
+            "crew": ("Crew (BETA)", crew_description),
+        }
+        heading, description = mode_descriptions[mode]
+        # Literal Standard/Campaign headings remain for existing UI tests.
+        if mode == "campaign":
+            instructions.text = "[b]Campaign (BETA)[/b]\n\n" + campaign_description + "\n\n" + instruction_footer
+        elif mode == "crew":
+            instructions.text = "[b]Crew (BETA)[/b]\n\n" + crew_description + "\n\n" + instruction_footer
+        else:
+            instructions.text = "[b]Standard Mode[/b]\n\n" + standard_description + "\n\n" + instruction_footer
+        start_spear_button.disabled = mode == "crew"
+        start_kerrigan_button.disabled = mode == "crew"
+        if mode == "crew":
+            start_spear_button.text = "No"
+            start_kerrigan_button.text = "No"
+        current = credits_input.text.strip()
+        if current in {"400", "600", "700"}:
+            credits_input.text = "400" if mode == "campaign" else "600" if mode == "crew" else "700"
+        current_length = campaign_length_input.text.strip()
+        # Dev77 shipped an unintended Crew default of 10. Treat it as a
+        # legacy default when switching modes rather than preserving it as
+        # though it were a deliberate custom length.
+        if current_length in {"10", str(DEFAULT_CAMPAIGN_LENGTH), str(DEFAULT_CAMPAIGN_MODE_LENGTH), str(DEFAULT_CREW_LENGTH)}:
+            campaign_length_input.text = str(DEFAULT_CAMPAIGN_MODE_LENGTH if mode == "campaign"
+                                             else DEFAULT_CREW_LENGTH if mode == "crew"
+                                             else DEFAULT_CAMPAIGN_LENGTH)
+
+    mode_button.bind(text=adjust_mode_defaults)
 
     # Column 4: starting progression.
     add_field(3, "Extra Shop Slots", extra_shop_slots_button)
@@ -1265,17 +1336,30 @@ def install_launcher_tab(manager: Any) -> None:
         race_caption = Label(text=value, halign="right", valign="middle", font_size=font)
         race_caption.bind(size=lambda widget, dimensions: setattr(widget, "text_size", dimensions))
         race_labels.add_widget(race_caption)
+        if font == dp(12):
+            race_subcaption = race_caption
     race_row.add_widget(race_labels)
     race_checks = {}
+    race_label_buttons = {}
     for race in DEFAULT_RACES:
         choice = BoxLayout(spacing=dp(2), size_hint_x=None, width=dp(113))
         checkbox = CheckBox(active=True, size_hint_x=None, width=dp(32))
         race_checks[race] = checkbox
         choice.add_widget(checkbox)
         race_label = Button(text=race.title(), background_normal="", background_color=(0, 0, 0, 0))
-        race_label.bind(on_release=lambda _button, check=checkbox: setattr(check, "active", not check.active))
+        race_label_buttons[race] = race_label
+        race_label.bind(on_release=lambda _button, check=checkbox: setattr(check, "active", not check.active) if not check.disabled else None)
         choice.add_widget(race_label)
         race_row.add_widget(choice)
+    def sync_crew_race_defaults(_spinner: Any, label: str) -> None:
+        only_terran = label == "Crew (BETA)"
+        race_subcaption.text = ("(Terran only in Crew (BETA))" if only_terran
+                                else "(Removing races makes the game easier)")
+        for race, checkbox in race_checks.items():
+            checkbox.active = (race == "terran") if only_terran else True
+            checkbox.disabled = only_terran
+            race_label_buttons[race].disabled = only_terran
+    mode_button.bind(text=sync_crew_race_defaults)
     # Insert ABOVE the main settings grid (the race row used to sit between
     # the bottom of that grid and the run-generation controls).
     root.remove_widget(form)
@@ -1460,6 +1544,8 @@ def install_launcher_tab(manager: Any) -> None:
 
     def reset_defaults(*_args: Any) -> None:
 
+        mode_button.text = "Standard"
+        mode_button.slay_value = "adventure"
         credits_input.text = str(DEFAULT_STARTING_CREDITS)
 
         seed_input.text = ""
@@ -1559,7 +1645,7 @@ def install_launcher_tab(manager: Any) -> None:
 
             return
         try:
-            campaign_length = int(campaign_length_input.text.strip() or DEFAULT_CAMPAIGN_LENGTH)
+            campaign_length = int(campaign_length_input.text.strip() or (DEFAULT_CAMPAIGN_MODE_LENGTH if getattr(mode_button, "slay_value", "adventure") == "campaign" else DEFAULT_CREW_LENGTH if getattr(mode_button, "slay_value", "adventure") == "crew" else DEFAULT_CAMPAIGN_LENGTH))
         except ValueError:
             show_error("Campaign Length must be a whole number.")
             return
@@ -1585,7 +1671,8 @@ def install_launcher_tab(manager: Any) -> None:
         game_speed = str(getattr(game_speed_button, "slay_value", DEFAULT_GAME_SPEED))
 
         try:
-            selected_races = normalize_races(tuple(race for race, check in race_checks.items() if check.active))
+            selected_races = (("terran",) if str(getattr(mode_button, "slay_value", "adventure")) == "crew"
+                              else normalize_races(tuple(race for race, check in race_checks.items() if check.active)))
         except ValueError as exc:
             show_error(str(exc))
             return
@@ -1612,6 +1699,7 @@ def install_launcher_tab(manager: Any) -> None:
                     extra_shop_slots=extra_shop_slots, start_with_spear=start_with_spear,
                     start_with_kerrigan=start_with_kerrigan,
                     selected_races=selected_races,
+                    game_mode=str(getattr(mode_button, "slay_value", "adventure")),
 
                 )
 

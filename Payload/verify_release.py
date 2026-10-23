@@ -3,7 +3,7 @@ import argparse, ast, csv, importlib.util, py_compile, sys, xml.etree.ElementTre
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 RELEASE_ROOT=ROOT.parent
-VERSION="1.2.0"
+VERSION="1.2.2"
 
 def load_installer():
     spec=importlib.util.spec_from_file_location("slay_release_installer", ROOT/"install_slay.py")
@@ -464,13 +464,14 @@ def verify_v10211_changes(payload_dir: Path) -> None:
     for token in (
         "MISSION_POOL_TILT_STEEPNESS = 1.8",
         "MISSION_TIER_MUTATION_SEVERITY_PER_TIER = 2.0",
-        "RED_DANGER_MARGIN = 250",
+        "RED_DANGER_MARGIN = 450",
+        "DEV86_12_MISSION_DANGER_MARGIN = 250",
         "mission_tier_mut_shift = (expected_pool - float(mission_pool)) * MISSION_TIER_MUTATION_SEVERITY_PER_TIER",
         "raw_mut_target = max(0, int(round(rng.gauss(",
         "mut_target = max(0, min(20, int(round(raw_mut_target * mut_factor))))",
         "bless_target = max(0, min(12, int(round(raw_bless_target * bless_factor))))",
         "GAMEPLAY_DIFFICULTY_MUTATION_SHIFT = {",
-        "+ RED_DANGER_MARGIN",
+        "def danger_margin(choice_layers: int)",
     ):
         if token not in generator:
             raise RuntimeError(f"Missing v1.0.2.17 mission pacing fix: {token}")
@@ -496,7 +497,7 @@ def verify_v10213_changes(payload_dir: Path) -> None:
     for token in (
         "MISSION_FLAG_LAB_RAT_OPENING = 8192",
         'mission_name.casefold() == "lab rat"',
-        "DANGER_OUTLIER_MARGIN = 250",
+        "DANGER_OUTLIER_MARGIN = 450",
     ):
         if token not in runtime:
             raise RuntimeError(f"Missing v1.0.2.17 Lab Rat runtime flag: {token}")
@@ -662,7 +663,7 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
     installer = (payload_dir / "install_slay.py").read_text(encoding="utf-8")
     for token in (
         "DEFAULT_ROUTE_SCALE=.60",
-        "self.view_mode=getattr(manager,self.view_key,'list')",
+        "self.view_mode='list' if crew else getattr(manager,self.view_key,'list')",
         "SHOP_SECTION_COLUMNS",
         "INVENTORY_SECTION_COLUMNS",
         "SECTION_PALETTE",
@@ -675,7 +676,7 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
         "font_size=dp(21)",
     ):
         if token not in command:
-            raise RuntimeError(f"Missing v1.2.0 UI batch command token: {token}")
+            raise RuntimeError(f"Missing v1.2.1 UI batch command token: {token}")
     # An unsupported Galaxy native breaks APRogue globally: all three races
     # appear broken even if the invalid function would never execute.
     galaxy = (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8")
@@ -696,13 +697,13 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
         raise RuntimeError("Unavailable-mission X still uses the connected polyline with a horizontal segment")
     for token in (
         "sound.volume = 0.04",
-        'text="[b]DIFFICULTY[/b]"',
+        'text="[b]Standard[/b]"',
         '(log_tab, "Console Log")',
         '(manager.slay_mission_tab, "Missions")',
         '(manager.slay_setup_tab, "Settings")',
     ):
         if token not in theme:
-            raise RuntimeError(f"Missing v1.2.0 theme update: {token}")
+            raise RuntimeError(f"Missing v1.2.1 theme update: {token}")
     if "Redfrog" in theme or "ASSEMBLE YOUR ARMY" in theme:
         raise RuntimeError("Removed acknowledgement/splash copy is still present")
     if "sound.volume=.04" not in support:
@@ -713,7 +714,7 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
         'spinner.bind(is_open=',
     ):
         if token not in launcher:
-            raise RuntimeError(f"Missing v1.2.0 settings UI update: {token}")
+            raise RuntimeError(f"Missing v1.2.1 settings UI update: {token}")
     if "def build_mission_table(manager,dt):" not in endless or "cls.build_mission_table=build_mission_table" not in endless:
         raise RuntimeError("Endless mission-table wrapper lost the Kivy-safe function name")
     # Keep randomized blessing/upgrade-pack purchase reveals wired through the native purchase path.

@@ -11,8 +11,8 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 2.0
 $BootstrapScriptPath = $PSCommandPath
 
-$PackageVersion = "1.2.0"
-$RuntimeRevision = "v1.2.0-release"
+$PackageVersion = "1.2.2"
+$RuntimeRevision = "v1.2.2-release"
 $PythonVersion = "3.13.16"
 $PythonArchiveName = "python-$PythonVersion-embed-amd64.zip"
 $PythonUrl = "https://www.python.org/ftp/python/$PythonVersion/$PythonArchiveName"

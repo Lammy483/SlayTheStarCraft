@@ -1,5 +1,4 @@
-; Personal Slay the StarCraft settings. Do not delete when updating Slay.
-; Change Warpgate to your preferred key, e.g. E.
-; Accepted: A-Z, 0-9, F1-F12. Saved between missions and data downloads.
+; Personal Slay the StarCraft settings. Edit only to override your existing Warp Gate hotkey.
+; [Hotkeys] Warpgate=E (example)
+; Allowed: A-Z, 0-9, F1-F12.
 [Hotkeys]
-Warpgate=W

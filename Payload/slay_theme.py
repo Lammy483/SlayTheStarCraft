@@ -1,4 +1,4 @@
-"""English SC2 campaign presentation layer for Slay the StarCraft v1.2.0.
+"""English SC2 campaign presentation layer for Slay the StarCraft v1.2.2.
 
 Ported from Wangfeng's themed launcher while preserving the current launcher
 controls and callbacks. This module only changes presentation/navigation.
@@ -224,6 +224,21 @@ def button(widget):
     widget.font_size = dp(15)
 
 
+def _description_label(container):
+    """Unwrap both pre-Dev85 Label panels and the Dev85 ScrollView panel.
+
+    The themed launcher uses its own right-hand ScrollView.  Never pass the
+    nested ScrollView itself into Label styling: doing so used to raise an
+    AttributeError *after* the original settings page had been cleared.
+    """
+    if isinstance(container, Label):
+        return container
+    for widget in container.walk():
+        if isinstance(widget, Label):
+            return widget
+    return None
+
+
 def _style_setup(manager, container) -> None:
     for widget in container.walk():
         if isinstance(widget, ButtonBehavior):
@@ -250,6 +265,11 @@ def _style_setup(manager, container) -> None:
     if form is None or len(middle) not in (1, 2):
         _theme_log("Setup theme skipped: cannot identify the generator options grid")
         return
+    # Validate the guide widget before touching the live settings layout.
+    brief = _description_label(instructions)
+    if brief is None:
+        _theme_log("Setup theme skipped: description label not found; keeping generator controls")
+        return
 
     root.clear_widgets()
     root.padding = [dp(24), dp(16)]
@@ -257,7 +277,7 @@ def _style_setup(manager, container) -> None:
 
     hero = BoxLayout(orientation="vertical", padding=[dp(30), dp(16)], size_hint_y=None, height=dp(118))
     panel(hero, "ui_screen_mainmenurebrandlow.png", color=(0.62, 0.73, 0.88, 1))
-    title.text = "[b]SLAY THE STARCRAFT[/b]  [size=16]v1.2.0[/size]"
+    title.text = "[b]SLAY THE STARCRAFT[/b]  [size=16]v1.2.2[/size]"
     title.halign = "left"
     title.bind(size=lambda w, v: setattr(w, "text_size", v))
     hero.add_widget(title)
@@ -284,7 +304,7 @@ def _style_setup(manager, container) -> None:
     panel(settings)
     # No redundant Adventure Configuration heading; settings start with the form.
 
-    # Keep the current v1.2.0 launcher controls and callbacks. We only restyle
+    # Keep the current v1.2.2 launcher controls and callbacks. We only restyle
     # and reposition them, including the new playable-race row.
     form.spacing = [dp(18), dp(12)]
     form.height = max(form.height, dp(350))
@@ -339,19 +359,26 @@ def _style_setup(manager, container) -> None:
 
     credits_button.bind(on_release=show_contributors)
     guide.add_widget(credits_button)
-    guide.add_widget(
-        Label(
-            text="[b]DIFFICULTY[/b]",
-            markup=True,
-            color=BLUE,
-            font_size=dp(21),
-            size_hint_y=None,
-            height=dp(32),
-        )
+    # Keep the guide heading in sync with the existing Game Mode selector.
+    # Never rename the selector's internal mode values: saves use those keys.
+    mode_selector = next((w for w in form.walk() if getattr(w, "slay_mode_selector", False)), None)
+    mode_heading = Label(
+        text="[b]Standard[/b]", markup=True, color=BLUE,
+        font_size=dp(21), size_hint_y=None, height=dp(32),
     )
-    brief = instructions.children[0] if getattr(instructions, "children", None) else instructions
-    if brief.parent is instructions:
-        instructions.remove_widget(brief)
+    def sync_mode_heading(_widget=None, new_text=None):
+        label_text = (new_text if new_text is not None else getattr(mode_selector, "text", "Standard"))
+        if label_text not in ("Standard", "Campaign (BETA)", "Crew (BETA)"):
+            label_text = "Standard"
+        mode_heading.text = "[b]" + label_text + "[/b]"
+    if mode_selector is not None:
+        mode_selector.bind(text=sync_mode_heading)
+    sync_mode_heading()
+    guide.add_widget(mode_heading)
+    # Both old unwrapped and Dev85 scrollable description panels lead here.
+    # Transfer only the Label to the theme's existing right-hand ScrollView.
+    if brief.parent is not None:
+        brief.parent.remove_widget(brief)
     brief.font_size = dp(15)
     brief.size_hint_y = None
     brief.bind(texture_size=lambda w, v: setattr(w, "height", v[1] + dp(16)))
@@ -414,7 +441,7 @@ def decorate(manager, container) -> None:
     _install_navigation(manager)
     campaign = manager.slay_mission_tab.content
     panel(campaign, "ui_screens_zeratul_prologue_starfield_generic_diff.png", color=(0.45, 0.6, 0.75, 1), border=False)
-    _theme_log("English v1.2.0 SC2 theme installed")
+    _theme_log("English v1.2.2 SC2 theme installed")
 
 
 def install(module) -> None:
