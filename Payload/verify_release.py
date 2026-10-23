@@ -134,6 +134,45 @@ def check_installer_bundled_preinstall_postchecks(payload_dir: Path) -> None:
         raise RuntimeError(f"Installer source pre-install checks are incomplete: {set(known_source_paths) - found}")
 
 
+def check_installer_optional_warpgate_postcheck(payload_dir: Path) -> None:
+    """Check both hotkey configurations before users download the private runtime.
+
+    No override is the normal release default; an explicit key must still be
+    verified. In v1.2.2 the installer previously required WarpIn=None even
+    though its prepared GameHotkeys.txt correctly had no override.
+    """
+    program = ast.parse((payload_dir / "install_slay.py").read_text(encoding="utf-8"))
+    marker_expression = None
+    for node in ast.walk(program):
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Dict):
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == "post_checks" for target in node.targets):
+            continue
+        for key, value in zip(node.value.keys, node.value.values):
+            if isinstance(key, ast.Name) and key.id == "warpgate_game_hotkeys":
+                marker_expression = value
+                break
+        break
+    if marker_expression is None:
+        raise RuntimeError("Installer optional Warpgate hotkey postcheck is missing")
+    expression = ast.fix_missing_locations(ast.Expression(body=marker_expression))
+    for configured_key in (None, "E"):
+        try:
+            actual = eval(
+                compile(expression, "<warpgate-preinstall-postcheck>", "eval"),
+                {"__builtins__": {}},
+                {"warpgate_key": configured_key},
+            )
+        except Exception as exc:
+            raise RuntimeError(f"Cannot evaluate installer Warpgate marker for {configured_key!r}: {exc}") from exc
+        expected = [] if configured_key is None else [f"UI/Hotkey/WarpIn={configured_key}"]
+        if actual != expected:
+            raise RuntimeError(
+                f"Installer Warpgate postcheck mismatches optional key {configured_key!r}: "
+                f"expected {expected!r}, got {actual!r}"
+            )
+
+
 def check_galaxy_type_identifiers():
     import re
     source = (ROOT / "APRogue.galaxy").read_text(encoding="utf-8")
@@ -148,6 +187,7 @@ def check_payload():
     check_embedded_gui_methods()
     check_installer_galaxy_postchecks(ROOT)
     check_installer_bundled_preinstall_postchecks(ROOT)
+    check_installer_optional_warpgate_postcheck(ROOT)
     verify_v1025_changes(ROOT)
     verify_v1026_changes(ROOT)
     verify_v1027_changes(ROOT)
