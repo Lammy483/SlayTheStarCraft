@@ -11822,8 +11822,14 @@ void APRG_ClampMercenaryCooldownField(int player, string abilityType, string fie
     else if (value < 0.0) {
         // Do not propagate an AP or Slay negative value into SC2's cooldown
         // engine. Preserve a ready-on-start (zero) timer when appropriate.
-        CatalogFieldValueSet(c_gameCatalogAbil, abilityType, field, player,
-                             initialTimer ? "0" : "1");
+        // Galaxy does not implement C's conditional (?:) operator.
+        // Use explicit branches, preserving Fast Delivery's zero start time.
+        if (initialTimer) {
+            CatalogFieldValueSet(c_gameCatalogAbil, abilityType, field, player, "0");
+        }
+        else {
+            CatalogFieldValueSet(c_gameCatalogAbil, abilityType, field, player, "1");
+        }
     }
     else if (value > 0.0 && value < 1.0) {
         CatalogFieldValueSet(c_gameCatalogAbil, abilityType, field, player, "1");
