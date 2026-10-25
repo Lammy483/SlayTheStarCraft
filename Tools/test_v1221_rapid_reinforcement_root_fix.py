@@ -40,7 +40,7 @@ class RapidReinforcementTest(unittest.TestCase):
         body = galaxy_function("APRG_ApplyRepeatContractorCooldowns")
         self.assertIn('g_aprgMercenaryUpgradePacked2 & 1024', body)
         self.assertIn('reduction += 60.0', body)
-        self.assertIn('abilityType == "AP_SummonMercenaries"', body)
+        self.assertIn('if (abilityType == "AP_SummonMercenaries" &&', body)
         self.assertIn('APRG_ReduceActiveMercenaryCooldownOnce(', body)
 
     def test_no_negative_delta_for_active_player_timer(self):
