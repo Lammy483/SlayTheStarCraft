@@ -11856,6 +11856,33 @@ void APRG_ReduceMercenaryCooldownField(int player, string abilityType, string fi
     APRG_ClampMercenaryCooldownField(player, abilityType, field);
 }
 
+// Initial mercenary cooldowns have often been started by AP's own Galaxy
+// code before APRG_ActivateEffects runs. Catalog edits alone do NOT shorten
+// those already-running player-scoped countdowns. Shorten each real cooldown
+// link once, never subtract beyond zero, and leave Fast Delivery's ready (0)
+// links untouched. In particular, no negative PlayerAddCooldown is used.
+void APRG_ReduceActiveMercenaryCooldownOnce(int player, string abilityType, string field, fixed reduction) {
+    string link;
+    string key;
+    fixed remaining;
+    fixed target;
+    if (reduction <= 0.0 || abilityType == "" || field == "") { return; }
+    link = CatalogFieldValueGet(c_gameCatalogAbil, abilityType, field, player);
+    if (link == "") { return; }
+    key = "APRG_MercInitialReduced_" + IntToString(player) + "_" + link;
+    if (DataTableGetBool(true, key)) { return; }
+    DataTableSetBool(true, key, true);
+    remaining = PlayerGetCooldown(player, link);
+    if (remaining <= 0.0) { return; }
+    if (remaining > 1000.0) { target = 10.0; }
+    else { target = MaxF(0.0, remaining - reduction); }
+    // Same reset API as Archipelago's own mercenary cooldown initializer.
+    // Do not use PlayerAddCooldown with a huge negative delta: the engine may
+    // already have wrapped that timer, which would create a second overflow.
+    libNtve_gf_PlayerRemoveCooldown(player, link);
+    if (target > 0.0) { PlayerAddCooldown(player, link, target); }
+}
+
 void APRG_ApplyRepeatContractorCooldowns(int player, int repeatStacks) {
     int count;
     int i;
@@ -11873,19 +11900,33 @@ void APRG_ApplyRepeatContractorCooldowns(int player, int repeatStacks) {
     fixed reduction;
     bool mercAbility;
     bool infoProducesMerc;
+    // The 60s AP Rapid Reinforcement adjustment is Slay-controlled. The
+    // unchecked native AP_RapidReinforcement upgrade is excluded from the AP
+    // calculated item list for Slay only, so even a 30s starting cooldown
+    // cannot underflow inside the engine before the watchdog can run.
+    // Existing Repeat Contractor stacks combine additively and get ONE floor.
     reduction = 30.0 * IntToFixed(MaxI(0, repeatStacks));
+    if ((g_aprgMercenaryUpgradePacked2 & 1024) != 0) { reduction += 60.0; }
 
     count = CatalogEntryCount(c_gameCatalogAbil);
     for (i = 1; i <= count; i += 1) {
         abilityType = CatalogEntryGet(c_gameCatalogAbil, i);
         if (abilityType == "" || !CatalogEntryIsValid(c_gameCatalogAbil, abilityType)) { continue; }
-        mercAbility = APRG_IsMercenaryRecruitAbility(abilityType, player);
+        mercAbility = APRG_IsMercenaryRecruitAbility(abilityType, player) ||
+            abilityType == "AP_SummonMercenaries" || abilityType == "AP_SummonZergMercs";
         if (!mercAbility) { continue; }
         infoCount = CatalogFieldValueCount(c_gameCatalogAbil, abilityType, "InfoArray", player);
         for (infoIndex = 0; infoIndex < infoCount; infoIndex += 1) {
             basePath = "InfoArray[" + IntToString(infoIndex) + "]";
             infoProducesMerc = APRG_MercenaryCommandProducesUnit(abilityType, infoIndex, player);
-            if (!infoProducesMerc) { continue; }
+            if (!infoProducesMerc && abilityType != "AP_SummonMercenaries" &&
+                abilityType != "AP_SummonZergMercs") { continue; }
+            // AP's normal initial PlayerAddCooldown already happened; align
+            // currently active links with the reduced catalog once per link.
+            APRG_ReduceActiveMercenaryCooldownOnce(player, abilityType,
+                basePath + ".Cooldown.Link", reduction);
+            APRG_ReduceActiveMercenaryCooldownOnce(player, abilityType,
+                basePath + ".Cost.Cooldown.Link", reduction);
             APRG_ReduceMercenaryCooldownField(player, abilityType, basePath + ".Cooldown.TimeUse", reduction);
             APRG_ReduceMercenaryCooldownField(player, abilityType, basePath + ".Cooldown.TimeStart", reduction);
             APRG_ReduceMercenaryCooldownField(player, abilityType, basePath + ".Cost.Cooldown.TimeUse", reduction);
@@ -11934,7 +11975,8 @@ void APRG_ClearSuspiciousMercenaryTimerLink(unit structure, int player, string a
     }
     remaining = PlayerGetCooldown(player, link);
     if (remaining > 1000.0) {
-        PlayerAddCooldown(player, link, 10.0 - remaining);
+        libNtve_gf_PlayerRemoveCooldown(player, link);
+        PlayerAddCooldown(player, link, 10.0);
     }
 
     remaining = UnitAbilityGetChargeRegen(structure, abilityType, link);
@@ -11947,7 +11989,8 @@ void APRG_ClearSuspiciousMercenaryTimerLink(unit structure, int player, string a
     }
     remaining = PlayerGetChargeRegen(player, link);
     if (remaining > 1000.0) {
-        PlayerAddChargeRegen(player, link, 10.0 - remaining);
+        libNtve_gf_PlayerRemoveChargeRegen(player, link);
+        PlayerAddChargeRegen(player, link, 10.0);
     }
 }
 
@@ -17585,6 +17628,39 @@ bool APRG_IsZergContractStructureType(string unitType) {
 // structures are inspected; normal unit training and spells are untouched.
 // The tracked progression structures are not exhaustive: native/AP scripts may
 // create or replace their own Compound/Nest actors after initial discovery.
+void APRG_SanitizeKnownAPMercenaryTimers(int player) {
+    string abilityType;
+    string path;
+    string link;
+    int i;
+    int count;
+    fixed remaining;
+    int abilityIndex;
+    for (abilityIndex = 0; abilityIndex < 2; abilityIndex += 1) {
+        abilityType = "AP_SummonMercenaries";
+        if (abilityIndex == 1) { abilityType = "AP_SummonZergMercs"; }
+        if (!CatalogEntryIsValid(c_gameCatalogAbil, abilityType)) { continue; }
+        count = MinI(64, CatalogFieldValueCount(c_gameCatalogAbil, abilityType, "InfoArray", player));
+        for (i = 0; i < count; i += 1) {
+            path = "InfoArray[" + IntToString(i) + "]";
+            APRG_ClampMercenaryCooldownField(player, abilityType, path + ".Cooldown.TimeUse");
+            APRG_ClampMercenaryCooldownField(player, abilityType, path + ".Cooldown.TimeStart");
+            link = CatalogFieldValueGet(c_gameCatalogAbil, abilityType, path + ".Cooldown.Link", player);
+            if (link == "") { continue; }
+            remaining = PlayerGetCooldown(player, link);
+            if (remaining > 1000.0) {
+                libNtve_gf_PlayerRemoveCooldown(player, link);
+                PlayerAddCooldown(player, link, 10.0);
+            }
+            remaining = PlayerGetChargeRegen(player, link);
+            if (remaining > 1000.0) {
+                libNtve_gf_PlayerRemoveChargeRegen(player, link);
+                PlayerAddChargeRegen(player, link, 10.0);
+            }
+        }
+    }
+}
+
 void APRG_SanitizeAllOwnedContractStructureTimers(int player) {
     unitgroup units;
     unit candidate;
@@ -18288,7 +18364,12 @@ void APRG_TickContractStructures(int player) {
             if (life < maximum) { UnitSetPropertyFixed(g_aprgZergContractStructure, c_unitPropLife, MinF(maximum, life + 5.0)); }
         }
     }
-    if (checkMercenaryCooldowns) { APRG_SanitizeAllOwnedContractStructureTimers(player); }
+    if (checkMercenaryCooldowns) {
+        // Check authoritative AP player-wide links even if a compound has not
+        // spawned or AP uses an unusual command card.
+        APRG_SanitizeKnownAPMercenaryTimers(player);
+        APRG_SanitizeAllOwnedContractStructureTimers(player);
+    }
 }
 
 unit APRG_FindSpearCaster(int player) {

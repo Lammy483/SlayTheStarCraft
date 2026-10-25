@@ -6709,6 +6709,16 @@ def mercenary_upgrade_packed2(ctx: Any) -> int:
 
         packed |= stacks << (5 * index)
 
+    # Bit 10 is outside the existing two 5-bit slots (spotters/support crew).
+    # Archipelago's AP_RapidReinforcement CUpgrade subtracts 60 from fourteen
+    # mercenary TimeUse AND TimeStart fields unconditionally.  Underflow occurs
+    # inside the SC2 upgrade engine before Galaxy's watchdog can intervene.
+    # Slay suppresses only that native tech item (in augment_network_items) and
+    # applies its 60s reduction through APRG_ReduceMercenaryCooldownField.
+    # Inventory/shop ownership remains unchanged, including received items.
+    if _logic_owned_item_counts(ctx).get("Rapid Reinforcement (Terran)", 0) > 0:
+        packed |= 1 << 10
+
     return packed
 
 
@@ -12671,8 +12681,16 @@ def augment_network_items(ctx: Any, items: list[NetworkItem], item_list: Mapping
 
             by_code[council_data.code] += 1
 
-
-
+    # Slay-only, no changes to shared AP mod data.  Remove the native upgrade
+    # from the calculated item list AFTER all bought/received items were added:
+    # its SC2 EffectArray performs an unchecked -60 on 14 starting AND reuse
+    # mercenary cooldowns, which can produce negative engine timers.  The same
+    # entitlement is transmitted separately in mercenary_upgrade_packed2 and
+    # applied with a floor in Galaxy.  Keep raw receipts/purchases untouched,
+    # so the shop, inventory, owned item count and AP item rewards are intact.
+    rapid = item_list.get("Rapid Reinforcement (Terran)")
+    if rapid is not None and getattr(rapid, "code", None) is not None:
+        items[:] = [item for item in items if item.item != rapid.code]
 
 
 def rewrite_print_json_for_effective_rewards(ctx: Any, args: dict[str, Any]) -> dict[str, Any]:
