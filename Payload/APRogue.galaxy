@@ -11900,13 +11900,11 @@ void APRG_ApplyRepeatContractorCooldowns(int player, int repeatStacks) {
     fixed reduction;
     bool mercAbility;
     bool infoProducesMerc;
-    // The 60s AP Rapid Reinforcement adjustment is Slay-controlled. The
-    // unchecked native AP_RapidReinforcement upgrade is excluded from the AP
-    // calculated item list for Slay only, so even a 30s starting cooldown
-    // cannot underflow inside the engine before the watchdog can run.
-    // Existing Repeat Contractor stacks combine additively and get ONE floor.
+    // AP Rapid Reinforcement reduces only AP_SummonMercenaries, NOT Zerg's
+    // AP_SummonZergMercs or unrelated mercenary recruit abilities. Slay owns
+    // this reduction to avoid AP's native unchecked 60-second subtraction.
+    // Existing Repeat Contractor applies to all eligible mercenary abilities.
     reduction = 30.0 * IntToFixed(MaxI(0, repeatStacks));
-    if ((g_aprgMercenaryUpgradePacked2 & 1024) != 0) { reduction += 60.0; }
 
     count = CatalogEntryCount(c_gameCatalogAbil);
     for (i = 1; i <= count; i += 1) {
@@ -11915,6 +11913,9 @@ void APRG_ApplyRepeatContractorCooldowns(int player, int repeatStacks) {
         mercAbility = APRG_IsMercenaryRecruitAbility(abilityType, player) ||
             abilityType == "AP_SummonMercenaries" || abilityType == "AP_SummonZergMercs";
         if (!mercAbility) { continue; }
+        reduction = 30.0 * IntToFixed(MaxI(0, repeatStacks));
+        if (abilityType == "AP_SummonMercenaries" &&
+            (g_aprgMercenaryUpgradePacked2 & 1024) != 0) { reduction += 60.0; }
         infoCount = CatalogFieldValueCount(c_gameCatalogAbil, abilityType, "InfoArray", player);
         for (infoIndex = 0; infoIndex < infoCount; infoIndex += 1) {
             basePath = "InfoArray[" + IntToString(infoIndex) + "]";
