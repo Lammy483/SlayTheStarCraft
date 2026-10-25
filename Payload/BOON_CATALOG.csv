@@ -67,3 +67,14 @@ Meat Grinder,"Whenever you train a marine, train 5 additional marines that autom
 Reaper Blitz,Your reapers deal 10x damage to units and structures that are at maximum hit points,400
 Purifier Alliance,"At the 5 minute mark of each mission, the purifier spawns at your base and slowly attacks the enemy and warps in allies",1300
 Single-Use Tools,"Whenever you complete a mission, gain a random consumable item if you have a slot for it",400
+Eternal Perdition,"Perdition turrets gain +2 armor, x2 damage, +2 range, and +200 max hp",400
+Speedy Buildings,Your mobile structures gain +5 movement speed,300
+Enhanced Allies,Your AI-controlled allies gain +50% hit points and damage,600
+Explosive Predators,"When one of your predators dies, all enemies within range 2 of it take 100 damage.",400
+Harvesting Equipment,"When one of your HERCs damage an enemy, gain 5 minerals.",400
+Refective Diamondbacks,Your diamondbacks reflect 100% of incoming damage back to attackers,400
+Psionic Guardians,"When your guardians hit an enemy, they have a 1% chance of them joining your team",400
+Improved morphs,Your zerg units that are morphed from non-larva zerg units gain 50% hit points and damage,600
+Psionic Lords,"When your psionic units attack an enemy, there is a 1% chance of the enemy joining your team",800
+Unlimited Scarabs,Your reavers have unlimited scarabs,500
+Armor Disintegration,"When your void-ray-class units damage an enemy, their armor is reduced to 0 for 1 second",500
