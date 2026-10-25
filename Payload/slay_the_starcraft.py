@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-PACKAGE_VERSION = "1.2.2"
+PACKAGE_VERSION = "1.2.3"
 
 
 
@@ -5893,7 +5893,7 @@ def _mutation_allowed_for_mission(ctx: Any, mission_id: int, effect: str) -> boo
         return False
     if mission_name.casefold() in GORGON_MISSION_EXCLUSIONS and effect == "another_gorgon_mutation":
         return False
-    if mission_name.casefold().startswith("smash and grab") and effect == "nexus_shield":
+    if mission_name.casefold().startswith("smash and grab") and effect in {"nexus_shield", "jetpacks"}:
         return False
     if effect == "point_defense_drones" and bool(data.get("timed_defense", False)):
         return False

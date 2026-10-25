@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "slay_version": "1.2.2",
+  "slay_version": "1.2.3",
   "distribution": "lightweight_on_demand_windows_x64",
   "launcher_present_in_initial_zip": true,
   "heavy_runtime_bundled": false,
@@ -19,5 +19,5 @@
     "raw.githubusercontent.com/eagleflo/mpyq"
   ],
   "release_channel": "stable",
-  "runtime_revision": "v1.2.2-release"
+  "runtime_revision": "v1.2.3-release"
 }

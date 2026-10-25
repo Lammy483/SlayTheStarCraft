@@ -3,7 +3,7 @@ import argparse, ast, csv, importlib.util, py_compile, sys, xml.etree.ElementTre
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 RELEASE_ROOT=ROOT.parent
-VERSION="1.2.2"
+VERSION="1.2.3"
 
 def load_installer():
     spec=importlib.util.spec_from_file_location("slay_release_installer", ROOT/"install_slay.py")
@@ -138,7 +138,7 @@ def check_installer_optional_warpgate_postcheck(payload_dir: Path) -> None:
     """Check both hotkey configurations before users download the private runtime.
 
     No override is the normal release default; an explicit key must still be
-    verified. In v1.2.2 the installer previously required WarpIn=None even
+    verified. In v1.2.3 the installer previously required WarpIn=None even
     though its prepared GameHotkeys.txt correctly had no override.
     """
     program = ast.parse((payload_dir / "install_slay.py").read_text(encoding="utf-8"))
@@ -184,6 +184,13 @@ def check_galaxy_type_identifiers():
 
 def check_payload():
     check_galaxy_type_identifiers()
+    # v1.2.3: verify Smash and Grab exclusions at both selection and live stages.
+    generator_source = (ROOT / "generate_slay_run.py").read_text(encoding="utf-8")
+    live_source = (ROOT / "slay_the_starcraft.py").read_text(encoding="utf-8")
+    if 'forbidden_mutators.update({"nexus_shield", "jetpacks"})' not in generator_source:
+        raise RuntimeError("Generator is missing Smash and Grab Jetpacks exclusion")
+    if 'effect in {"nexus_shield", "jetpacks"}' not in live_source:
+        raise RuntimeError("Live mission rules are missing Smash and Grab Jetpacks exclusion")
     check_embedded_gui_methods()
     check_installer_galaxy_postchecks(ROOT)
     check_installer_bundled_preinstall_postchecks(ROOT)

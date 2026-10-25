@@ -49,7 +49,7 @@ import yaml
 
 FORMAT_VERSION = 39
 
-PACKAGE_VERSION = "1.2.2"
+PACKAGE_VERSION = "1.2.3"
 
 DEFAULT_CHOICE_LAYERS = 11
 DEFAULT_CAMPAIGN_CHOICE_LAYERS = 8
@@ -3412,7 +3412,7 @@ def _effect_exclusions_for_mission(mission: dict[str, Any]) -> tuple[set[str], s
     if mission_short_name.strip().casefold() in GORGON_MISSION_EXCLUSIONS:
         forbidden_mutators.add("another_gorgon_mutation")
     if mission_short_name.strip().casefold().startswith("smash and grab"):
-        forbidden_mutators.add("nexus_shield")
+        forbidden_mutators.update({"nexus_shield", "jetpacks"})
     forbidden_mutators.update(crucible_mutation_exclusions(mission_short_name))
     if mission_short_name.strip().casefold().startswith("templar's charge"):
         forbidden_mutators.add("nydus_worms")

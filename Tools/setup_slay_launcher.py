@@ -30,7 +30,7 @@ from pathlib import Path
 
 
 
-PACKAGE_VERSION = "1.2.2"
+PACKAGE_VERSION = "1.2.3"
 
 PORTABLE_ROOT = Path(__file__).resolve().parents[1]
 

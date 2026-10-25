@@ -1,21 +1,30 @@
-# Slay the StarCraft v1.2.2
+# Slay the StarCraft v1.2.3
 
-Portable Windows release based on the cumulative Dev90 gameplay source.
+Complete Windows release based on the v1.2.2 release and v1.2.2.1 Dev4 development changes.
 
-## Highlights
+## Changes since v1.2.2
 
-- **Standard**, **Campaign (BETA)**, and **Crew (BETA)** modes, including Crew reserves, free deployment, and persistent unit rosters.
-- Outbreak is now a Tier 0 mission; the Standard shop places Boons in its third column.
-- Deadly Vultures uses a native weapon-effect catalog modifier instead of scripted damage.
-- Shared mission and item fixes: Great Train Robbery, Devil’s Playground, Niadra commander, Golden Armada, credits, and more.
-- The original 12-mission high-risk generation balance is preserved; other campaign lengths are normalized.
-- Warp Gate is **not** rebound by default in public builds. Set a `[Hotkeys] Warpgate=E` preference in `Config/slay_preferences.ini` only if desired.
+### Mercenary cooldown correction
+- Prevent the Archipelago **Rapid Reinforcement (Terran)** upgrade from applying its native unchecked 60-second reductions to mercenary starting and repeat cooldowns. Slay applies the equivalent reduction with a safe minimum, including when combined with **Repeat Contractor** stacks.
+- Preserve **Progressive Fast Delivery** and its immediate initial calldowns.
+- Normalize invalid negative cooldown durations and clamp invalid catalog cooldowns over 1,000 seconds to 10 seconds.
+- Expand the live mercenary timer failsafes to player-wide, unit-wide, and ability-level cooldown/charge links; check player-owned Merc Compounds and Predator Nests every three game seconds.
+- Correct Galaxy syntax introduced in the first cooldown-development attempt that prevented missions from loading (the reported three-race error).
+
+### Shop fixes
+- Correct **Enhanced Allies** from an erroneous 999,999-credit placeholder to **600 credits**.
+- Repair the prices and descriptions for all 11 boons introduced in the v1.2.2 release: Eternal Perdition, Speedy Buildings, Enhanced Allies, Explosive Predators, Harvesting Equipment, Refective Diamondbacks, Psionic Guardians, Improved morphs, Psionic Lords, Unlimited Scarabs, and Armor Disintegration.
+
+### Mission compatibility
+- **Jetpacks** mutation can no longer appear on **Smash and Grab**, including race variants. Both initial generation and live mutation eligibility checks enforce this.
 
 ## Installation
+1. Extract the ZIP into a writable folder (do not run it within the ZIP).
+2. Run `SlayTheStarCraft.exe`.
+3. Select **Download Data** when prompted; the launcher installs its private Python/Archipelago runtime and StarCraft II data without a system-wide Python installation.
+4. Launch Slay.
 
-Extract this ZIP into a new writable folder, launch `SlayTheStarCraft.exe`, choose Download Data for the initial runtime, then Launch Slay. Requires StarCraft II; no system-wide Python installation required.
+If upgrading, retain any personal `Config/slay_preferences.ini` preferences and run saves. Campaign and Crew Challenge remain **BETA**.
 
-## Important release notes
-
-- Campaign and Crew are labeled BETA.
-- Source-level and installer tests passed, but the complete v1.2.2 package has not been tested on a fresh Windows installation. Verify native SC2 interactions (especially Deadly Vultures, Niadra, and Crew) before a wide public announcement.
+## Validation status
+The source verifier, focused boon-price and mission-exclusion tests, and Galaxy syntax checks pass. ZIP extraction and integrity were checked. Native Windows launch and live StarCraft II cooldown behavior were **not tested in this environment**; please verify them before wide distribution.
