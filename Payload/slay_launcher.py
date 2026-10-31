@@ -1353,7 +1353,11 @@ def install_launcher_tab(manager: Any) -> None:
         scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
         contents = GridLayout(cols=1, spacing=dp(2), size_hint_y=None)
         contents.bind(minimum_height=contents.setter("height"))
-        for name, checkbox in mission_checks.items():
+        for name, previous_checkbox in list(mission_checks.items()):
+            # Each popup gets fresh widgets: Kivy forbids adding the same
+            # checkbox to a new parent when this dialog is reopened.
+            checkbox = CheckBox(active=previous_checkbox.active, size_hint_x=None, width=dp(42))
+            mission_checks[name] = checkbox
             row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(35))
             row.add_widget(checkbox)
             label = Button(text=name, halign="left", background_normal="",
