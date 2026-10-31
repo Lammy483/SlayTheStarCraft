@@ -115,7 +115,7 @@ Resource Pickups,Blessing,mineral and gas resource pickups scattered around the 
 Hellion Run-by,Mutation,Hellions try to run into your mineral lines,3
 Diamondbacks,Mutation,50 diamondbacks wander all over the place,3
 Leviathan Approaching,Mutation,The Leviathan floats outside your base spawning mutalisks and brood lords,5
-Odin,Mutation,The enemy base has an odin in it. After about 14 minutes it attacks your base.,3
+Odin,Mutation,An enemy Odin waits near an enemy stronghold. After about 14 minutes from base establishment, it attacks your base.,3
 Ultimate Harassment,Mutation,"The enemy sends many wraiths, vikings, and hellions bother you",5
 Brakk's Pack,Mutation,Brakk and a massive primal army awaits on the map. It attacks after about 11 minutes.,5
 Orlan's Planetary Fortress,Mutation,Colonel Orlan has a well-defended Planetary Fortress on the map that gains 1 range every 30 seconds.,4

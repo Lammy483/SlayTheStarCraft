@@ -374,6 +374,7 @@ fixed g_aprgNextDelayedOdinBarrageTime = -1.0;
 fixed g_aprgNextDelayedOdinRetargetTime = -1.0;
 point g_aprgDelayedOdinProgressPoint = null;
 fixed g_aprgDelayedOdinProgressTime = -1.0;
+fixed g_aprgNextDelayedOdinSpawnAttemptTime = -1.0;
 fixed g_aprgCombinedNextWraithTime = -1.0;
 fixed g_aprgCombinedNextVikingTime = -1.0;
 fixed g_aprgCombinedNextHellionTime = -1.0;
@@ -7350,6 +7351,14 @@ string APRG_NiadraHeroType() {
     return "";
 }
 
+// The playable LotV campaign Karax is KaraxChampion. The plain "Karax"
+// name is not the combat CUnit; letting it fall through the commander search
+// can silently spawn a different hero on maps without that catalog entry.
+string APRG_KaraxHeroType() {
+    if (CatalogEntryIsValid(c_gameCatalogUnit, "KaraxChampion")) { return "KaraxChampion"; }
+    return "";
+}
+
 string APRG_HeroCandidate(int index) {
     if (index == 0) { return "RaynorCommando"; }
     if (index == 1) { return ""; }
@@ -7366,8 +7375,8 @@ string APRG_HeroCandidate(int index) {
     if (index == 12) { return APRG_AlarakHeroType(); }
     if (index == 13) { return "Mohandar"; }
     if (index == 14) { return "Selendis"; }
-    if (index == 15) { return "Karax"; }
-    if (index == 16) { return "KaraxChampion"; }
+    if (index == 15) { return APRG_KaraxHeroType(); }
+    if (index == 16) { return APRG_KaraxHeroType(); }
     if (index == 17) { return APRG_ZagaraHeroType(); }
     if (index == 18) { return APRG_ZagaraHeroType(); }
     if (index == 19) { return "Dehaka"; }
@@ -7468,7 +7477,7 @@ string APRG_CommanderFallbackCandidate(int slot) {
     if (slot == 4) { return APRG_AlarakHeroType(); }
     if (slot == 5) { return "Mohandar"; }
     if (slot == 6) { return "Selendis"; }
-    if (slot == 7) { return "Karax"; }
+    if (slot == 7) { return APRG_KaraxHeroType(); }
     if (slot == 8) { return APRG_ZagaraHeroType(); }
     if (slot == 9) { return "Dehaka"; }
     if (slot == 10) { return "Nova"; }
@@ -7514,6 +7523,8 @@ string APRG_FindValidHeroTypeFromIndex(int preferredIndex) {
     // Explicit Artanis rolls must never turn into Urun (or another random
     // fallback) merely because the native Void dependency was not loaded.
     if (preferredIndex == 9) { return APRG_ArtanisHeroType(); }
+    // An explicitly selected Karax must never silently turn into another commander.
+    if (preferredIndex == 15 || preferredIndex == 16) { return APRG_KaraxHeroType(); }
     if (preferredIndex == 33) {
         candidate = APRG_NiadraHeroType();
         if (candidate != "") { return candidate; }
@@ -7606,7 +7617,7 @@ void APRG_GiveGeneralIfReady(int player) {
         if (base == null) { return; }
         p = APRG_FindGroundPointNear(UnitGetPosition(base), 4.0, 9.0);
         if (p == null) { p = UnitGetPosition(base); }
-        if (g_aprgCommanderHeroType == "Nova" || g_aprgCommanderHeroType == "RaynorCommando" || g_aprgCommanderHeroType == "ArtanisVoid" || g_aprgCommanderHeroType == "ZaGara") {
+        if (g_aprgCommanderHeroType == "Nova" || g_aprgCommanderHeroType == "RaynorCommando" || g_aprgCommanderHeroType == "ArtanisVoid" || g_aprgCommanderHeroType == "ZaGara" || g_aprgCommanderHeroType == "KaraxChampion") {
             created = APRG_CreatePlayerUnitsVanillaSafe(1, g_aprgCommanderHeroType, player, p, libNtve_gf_RandomAngle());
         }
         else {
@@ -7651,6 +7662,10 @@ void APRG_GiveGeneralIfReady(int player) {
                 StringToText("Slay: Artanis could not spawn (LotV hero catalog unavailable on this mission).")
             );
         }
+        if (g_aprgCommanderHeroIndex == 15 || g_aprgCommanderHeroIndex == 16) {
+            UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+                StringToText("Slay: Karax could not spawn (LotV KaraxChampion catalog unavailable on this mission)."));
+        }
         if (g_aprgCommanderHeroIndex == 18) {
             UIDisplayMessage(
                 PlayerGroupSingle(player), c_messageAreaChat,
@@ -7660,13 +7675,18 @@ void APRG_GiveGeneralIfReady(int player) {
         g_aprgGeneralGiven = true;
         return;
     }
-    if (heroType == "Nova" || heroType == "RaynorCommando" || heroType == "ArtanisVoid" || heroType == "ZaGara") {
+    if (heroType == "Nova" || heroType == "RaynorCommando" || heroType == "ArtanisVoid" || heroType == "ZaGara" || heroType == "KaraxChampion") {
         created = APRG_CreatePlayerUnitsVanillaSafe(1, heroType, player, p, libNtve_gf_RandomAngle());
     }
     else {
         created = APRG_CreatePlayerUnitsSafe(1, heroType, player, p, libNtve_gf_RandomAngle());
     }
     g_aprgCommanderHero = UnitGroupUnitFromEnd(created, 1);
+    if ((g_aprgCommanderHeroIndex == 15 || g_aprgCommanderHeroIndex == 16) &&
+        (g_aprgCommanderHero == null || !UnitIsAlive(g_aprgCommanderHero))) {
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+            StringToText("Slay: KaraxChampion was present in the catalog but could not be created on this mission."));
+    }
     if (g_aprgCommanderHeroIndex == 33 && (g_aprgCommanderHero == null || !UnitIsAlive(g_aprgCommanderHero))) {
         // The catalog may expose a shell for one evolution form that fails
         // native creation. Retry the original CUnit and level-3 alternative.
@@ -21895,6 +21915,7 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgNextDelayedOdinRetargetTime = -1.0;
     g_aprgDelayedOdinProgressPoint = null;
     g_aprgDelayedOdinProgressTime = -1.0;
+    g_aprgNextDelayedOdinSpawnAttemptTime = -1.0;
     g_aprgCombinedNextWraithTime = -1.0;
     g_aprgCombinedNextVikingTime = -1.0;
     g_aprgCombinedNextHellionTime = -1.0;
@@ -24629,45 +24650,87 @@ void APRG_OrderDelayedOdinAttackMove(int player) {
     UnitIssueOrder(g_aprgDelayedOdin, OrderTargetingPoint(AbilityCommand("attack", 0), UnitGetPosition(target)), c_orderQueueReplace);
 }
 
+// Find an enemy army/base cluster with enough clearance for the Odin.
+// No dependency on a path-connected enemy town hall; any hostile stronghold
+// works. Check ground connectivity at the *actual spawn point*, where it
+// matters for the Odin's eventual attack. This runs only on creation/retry.
+point APRG_FindDelayedOdinStrongholdPoint(int player) {
+    unit home = APRG_FindPlayerHomeStructure(player);
+    unitgroup structures = APRG_EnemyStructures(player);
+    unitgroup mobiles = APRG_EnemyMobileUnits(player);
+    unitgroup anchors;
+    unitgroup nearby;
+    unit u;
+    unit nearestPlayer;
+    point candidate;
+    point best = null;
+    int pass;
+    int i;
+    int attempt;
+    int score;
+    int bestScore = -1;
+    if (home == null || !UnitIsAlive(home)) { return null; }
+    // Prioritize fortified enemy bases; also consider clusters without
+    // buildings (custom missions often use mobile enemy camps).
+    for (pass = 0; pass < 2; pass += 1) {
+        if (pass == 0) { anchors = structures; }
+        else { anchors = mobiles; }
+        for (i = MinI(64, UnitGroupCount(anchors, c_unitCountAlive)); i > 0; i -= 1) {
+            u = UnitGroupUnitFromEnd(anchors, i);
+            if (u == null || !UnitIsAlive(u)) { continue; }
+            if (DistanceBetweenPoints(UnitGetPosition(home), UnitGetPosition(u)) < 32.0) { continue; }
+            for (attempt = 0; attempt < 3; attempt += 1) {
+                candidate = PointWithOffsetPolar(UnitGetPosition(u), RandomFixed(3.0, 13.0), libNtve_gf_RandomAngle());
+                if (candidate == null || !RegionContainsPoint(RegionPlayableMap(), candidate) ||
+                    !PointPathingPassable(candidate) || APRG_PointNearMineralField(candidate, 4.0) ||
+                    APRG_PointNearRakShirDuel(candidate, 24.0) || !APRG_LabRatEnemySpawnAllowed(candidate, player)) { continue; }
+                if (DistanceBetweenPoints(UnitGetPosition(home), candidate) < 32.0) { continue; }
+                nearestPlayer = APRG_NearestPlayerStructure(candidate, player);
+                if (nearestPlayer != null && DistanceBetweenPoints(candidate, UnitGetPosition(nearestPlayer)) < 24.0) { continue; }
+                if (APRG_GroundSpawnsNeedPlayerPathing() &&
+                    !PointPathingIsConnected(candidate, UnitGetPosition(home))) { continue; }
+                nearby = UnitGroupAlliance(player, c_unitAllianceEnemy, RegionCircle(candidate, 16.0),
+                    UnitFilter(0, 0, (1 << c_targetFilterMissile),
+                        (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))), 0);
+                score = UnitGroupCount(nearby, c_unitCountAlive);
+                // In a tie favor actual enemy buildings over roaming units.
+                if (pass == 0) { score += 4; }
+                if (score > bestScore) { bestScore = score; best = candidate; }
+            }
+        }
+    }
+    return best;
+}
+
 void APRG_TickDelayedOdin(int player, fixed now) {
-    unit anchor;
     point p;
-    int spawnAttempt;
-    point currentPoint;
-    point targetPoint;
     int owner;
     unitgroup created;
+    point currentPoint;
+    point targetPoint;
     unit target;
     unit barrageTarget;
     fixed targetDistance;
     bool barrageCast = false;
     if (!APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0) { return; }
 
-    // Workbook: Odin first appears 14 minutes after establishing a base.
-    // Spawn and assault are intentionally simultaneous.
-    if (now < g_aprgMacroReadyTime + 840.0) { return; }
-    // Spawn exactly once. A killed Odin stays dead for the rest of the mission.
+    // The enemy Odin is stationed near a hostile stronghold from the start.
+    // It only begins its attack after the original 14-minute base-ready delay.
     if (!g_aprgDelayedOdinSpawned) {
+        if (now < g_aprgNextDelayedOdinSpawnAttemptTime) { return; }
+        g_aprgNextDelayedOdinSpawnAttemptTime = now + 5.0;
         if (!CatalogEntryIsValid(c_gameCatalogUnit, "Odin")) { return; }
-        anchor = APRG_RandomPathableHostileBaseAnchor(player);
-        if (anchor == null) { return; }
-        p = null;
-        // Reject blocked mineral-line placements before creating the enemy Odin.
-        // Retry the candidate search, not the unit spawn; failure safely retries next tick.
-        for (spawnAttempt = 0; spawnAttempt < 12; spawnAttempt += 1) {
-            p = APRG_FindHostileGroundPointNear(player, UnitGetPosition(anchor), 4.0, 14.0);
-            if (p != null && APRG_LabRatEnemySpawnAllowed(p, player) &&
-                !APRG_PointNearMineralField(p, 5.0)) { break; }
-            p = null;
-        }
-        if (p == null || !APRG_LabRatEnemySpawnAllowed(p, player)) { return; }
-        owner = UnitGetOwner(anchor);
+        p = APRG_FindDelayedOdinStrongholdPoint(player);
+        if (p == null) { return; }
+        owner = APRG_FindHostileOwnerNearPoint(player, p);
+        if (owner < 0) { return; }
         created = UnitCreate(1, "Odin", c_unitCreateIgnorePlacement, owner, p, libNtve_gf_RandomAngle());
         g_aprgDelayedOdin = UnitGroupUnitFromEnd(created, 1);
-        if (g_aprgDelayedOdin == null) { return; }
+        if (g_aprgDelayedOdin == null || !UnitIsAlive(g_aprgDelayedOdin)) { return; }
         g_aprgDelayedOdinSpawned = true;
         APRG_RegisterMutationEnemyGroup(created);
-        AISetUnitScriptControlled(g_aprgDelayedOdin, false);
+        // Prevent normal hostile AI from sending him toward the player early.
+        AISetUnitScriptControlled(g_aprgDelayedOdin, true);
         if (CatalogEntryIsValid(c_gameCatalogAbil, "OdinBarrage")) { UnitAbilityEnable(g_aprgDelayedOdin, "OdinBarrage", true); }
         g_aprgDelayedOdinProgressPoint = UnitGetPosition(g_aprgDelayedOdin);
         g_aprgDelayedOdinProgressTime = now;

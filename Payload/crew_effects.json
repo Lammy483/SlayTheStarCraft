@@ -451,7 +451,7 @@
     "odin": {
       "title": "Odin",
       "eligible": true,
-      "description": "The enemy base has an odin in it. After about 14 minutes it attacks your base.",
+      "description": "An enemy Odin waits near an enemy stronghold. After about 14 minutes from base establishment, it attacks your base.",
       "severity": 3,
       "notes": "It should use its special cannons ability. This mutation should not be on island maps. It spawns 14 minutes after base established"
     },
