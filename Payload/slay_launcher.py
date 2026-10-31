@@ -403,6 +403,7 @@ def generate_run(
     start_with_kerrigan: bool = DEFAULT_START_WITH_KERRIGAN,
     game_mode: str = "adventure",
     selected_races: tuple[str, ...] = DEFAULT_RACES,
+    excluded_missions: tuple[str, ...] = ("Lab Rat",),
 
 ) -> tuple[Path, dict[str, Any]]:
 
@@ -500,6 +501,7 @@ def generate_run(
 
     ]
     command.extend(["--races", *selected_races])
+    command.extend(["--excluded-missions-json", json.dumps(list(excluded_missions))])
     if start_with_spear:
         command.append("--start-with-spear")
     if start_with_kerrigan:
@@ -1324,6 +1326,58 @@ def install_launcher_tab(manager: Any) -> None:
     add_field(3, "Extra Shop Slots", extra_shop_slots_button)
     add_field(3, "Start with Spear of Adun", start_spear_button)
     add_field(3, "Start with Kerrigan", start_kerrigan_button)
+
+    # Mission chooser uses the exact Archipelago pool rules, including build
+    # eligibility, supported campaigns and grouping all race variants together.
+    # Import the installed generator from the AP root (the same code used when
+    # Generate Run is pressed), so the GUI and generator cannot drift apart.
+    from importlib.util import spec_from_file_location, module_from_spec
+    _mission_spec = spec_from_file_location("slay_possible_mission_catalog", archipelago_root() / "SlayTheStarCraft.py")
+    if _mission_spec is None or _mission_spec.loader is None:
+        raise RuntimeError("Slay generator is missing; cannot load Possible Missions")
+    _mission_module = module_from_spec(_mission_spec)
+    _mission_spec.loader.exec_module(_mission_module)
+    mission_names = _mission_module.possible_mission_names(archipelago_root())
+    mission_checks = {name: CheckBox(active=name.casefold() != "lab rat", size_hint_x=None, width=dp(42))
+                      for name in mission_names}
+    mission_select_button = Button(text="Possible Missions...", size_hint_y=None, height=dp(42))
+    add_field(3, "Possible Missions", mission_select_button)
+
+    def show_possible_missions(*_args: Any) -> None:
+        shell = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(12))
+        note = Label(text="Uncheck a mission to exclude all race-swapped versions of it.\n"
+                          "Race and mode restrictions still apply. Lab Rat is off by default.",
+                     font_size=dp(13), size_hint_y=None, height=dp(52), halign="left")
+        note.bind(size=lambda inst, value: setattr(inst, "text_size", value))
+        shell.add_widget(note)
+        scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
+        contents = GridLayout(cols=1, spacing=dp(2), size_hint_y=None)
+        contents.bind(minimum_height=contents.setter("height"))
+        for name, checkbox in mission_checks.items():
+            row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(35))
+            row.add_widget(checkbox)
+            label = Button(text=name, halign="left", background_normal="",
+                           background_color=(0, 0, 0, 0))
+            label.bind(on_release=lambda _button, check=checkbox: setattr(check, "active", not check.active))
+            row.add_widget(label)
+            contents.add_widget(row)
+        scroll.add_widget(contents)
+        shell.add_widget(scroll)
+        actions = BoxLayout(orientation="horizontal", spacing=dp(8), size_hint_y=None, height=dp(44))
+        select_all = Button(text="Select All")
+        select_none = Button(text="Deselect All")
+        done = Button(text="Done")
+        actions.add_widget(select_all)
+        actions.add_widget(select_none)
+        actions.add_widget(done)
+        shell.add_widget(actions)
+        popup = Popup(title="Possible Missions", content=shell, size_hint=(0.72, 0.85))
+        select_all.bind(on_release=lambda *_: [setattr(ch, "active", True) for ch in mission_checks.values()])
+        select_none.bind(on_release=lambda *_: [setattr(ch, "active", False) for ch in mission_checks.values()])
+        done.bind(on_release=lambda *_: popup.dismiss())
+        popup.open()
+
+    mission_select_button.bind(on_release=show_possible_missions)
     root.add_widget(form)
 
     # Race selection belongs with the other generator settings, not beside
@@ -1435,6 +1489,7 @@ def install_launcher_tab(manager: Any) -> None:
         victory_multiplier_input.disabled = busy
 
         item_credit_input.disabled = busy
+        mission_select_button.disabled = busy
 
         status.text = message
 
@@ -1573,6 +1628,8 @@ def install_launcher_tab(manager: Any) -> None:
 
         for checkbox in race_checks.values():
             checkbox.active = True
+        for name, checkbox in mission_checks.items():
+            checkbox.active = name.casefold() != "lab rat"
         status.text = "Settings reset to defaults."
 
 
@@ -1699,6 +1756,7 @@ def install_launcher_tab(manager: Any) -> None:
                     extra_shop_slots=extra_shop_slots, start_with_spear=start_with_spear,
                     start_with_kerrigan=start_with_kerrigan,
                     selected_races=selected_races,
+                    excluded_missions=tuple(name for name, checkbox in mission_checks.items() if not checkbox.active),
                     game_mode=str(getattr(mode_button, "slay_value", "adventure")),
 
                 )

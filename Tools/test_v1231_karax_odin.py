@@ -34,7 +34,7 @@ class KaraxOdin(unittest.TestCase):
         for needle in ("APRG_EnemyStructures(player)","APRG_EnemyMobileUnits(player)",
                        "UnitGroupAlliance(player, c_unitAllianceEnemy", "score = UnitGroupCount(nearby, c_unitCountAlive)",
                        "DistanceBetweenPoints(UnitGetPosition(home), candidate) < 32.0",
-                       "DistanceBetweenPoints(candidate, UnitGetPosition(nearestPlayer)) < 24.0",
+                       "APRG_DelayedOdinNearFriendlyBuilding(candidate, player, 24.0)",
                        "PointPathingIsConnected(candidate, UnitGetPosition(home))"):
             self.assertIn(needle,s)
         self.assertNotIn("APRG_RandomPathableHostileBaseAnchor",body("APRG_TickDelayedOdin"))

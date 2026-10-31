@@ -2684,6 +2684,29 @@ def slay_mission_difficulty_pool(short_name: str, native_pool: int) -> int:
 
 
 
+def possible_mission_names(ap_root: Path) -> tuple[str, ...]:
+    """All normally supported build-mission families, without race-swap duplicates.
+
+    Uses the same AP campaign and NoBuild rules as load_archipelago_catalog.
+    This is also the source of truth for the launcher checkbox list.
+    """
+    root_str = str(ap_root)
+    if root_str not in sys.path:
+        sys.path.insert(0, root_str)
+    from worlds.sc2.mission_tables import SC2Campaign, SC2Mission, MissionFlag
+    return tuple(sorted({m.get_short_name() for m in SC2Mission
+                         if m.campaign != SC2Campaign.GLOBAL
+                         and m.campaign.campaign_name in DEFAULT_CAMPAIGNS
+                         and MissionFlag.NoBuild not in m.flags}, key=str.casefold))
+
+
+def filter_possible_missions(candidates: list[dict[str, Any]], excluded: list[str]) -> list[dict[str, Any]]:
+    """Exclude every race-swapped variant of each unchecked mission family."""
+    forbidden = {name.strip().casefold() for name in excluded}
+    return [m for m in candidates
+            if str(m.get("short_name", m.get("name", ""))).strip().casefold() not in forbidden]
+
+
 def load_archipelago_catalog(
 
     ap_root: Path, races: set[str], allow_race_swap: bool,
@@ -5172,6 +5195,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--races", nargs="+", choices=["terran", "zerg", "protoss"], default=["terran", "zerg", "protoss"])
 
     parser.add_argument("--race-swap", action=argparse.BooleanOptionalAction, default=True, help="Allow race-swapped mission variants")
+    parser.add_argument("--excluded-missions-json", default='["Lab Rat"]',
+                        help="JSON array of disabled mission families (default: Lab Rat)")
 
     parser.add_argument("--seed", type=int, default=None, help="Run/AP seed; random if omitted")
 
@@ -5344,11 +5369,23 @@ def main() -> int:
 
         )
 
-        # Crew has no Lab Rat: its scripted start is incompatible with the
-        # persistent purchased-production rules. Other modes keep the mission.
+        # The UI's Possible Missions checkboxes exclude a mission *family*,
+        # including all AP race-swapped variants. Lab Rat is off by default.
+        try:
+            excluded_missions = json.loads(args.excluded_missions_json)
+            if not isinstance(excluded_missions, list) or any(not isinstance(x, str) for x in excluded_missions):
+                raise ValueError("Expected a JSON array of mission names")
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"Invalid --excluded-missions-json: {exc}") from exc
+        known_names = {name.casefold() for name in possible_mission_names(ap_root)}
+        unknown = sorted(x for x in excluded_missions if x.strip().casefold() not in known_names)
+        if unknown:
+            raise ValueError(f"Unknown excluded mission(s): {', '.join(unknown)}")
         if args.game_mode == "crew":
-            candidates = [m for m in candidates if not str(m.get("short_name", m.get("name", ""))).strip().casefold().startswith("lab rat")
-                          and not str(m.get("name", "")).strip().casefold().startswith("lab rat")]
+            excluded_missions.append("Lab Rat")  # Crew's permanent mission restriction.
+        candidates = filter_possible_missions(candidates, excluded_missions)
+        if not candidates:
+            raise ValueError("No missions remain enabled for the selected races and Possible Missions settings")
 
         edges = (generate_campaign_edges(args.layers, rng) if args.game_mode == "campaign"
                  else generate_crew_edges(args.layers, rng, len(candidates)) if args.game_mode == "crew"

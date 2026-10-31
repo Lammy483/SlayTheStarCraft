@@ -375,6 +375,7 @@ fixed g_aprgNextDelayedOdinRetargetTime = -1.0;
 point g_aprgDelayedOdinProgressPoint = null;
 fixed g_aprgDelayedOdinProgressTime = -1.0;
 fixed g_aprgNextDelayedOdinSpawnAttemptTime = -1.0;
+int g_aprgDelayedOdinPlacementAttempts = 0;
 fixed g_aprgCombinedNextWraithTime = -1.0;
 fixed g_aprgCombinedNextVikingTime = -1.0;
 fixed g_aprgCombinedNextHellionTime = -1.0;
@@ -21916,6 +21917,7 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgDelayedOdinProgressPoint = null;
     g_aprgDelayedOdinProgressTime = -1.0;
     g_aprgNextDelayedOdinSpawnAttemptTime = -1.0;
+    g_aprgDelayedOdinPlacementAttempts = 0;
     g_aprgCombinedNextWraithTime = -1.0;
     g_aprgCombinedNextVikingTime = -1.0;
     g_aprgCombinedNextHellionTime = -1.0;
@@ -23761,6 +23763,7 @@ void APRG_TickDiamondbackWanderers(int player, fixed now) {
     unit u;
     point destination;
     if (!APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0) { return; }
+    // One initial finite wave (60 seconds after base established). No replacements.
     if (!g_aprgDiamondbackWanderersSpawned && now >= g_aprgMacroReadyTime + 60.0) { APRG_SpawnDiamondbackWanderers(player); }
     if (!g_aprgDiamondbackWanderersSpawned || now < g_aprgNextDiamondbackWanderTime) { return; }
     alive = UnitGroupCount(g_aprgDiamondbackWanderers, c_unitCountAlive);
@@ -24654,6 +24657,24 @@ void APRG_OrderDelayedOdinAttackMove(int player) {
 // No dependency on a path-connected enemy town hall; any hostile stronghold
 // works. Check ground connectivity at the *actual spawn point*, where it
 // matters for the Odin's eventual attack. This runs only on creation/retry.
+// Never spawn near a player or player-allied building. This is a hard
+// constraint even after exhausting all fallback placement tiers.
+bool APRG_DelayedOdinNearFriendlyBuilding(point candidate, int player, fixed clearance) {
+    unitgroup allies;
+    if (candidate == null) { return true; }
+    if (APRG_PointNearPlayerOrAlliedBuilding(candidate, player, clearance)) { return true; }
+    allies = UnitGroupAlliance(player, c_unitAllianceAlly, RegionCircle(candidate, clearance),
+        UnitFilter((1 << c_targetFilterStructure), 0, (1 << c_targetFilterMissile),
+            (1 << (c_targetFilterDead - 32))), 0);
+    return UnitGroupCount(allies, c_unitCountAlive) > 0;
+}
+
+// Gradually relax *enemy-side* placement only. Player and allied buildings
+// always retain a 24-range exclusion and the player's home a 32-range one.
+// After repeated failed attempts, allow greater distances from enemy anchors,
+// then unconnected pathing (useful on island missions), then any valid point
+// close to an enemy camp. Do not relax playable-map, protected-zone, or
+// friendly-building restrictions.
 point APRG_FindDelayedOdinStrongholdPoint(int player) {
     unit home = APRG_FindPlayerHomeStructure(player);
     unitgroup structures = APRG_EnemyStructures(player);
@@ -24661,7 +24682,6 @@ point APRG_FindDelayedOdinStrongholdPoint(int player) {
     unitgroup anchors;
     unitgroup nearby;
     unit u;
-    unit nearestPlayer;
     point candidate;
     point best = null;
     int pass;
@@ -24669,31 +24689,36 @@ point APRG_FindDelayedOdinStrongholdPoint(int player) {
     int attempt;
     int score;
     int bestScore = -1;
+    int tier = MinI(3, g_aprgDelayedOdinPlacementAttempts / 6);
+    fixed minOffset = 3.0;
+    fixed maxOffset = 13.0;
+    fixed mineralRadius = 4.0;
     if (home == null || !UnitIsAlive(home)) { return null; }
-    // Prioritize fortified enemy bases; also consider clusters without
-    // buildings (custom missions often use mobile enemy camps).
+    if (tier >= 1) { maxOffset = 22.0; mineralRadius = 2.0; }
+    if (tier >= 3) { minOffset = 1.0; maxOffset = 30.0; }
     for (pass = 0; pass < 2; pass += 1) {
         if (pass == 0) { anchors = structures; }
         else { anchors = mobiles; }
         for (i = MinI(64, UnitGroupCount(anchors, c_unitCountAlive)); i > 0; i -= 1) {
             u = UnitGroupUnitFromEnd(anchors, i);
             if (u == null || !UnitIsAlive(u)) { continue; }
-            if (DistanceBetweenPoints(UnitGetPosition(home), UnitGetPosition(u)) < 32.0) { continue; }
-            for (attempt = 0; attempt < 3; attempt += 1) {
-                candidate = PointWithOffsetPolar(UnitGetPosition(u), RandomFixed(3.0, 13.0), libNtve_gf_RandomAngle());
+            if (DistanceBetweenPoints(UnitGetPosition(home), UnitGetPosition(u)) < 24.0) { continue; }
+            for (attempt = 0; attempt < 3 + tier * 3; attempt += 1) {
+                candidate = PointWithOffsetPolar(UnitGetPosition(u),
+                    RandomFixed(minOffset, maxOffset), libNtve_gf_RandomAngle());
                 if (candidate == null || !RegionContainsPoint(RegionPlayableMap(), candidate) ||
-                    !PointPathingPassable(candidate) || APRG_PointNearMineralField(candidate, 4.0) ||
-                    APRG_PointNearRakShirDuel(candidate, 24.0) || !APRG_LabRatEnemySpawnAllowed(candidate, player)) { continue; }
+                    !PointPathingPassable(candidate) ||
+                    APRG_PointNearMineralField(candidate, mineralRadius) ||
+                    APRG_PointNearRakShirDuel(candidate, 24.0) ||
+                    !APRG_LabRatEnemySpawnAllowed(candidate, player)) { continue; }
                 if (DistanceBetweenPoints(UnitGetPosition(home), candidate) < 32.0) { continue; }
-                nearestPlayer = APRG_NearestPlayerStructure(candidate, player);
-                if (nearestPlayer != null && DistanceBetweenPoints(candidate, UnitGetPosition(nearestPlayer)) < 24.0) { continue; }
-                if (APRG_GroundSpawnsNeedPlayerPathing() &&
+                if (APRG_DelayedOdinNearFriendlyBuilding(candidate, player, 24.0)) { continue; }
+                if (tier < 2 && APRG_GroundSpawnsNeedPlayerPathing() &&
                     !PointPathingIsConnected(candidate, UnitGetPosition(home))) { continue; }
                 nearby = UnitGroupAlliance(player, c_unitAllianceEnemy, RegionCircle(candidate, 16.0),
                     UnitFilter(0, 0, (1 << c_targetFilterMissile),
                         (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))), 0);
                 score = UnitGroupCount(nearby, c_unitCountAlive);
-                // In a tie favor actual enemy buildings over roaming units.
                 if (pass == 0) { score += 4; }
                 if (score > bestScore) { bestScore = score; best = candidate; }
             }
@@ -24719,6 +24744,7 @@ void APRG_TickDelayedOdin(int player, fixed now) {
     if (!g_aprgDelayedOdinSpawned) {
         if (now < g_aprgNextDelayedOdinSpawnAttemptTime) { return; }
         g_aprgNextDelayedOdinSpawnAttemptTime = now + 5.0;
+        g_aprgDelayedOdinPlacementAttempts += 1;
         if (!CatalogEntryIsValid(c_gameCatalogUnit, "Odin")) { return; }
         p = APRG_FindDelayedOdinStrongholdPoint(player);
         if (p == null) { return; }
@@ -24728,6 +24754,7 @@ void APRG_TickDelayedOdin(int player, fixed now) {
         g_aprgDelayedOdin = UnitGroupUnitFromEnd(created, 1);
         if (g_aprgDelayedOdin == null || !UnitIsAlive(g_aprgDelayedOdin)) { return; }
         g_aprgDelayedOdinSpawned = true;
+        g_aprgDelayedOdinPlacementAttempts = 0;
         APRG_RegisterMutationEnemyGroup(created);
         // Prevent normal hostile AI from sending him toward the player early.
         AISetUnitScriptControlled(g_aprgDelayedOdin, true);
