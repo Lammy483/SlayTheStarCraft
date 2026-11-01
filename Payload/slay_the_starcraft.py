@@ -1044,6 +1044,44 @@ EFFECT_DESCRIPTIONS["armored_enemies"] = "All enemies gain +5 armor"
 EFFECT_DISPLAY_NAMES["fifty_immortals"] = "Immortals"
 EFFECT_DESCRIPTIONS["fifty_immortals"] = "There are 30 immortals patrolling around the map"
 
+
+# Dev4 workbook mutations. Transported via mission_flags; existing bank bits stay unchanged.
+EFFECT_BANK_BITS["swarms_of_unit"] = (7, 1)
+EFFECT_BANK_BITS["explosive_armor_mutation"] = (7, 2)
+EFFECT_DISPLAY_NAMES["swarms_of_unit"] = "Swarms of [unit]"
+EFFECT_DISPLAY_NAMES["explosive_armor_mutation"] = "Explosive Armor"
+EFFECT_DESCRIPTIONS["swarms_of_unit"] = "Every 4 minutes, a swarm of [unit]s attacks your base."
+EFFECT_DESCRIPTIONS["explosive_armor_mutation"] = "Enemy units explode on death, dealing damage to enemies proportional to their supply cost"
+
+# Bits 24-27 in mission flags store a deterministic per-run swarm-unit index.
+# Last five are air units that can appear on island missions.
+SWARM_UNITS = (
+    ("Marine", "Marines", 50),
+    ("Marauder", "Marauders", 125),
+    ("Zealot", "Zealots", 100),
+    ("Stalker", "Stalkers", 175),
+    ("Zergling", "Zerglings", 25),
+    ("Hydralisk", "Hydralisks", 150),
+    ("Roach", "Roaches", 100),
+    ("Ultralisk", "Ultralisks", 500),
+    ("Colossus", "Colossi", 500),
+    ("Thor", "Thors", 500),
+    ("Immortal", "Immortals", 375),
+    ("Mutalisk", "Mutalisks", 200),
+    ("Banshee", "Banshees", 250),
+    ("VikingFighter", "Vikings", 225),
+    ("VoidRay", "Void Rays", 400),
+    ("Battlecruiser", "Battlecruisers", 700),
+)
+
+def swarm_unit_index(ctx: Any, mission_id: int) -> int:
+    mission = node(ctx, int(mission_id)) or {}
+    base_name = _mission_base_name(mission.get("mission_name", "")).casefold()
+    pool = range(11, len(SWARM_UNITS)) if base_name in ISLAND_MISSION_NAMES else range(len(SWARM_UNITS))
+    run_seed = int(getattr(ctx, "slay_config", {}).get("run_seed", 0))
+    token = hashlib.sha256(f"swarm:{run_seed}:{int(mission_id)}".encode("utf-8")).digest()
+    return tuple(pool)[int.from_bytes(token[:8], "big") % len(pool)]
+
 # v1.0.2.17 mutations are transported in mission_flags because banks A-F are full.
 _V1024_MUTATIONS: dict[str, tuple[str, str, int]] = {'hellion_run_by': ('Hellion Run-by', 'Hellions try to run into your mineral lines', 2), 'diamondback_wanderers': ('Diamondbacks', '50 diamondbacks wander all over the place', 3), 'leviathan_outside_base': ('Leviathan Approaching', 'The Leviathan floats outside your base spawning mutalisks and brood lords', 5), 'odin_delayed_assault': ('Odin', 'An enemy Odin waits near an enemy stronghold. After about 14 minutes from base establishment, it attacks your base.', 3), 'combined_raids': ('Ultimate Harassment', 'The enemy sends many wraiths, vikings, and hellions bother you', 5), 'brakk_primal_army': ("Brakk's Pack", 'Brakk and a massive primal army awaits on the map. It attacks after 10 minutes.', 5), 'orlan_fortress': ("Orlan's Planetary Fortress", 'Colonel Orlan has a well-defended Planetary Fortress on the map that gains 1 range every 30 seconds.', 4), 'enemy_spear_of_adun': ('Enemy Spear of Adun', "The enemy has the Spear of Adun. Let's see how YOU like it", 7), 'true_golden_armada': ('True Golden Armada', 'A massive golden armada patrols the map', 6), 'immortal_zergling': ('Immortal Zergling', 'A single immortal zergling attacks you constantly', 1), 'tosh_and_his_boys': ('Tosh and his Boys', 'Tosh is somewhere on the map. While he lives, cloaked spectres periodically try to nuke your base.', 3)}
 EFFECT_BANK_BITS.update({effect_id: (5, 0) for effect_id in _V1024_MUTATIONS})
@@ -1674,6 +1712,7 @@ GOLDEN_GOOSE_MUTATIONS.update({
 })
 GOLDEN_GOOSE_MUTATIONS["dehakas_pack"] = 6
 GOLDEN_GOOSE_MUTATIONS["armored_enemies"] = 3
+GOLDEN_GOOSE_MUTATIONS.update({"swarms_of_unit": 4, "explosive_armor_mutation": 4})
 BLESSING_SEVERITY["covert_assistance"] = 1
 
 
@@ -3356,6 +3395,8 @@ MISSION_FLAG_SMASH_AND_GRAB_EXTRA_WORKERS = 262144
 MISSION_FLAG_DEVILS_PLAYGROUND_ZERG_ELIMINATION = 524288
 MISSION_FLAG_EPILOGUE_KERRIGAN = 1048576
 MISSION_FLAG_CREW_CHALLENGE = 2097152
+MISSION_FLAG_SWARMS_OF_UNIT = 4194304
+MISSION_FLAG_EXPLOSIVE_ARMOR_MUTATION = 8388608
 
 GORGON_MISSION_EXCLUSIONS = {"fire in the sky"}
 
@@ -3429,10 +3470,14 @@ def mission_flags_for_mission(ctx: Any, mission_id: int) -> int:
         "true_golden_armada": MISSION_FLAG_TRUE_GOLDEN_ARMADA,
         "immortal_zergling": MISSION_FLAG_IMMORTAL_ZERGLING,
         "tosh_and_his_boys": MISSION_FLAG_TOSH_AND_HIS_BOYS,
+        "swarms_of_unit": MISSION_FLAG_SWARMS_OF_UNIT,
+        "explosive_armor_mutation": MISSION_FLAG_EXPLOSIVE_ARMOR_MUTATION,
     }
     for effect in _effective_mutations(ctx, int(mission_id)):
         flags |= int(mutation_flag_bits.get(str(effect), 0))
 
+    if (flags & MISSION_FLAG_SWARMS_OF_UNIT) != 0:
+        flags |= swarm_unit_index(ctx, int(mission_id)) << 24
     return flags
 
 
@@ -5140,6 +5185,8 @@ def commander_hero_index(ctx: Any, mission_id: int) -> int:
 
 def _mission_effect_name(ctx: Any, mission_id: int, effect_id: str) -> str:
 
+    if effect_id == "swarms_of_unit":
+        return "Swarms of " + SWARM_UNITS[swarm_unit_index(ctx, mission_id)][1]
     if effect_id == "general":
 
         idx = commander_hero_index(ctx, mission_id)
@@ -5173,6 +5220,8 @@ def crew_effect_description(effect_id: str, kind: str | None = None) -> str | No
 
 def _mission_effect_description(ctx: Any, mission_id: int, effect_id: str) -> str:
 
+    if effect_id == "swarms_of_unit":
+        return "Every 4 minutes, a swarm of " + SWARM_UNITS[swarm_unit_index(ctx, mission_id)][1] + " attacks your base."
     if effect_id == "general":
 
         idx = commander_hero_index(ctx, mission_id)
