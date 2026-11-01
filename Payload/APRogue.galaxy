@@ -12331,7 +12331,7 @@ void APRG_ApplyMercenaryUnitUpgrades(unit u, int player) {
     if (sniperStacks > 0) {
         if (unitType == "DukesRevenge" || unitType == "AP_DukesRevenge") {
             // Jackson's Revenge can use weapons that the shared catalog upgrade
-            // does not reliably affect. Give THIS UNIT the same +50% per stack
+            // does not reliably affect. Give THIS UNIT the same +1 range per stack
             // using our existing 0.05-range behavior. Never apply both paths.
             key = "APRG_JacksonSniper_" + IntToString(UnitGetTag(u));
             if (!DataTableGetBool(true, key + "_Initialized")) {
@@ -12347,9 +12347,9 @@ void APRG_ApplyMercenaryUnitUpgrades(unit u, int player) {
                 DataTableSetBool(true, key + "_Initialized", true);
             }
             value = DataTableGetFixed(true, key + "_OriginalRange");
-            wc = MaxI(1, FixedToInt(RoundI(value * 10.0 * IntToFixed(sniperStacks))));
+            wc = 20 * sniperStacks;
             wi = DataTableGetInt(true, key + "_AppliedStacks");
-            if (wc > wi && CatalogEntryIsValid(c_gameCatalogBehavior, "APRogueSupportCrewRange005")) {
+            if (value > 1.5 && wc > wi && CatalogEntryIsValid(c_gameCatalogBehavior, "APRogueSupportCrewRange005")) {
                 UnitBehaviorAdd(u, "APRogueSupportCrewRange005", u, wc - wi);
                 DataTableSetInt(true, key + "_AppliedStacks", wc);
             }
@@ -12362,8 +12362,8 @@ void APRG_ApplyMercenaryUnitUpgrades(unit u, int player) {
                 key = "APRG_MercRange_" + IntToString(player) + "_" + weaponType;
                 if (DataTableGetBool(true, key)) { continue; }
                 value = StringToFixed(CatalogFieldValueGet(c_gameCatalogWeapon, weaponType, "Range", player));
-                if (value > 0.0) {
-                    CatalogFieldValueModify(c_gameCatalogWeapon, weaponType, "Range", player, FixedToString(value * 0.5 * IntToFixed(sniperStacks), c_fixedPrecisionAny), c_upgradeOperationAdd);
+                if (value > 1.5) {
+                    CatalogFieldValueModify(c_gameCatalogWeapon, weaponType, "Range", player, FixedToString(IntToFixed(sniperStacks), c_fixedPrecisionAny), c_upgradeOperationAdd);
                 }
                 DataTableSetBool(true, key, true);
             }
