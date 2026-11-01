@@ -9616,8 +9616,9 @@ bool APRG_Death_Func(bool testConds, bool runActions) {
         APRG_ApplyGloriousMartyrs(p, player);
     }
     if ((g_aprgMissionFlags & APRG_MISSION_FLAG_EXPLOSIVE_ARMOR_MUTATION) != 0 &&
-        owner >= 0 && libNtve_gf_PlayerIsEnemy(owner, player, libNtve_ge_PlayerRelation_Enemy) &&
-        !deathSpawnExcluded) {
+        owner >= 0 && libNtve_gf_PlayerIsEnemy(owner, player, libNtve_ge_PlayerRelation_Enemy)) {
+        // Match the existing blessing: enemy workers and other genuine enemy
+        // units explode too, with half of the blessing damage.
         APRG_DealExplosiveArmorDamage(p, owner,
             10.0 * UnitTypeGetProperty(unitType, c_unitPropSuppliesUsed),
             2.5 + MaxF(0.0, UnitTypeGetProperty(unitType, c_unitPropSuppliesUsed) - 1.0));
