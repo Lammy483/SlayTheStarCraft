@@ -81,7 +81,9 @@
     "armored_enemies": true,
     "dark_archons_x5": true,
     "siege_mode_x5": true,
-    "odin_delayed_assault": false
+    "odin_delayed_assault": false,
+    "swarms_of_unit": true,
+    "explosive_armor_mutation": true
   },
   "blessing": {
     "investors": false,
