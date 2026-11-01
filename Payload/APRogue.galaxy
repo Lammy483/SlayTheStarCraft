@@ -18200,6 +18200,8 @@ bool APRG_IsShopKerriganType(string unitType) {
     if (StringContains(unitType, "Egg", c_stringAnywhere, c_stringNoCase)) { return false; }
     if (StringContains(unitType, "Cocoon", c_stringAnywhere, c_stringNoCase)) { return false; }
     if (StringContains(unitType, "Birth", c_stringAnywhere, c_stringNoCase)) { return false; }
+    // Never accept a generated/temporary Broodling as a valid Kerrigan hero.
+    if (StringContains(unitType, "Broodling", c_stringAnywhere, c_stringNoCase)) { return false; }
     return true;
 }
 
@@ -18277,49 +18279,66 @@ point APRG_KerriganSafeHomePoint(int player) {
         PointWithOffsetPolar(homePoint, 5.0, libNtve_gf_RandomAngle()));
 }
 
-unit APRG_CreateShopKerriganAtHome(int player, string requestedType) {
-    string unitType;
-    unit home;
-    point p;
+// Kerrigan's AP-compatible catalog replacement can fail to produce a real
+// hero on some native campaign maps. Never tag, track, or cache the type of a
+// unit that did not actually spawn as Kerrigan (notably a Broodling).
+unit APRG_CreateVerifiedShopKerriganUnit(int player, string requestedType, point p) {
+    string nativeType = requestedType;
+    string candidateType;
     unitgroup created;
-    unitType = requestedType;
-    if (unitType == "" || !CatalogEntryIsValid(c_gameCatalogUnit, unitType)) { unitType = APRG_FallbackKerriganType(); }
-    if (unitType == "") { return null; }
-    unitType = APRG_PlayerSpawnCatalogTypeForPlayer(unitType, player);
-    if (!CatalogEntryIsValid(c_gameCatalogUnit, unitType)) { return null; }
+    unit result;
+    if (p == null) { return null; }
+    if (!APRG_IsShopKerriganType(nativeType) ||
+        !CatalogEntryIsValid(c_gameCatalogUnit, nativeType)) {
+        nativeType = APRG_FallbackKerriganType();
+    }
+    if (nativeType == "") { return null; }
+    candidateType = APRG_PlayerSpawnCatalogTypeForPlayer(nativeType, player);
+    if (!CatalogEntryIsValid(c_gameCatalogUnit, candidateType)) { candidateType = nativeType; }
+    created = UnitCreate(1, candidateType, c_unitCreateIgnorePlacement,
+        player, p, libNtve_gf_RandomAngle());
+    result = UnitGroupUnitFromEnd(created, 1);
+    if (result != null && UnitIsAlive(result) &&
+        APRG_IsShopKerriganType(UnitGetType(result))) {
+        DataTableSetBool(true, "APRG_ShopKerrigan_" + IntToString(UnitGetTag(result)), true);
+        return result;
+    }
+    // Clean up only the invalid unit that this function just created.
+    if (result != null && UnitIsAlive(result)) { UnitRemove(result); }
+    if (candidateType != nativeType) {
+        created = UnitCreate(1, nativeType, c_unitCreateIgnorePlacement,
+            player, p, libNtve_gf_RandomAngle());
+        result = UnitGroupUnitFromEnd(created, 1);
+        if (result != null && UnitIsAlive(result) &&
+            APRG_IsShopKerriganType(UnitGetType(result))) {
+            DataTableSetBool(true, "APRG_ShopKerrigan_" + IntToString(UnitGetTag(result)), true);
+            return result;
+        }
+        if (result != null && UnitIsAlive(result)) { UnitRemove(result); }
+    }
+    return null;
+}
+
+unit APRG_CreateShopKerriganAtHome(int player, string requestedType) {
+    unit home;
+    unit result;
+    point p;
     home = APRG_FindPlayerHomeStructure(player);
     if (home == null || !UnitIsAlive(home)) { return null; }
     p = APRG_KerriganSafeHomePoint(player);
-    if (p == null) { return null; } // Retry instead of spawning in an inaccessible corner.
-    created = UnitCreate(1, unitType, c_unitCreateIgnorePlacement, player, p, libNtve_gf_RandomAngle());
-    if (created == null || UnitGroupCount(created, c_unitCountAlive) <= 0) { return null; }
-    home = UnitGroupUnitFromEnd(created, 1);
-    if (home != null) {
-        DataTableSetBool(true, "APRG_ShopKerrigan_" + IntToString(UnitGetTag(home)), true);
-    }
-    APRG_ApplyPrimalKerriganAppearance(home);
-    return home;
+    if (p == null) { return null; }
+    result = APRG_CreateVerifiedShopKerriganUnit(player, requestedType, p);
+    APRG_ApplyPrimalKerriganAppearance(result);
+    return result;
 }
 
 unit APRG_CreateShopKerriganAtPoint(int player, string requestedType, point p) {
-    string unitType;
-    unitgroup created;
     unit result;
-    unitType = requestedType;
     if (p == null) { return APRG_CreateShopKerriganAtHome(player, requestedType); }
-    if (unitType == "" || !CatalogEntryIsValid(c_gameCatalogUnit, unitType)) { unitType = APRG_FallbackKerriganType(); }
-    unitType = APRG_PlayerSpawnCatalogTypeForPlayer(unitType, player);
-    if (unitType == "" || !CatalogEntryIsValid(c_gameCatalogUnit, unitType)) { return null; }
-    created = UnitCreate(1, unitType, c_unitCreateIgnorePlacement, player, p, libNtve_gf_RandomAngle());
-    if (created == null || UnitGroupCount(created, c_unitCountAlive) <= 0) {
-        // A mission-owned cocoon can disappear on the same frame we cache its
-        // position. If direct recreation fails there, retry at the player's base
-        // rather than leaving Kerrigan permanently absent.
+    result = APRG_CreateVerifiedShopKerriganUnit(player, requestedType, p);
+    if (result == null) {
+        // A mission cocoon can vanish before the recovery spawn is evaluated.
         return APRG_CreateShopKerriganAtHome(player, requestedType);
-    }
-    result = UnitGroupUnitFromEnd(created, 1);
-    if (result != null) {
-        DataTableSetBool(true, "APRG_ShopKerrigan_" + IntToString(UnitGetTag(result)), true);
     }
     APRG_ApplyPrimalKerriganAppearance(result);
     return result;
@@ -18463,15 +18482,23 @@ void APRG_TickShopKerrigan(int player, fixed now) {
             // timer. Preserve their hero when close to the deadline, but do
             // not announce it as respawned until it survives verification.
             if (fresh != null) {
+                // Vortex or a native temporary removal can make a live hero
+                // look absent. Never delete an actual Kerrigan for returning
+                // earlier than our respawn countdown; it might be the SAME hero.
+                if (fresh == g_aprgShopKerrigan && UnitIsAlive(fresh)) {
+                    g_aprgShopKerriganDeathTime = -1.0;
+                    g_aprgShopKerriganDeathPoint = null;
+                    g_aprgShopKerriganRespawnPoint = null;
+                    g_aprgShopKerriganVerifyAt = -1.0;
+                    g_aprgShopKerriganNextRetryAt = -1.0;
+                    return;
+                }
                 if (respawnElapsed >= respawnDelay - 2.0) {
                     g_aprgShopKerrigan = fresh;
                     g_aprgShopKerriganType = UnitGetType(fresh);
                 }
-                else {
-                    if (g_aprgShopKerriganType == "") { g_aprgShopKerriganType = UnitGetType(fresh); }
-                    UnitRemove(fresh);
-                    if (fresh == g_aprgShopKerrigan) { g_aprgShopKerrigan = null; }
-                }
+                // Early native respawns are not deleted; adopt them once the
+                // existing countdown completes.
             }
             return;
         }
@@ -18542,16 +18569,27 @@ void APRG_TickShopKerrigan(int player, fixed now) {
     }
 
     if (g_aprgShopKerrigan == null) {
+        if (now < g_aprgShopKerriganNextRetryAt) { return; }
+        g_aprgShopKerriganNextRetryAt = now + 2.0;
         g_aprgShopKerrigan = APRG_CreateShopKerriganAtHome(player, g_aprgShopKerriganType);
-        if (g_aprgShopKerrigan != null) {
+        if (APRG_KerriganSpawnPresent(g_aprgShopKerrigan, player)) {
             g_aprgShopKerriganType = UnitGetType(g_aprgShopKerrigan);
             g_aprgShopKerriganPositioned = true;
             APRG_ApplyKerriganShopUpgrades(g_aprgShopKerrigan);
         }
+        else { g_aprgShopKerrigan = null; }
         return;
     }
 
     if (!APRG_KerriganSpawnPresent(g_aprgShopKerrigan, player)) {
+        // Mothership Vortex temporarily hides/removes the hero from the
+        // playable map without killing her. Preserve the tracked live unit
+        // instead of starting a 60s death timer for a 20s banishment.
+        if (g_aprgShopKerrigan != null && UnitIsAlive(g_aprgShopKerrigan) &&
+            UnitGetOwner(g_aprgShopKerrigan) == player &&
+            APRG_IsShopKerriganType(UnitGetType(g_aprgShopKerrigan))) {
+            return;
+        }
         g_aprgShopKerriganDeathTime = now;
         g_aprgShopKerriganDeathPoint = UnitGetPosition(g_aprgShopKerrigan);
         g_aprgShopKerriganRespawnPoint = null;
