@@ -310,6 +310,8 @@ const int APRG_MISSION_FLAG_DEVILS_PLAYGROUND_ZERG_ELIMINATION = 524288;
 const int APRG_MISSION_FLAG_EPILOGUE_KERRIGAN = 1048576;
 // Crew transport is never armed by Standard or Campaign.
 const int APRG_MISSION_FLAG_CREW_CHALLENGE = 2097152;
+const int APRG_MISSION_FLAG_SWARMS_OF_UNIT = 4194304;
+const int APRG_MISSION_FLAG_EXPLOSIVE_ARMOR_MUTATION = 8388608;
 
 int g_aprgMaskA = 0;
 int g_aprgMaskB = 0;
@@ -326,6 +328,9 @@ int g_aprgDeadlyWeaponsStacks = 0;
 int g_aprgCommanderHeroIndex = -1;
 int g_aprgMissionLayer = 1;
 int g_aprgMissionFlags = 0;
+fixed g_aprgNextSwarmTime = -1.0;
+int g_aprgSwarmWaveCount = 0;
+point[4] g_aprgSwarmSpawnPoints;
 int g_aprgFastPhase = 0;
 // Engine of Destruction's map intentionally protects Loki (unit 835) until
 // a player enters the small Loki Aggro region. Keep that staging, but recover
@@ -9610,6 +9615,13 @@ bool APRG_Death_Func(bool testConds, bool runActions) {
     if (APRG_HasExtension2(APRG_EXT2_BLESS_GLORIOUS_MARTYRS) && owner == player) {
         APRG_ApplyGloriousMartyrs(p, player);
     }
+    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_EXPLOSIVE_ARMOR_MUTATION) != 0 &&
+        owner >= 0 && libNtve_gf_PlayerIsEnemy(owner, player, libNtve_ge_PlayerRelation_Enemy) &&
+        !deathSpawnExcluded) {
+        APRG_DealExplosiveArmorDamage(p, owner,
+            10.0 * UnitTypeGetProperty(unitType, c_unitPropSuppliesUsed),
+            2.5 + MaxF(0.0, UnitTypeGetProperty(unitType, c_unitPropSuppliesUsed) - 1.0));
+    }
     if (APRG_HasBlessing(APRG_BLESS_EXPLOSIVE_ARMOR) && owner == player) {
         APRG_DealExplosiveArmorDamage(
             p,
@@ -10261,6 +10273,152 @@ void APRG_TickVoidThrashers(int player, fixed now) {
             UnitIssueOrder(thrasher, OrderTargetingUnit(AbilityCommand("attack", 0), target), c_orderQueueReplace);
         }
         DataTableSetFixed(true, key, now + 4.0);
+    }
+}
+
+
+// Dev4: each Swarms of [unit] selection is encoded in the high four bits
+// of missionFlags. The lower bits are the independent mutation toggles.
+string APRG_SwarmUnitType(int index) {
+    if (index == 0) { return "Marine"; }
+    if (index == 1) { return "Marauder"; }
+    if (index == 2) { return "Zealot"; }
+    if (index == 3) { return "Stalker"; }
+    if (index == 4) { return "Zergling"; }
+    if (index == 5) { return "Hydralisk"; }
+    if (index == 6) { return "Roach"; }
+    if (index == 7) { return "Ultralisk"; }
+    if (index == 8) { return "Colossus"; }
+    if (index == 9) { return "Thor"; }
+    if (index == 10) { return "Immortal"; }
+    if (index == 11) { return "Mutalisk"; }
+    if (index == 12) { return "Banshee"; }
+    if (index == 13) { return "VikingFighter"; }
+    if (index == 14) { return "VoidRay"; }
+    if (index == 15) { return "Battlecruiser"; }
+    return "Marine";
+}
+string APRG_SwarmUnitPlural(int index) {
+    if (index == 0) { return "Marines"; }
+    if (index == 1) { return "Marauders"; }
+    if (index == 2) { return "Zealots"; }
+    if (index == 3) { return "Stalkers"; }
+    if (index == 4) { return "Zerglings"; }
+    if (index == 5) { return "Hydralisks"; }
+    if (index == 6) { return "Roaches"; }
+    if (index == 7) { return "Ultralisks"; }
+    if (index == 8) { return "Colossi"; }
+    if (index == 9) { return "Thors"; }
+    if (index == 10) { return "Immortals"; }
+    if (index == 11) { return "Mutalisks"; }
+    if (index == 12) { return "Banshees"; }
+    if (index == 13) { return "Vikings"; }
+    if (index == 14) { return "Void Rays"; }
+    if (index == 15) { return "Battlecruisers"; }
+    return "Marines";
+}
+int APRG_SwarmUnitCost(int index) {
+    if (index == 0) { return 50; }
+    if (index == 1) { return 125; }
+    if (index == 2) { return 100; }
+    if (index == 3) { return 175; }
+    if (index == 4) { return 25; }
+    if (index == 5) { return 150; }
+    if (index == 6) { return 100; }
+    if (index == 7) { return 500; }
+    if (index == 8) { return 500; }
+    if (index == 9) { return 500; }
+    if (index == 10) { return 375; }
+    if (index == 11) { return 200; }
+    if (index == 12) { return 250; }
+    if (index == 13) { return 225; }
+    if (index == 14) { return 400; }
+    if (index == 15) { return 700; }
+    return 50;
+}
+point APRG_FindSwarmSpawnPoint(int player, bool airUnit, int placed) {
+    int attempt;
+    int previous;
+    point candidate;
+    unit home;
+    bool distinct;
+    home = APRG_FindPlayerHomeStructure(player);
+    if (home == null || !UnitIsAlive(home)) { return null; }
+    for (attempt = 0; attempt < 160; attempt += 1) {
+        candidate = RegionRandomPoint(RegionPlayableMap());
+        if (candidate == null || !APRG_LabRatEnemySpawnAllowed(candidate, player) ||
+            APRG_PointNearRakShirDuel(candidate, 24.0) ||
+            APRG_VoidThrasherPointNearFriendlyUnits(candidate, player, 25.0)) { continue; }
+        if (!airUnit) {
+            if (!PointPathingPassable(candidate) ||
+                (APRG_GroundSpawnsNeedPlayerPathing() &&
+                 !PointPathingIsConnected(candidate, UnitGetPosition(home)))) { continue; }
+        }
+        distinct = true;
+        for (previous = 0; previous < placed; previous += 1) {
+            if (g_aprgSwarmSpawnPoints[previous] != null &&
+                DistanceBetweenPoints(candidate, g_aprgSwarmSpawnPoints[previous]) < 12.0) {
+                distinct = false;
+            }
+        }
+        if (!distinct) { continue; }
+        return candidate;
+    }
+    return null;
+}
+bool APRG_SpawnSwarmWave(int player) {
+    int index = (g_aprgMissionFlags / 16777216) % 16;
+    bool airUnit = index >= 11;
+    string unitType = APRG_SwarmUnitType(index);
+    int cost = APRG_SwarmUnitCost(index);
+    int total;
+    int batch;
+    int i;
+    int owner;
+    unitgroup created;
+    point p;
+    if (!CatalogEntryIsValid(c_gameCatalogUnit, unitType)) {
+        unitType = "Marine";
+        cost = 50;
+        if (airUnit) { unitType = "Mutalisk"; cost = 200; }
+        if (!CatalogEntryIsValid(c_gameCatalogUnit, unitType)) { return false; }
+    }
+    // All four points must be valid before creating ANY of the army.
+    // A failed search does not consume the wave or create an incomplete swarm.
+    for (i = 0; i < 4; i += 1) {
+        g_aprgSwarmSpawnPoints[i] = APRG_FindSwarmSpawnPoint(player, airUnit, i);
+        if (g_aprgSwarmSpawnPoints[i] == null) { return false; }
+    }
+    total = MaxI(4, (3000 + 1000 * g_aprgSwarmWaveCount) / MaxI(1, cost));
+    for (i = 0; i < 4; i += 1) {
+        p = g_aprgSwarmSpawnPoints[i];
+        owner = APRG_FindHostileOwnerNearPoint(player, p);
+        if (owner < 0) { continue; }
+        batch = total / 4;
+        if (i < (total % 4)) { batch += 1; }
+        created = UnitCreate(batch, unitType, c_unitCreateIgnorePlacement, owner, p, libNtve_gf_RandomAngle());
+        APRG_RegisterMutationEnemyGroup(created);
+        APRG_AddHostileRaiders(created, p, player);
+    }
+    g_aprgSwarmWaveCount += 1;
+    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+        StringToText("[Slay] Swarm of " + APRG_SwarmUnitPlural(index) + " incoming"));
+    return true;
+}
+void APRG_TickSwarmsOfUnit(int player, fixed now) {
+    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_SWARMS_OF_UNIT) == 0 ||
+        !APRG_PlayerMacroBaseReady(player)) { return; }
+    if (g_aprgNextSwarmTime < 0.0) {
+        g_aprgNextSwarmTime = g_aprgMacroReadyTime + 300.0;
+        return;
+    }
+    if (now < g_aprgNextSwarmTime) { return; }
+    if (APRG_SpawnSwarmWave(player)) {
+        g_aprgNextSwarmTime = now + 240.0;
+    }
+    else {
+        // Missing or cramped locations are retried without consuming a wave.
+        g_aprgNextSwarmTime = now + 10.0;
     }
 }
 
@@ -22317,6 +22475,8 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgNextCompoundTime = now + 30.0;
     g_aprgNextWraithTime = now + 60.0;
     g_aprgNextVoidThrasherTime = -1.0;
+    g_aprgNextSwarmTime = -1.0;
+    g_aprgSwarmWaveCount = 0;
     g_aprgNextVikingRaidTime = now + RandomFixed(APRG_VikingRaidIntervalMinimum(now), 180.0);
     g_aprgResourcePickupsSpawned = false;
     g_aprgResourcePickupCount = 0;
@@ -27238,6 +27398,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_NOT_ENOUGH_ENERGY)) {
         APRG_EnforceNotEnoughEnergy(player);
     }
+    APRG_TickSwarmsOfUnit(player, now);
     if (APRG_PlayerMacroBaseReady(player) && APRG_HasMutation(APRG_MUT_VOID_THRASHERS) && APRG_PlayerMacroBaseReady(player)) {
         APRG_TickVoidThrashers(player, now);
         if (g_aprgNextVoidThrasherTime < 0.0) {
