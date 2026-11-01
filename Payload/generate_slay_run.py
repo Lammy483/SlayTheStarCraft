@@ -201,7 +201,7 @@ DESTRUCTION_MISSION_EXCLUSIONS = {"The Essence of Eternity", "Essence of Eternit
 
 
 
-DESTRUCTION_TIMED_DEFENSE_ALLOWLIST = {"Zero Hour", "All-In"}
+DESTRUCTION_TIMED_DEFENSE_ALLOWLIST = {"Zero Hour"}
 
 RICH_MINERALS_MISSION_EXCLUSIONS = {"Devil's Playground"}
 GORGON_MISSION_EXCLUSIONS = {"fire in the sky"}
