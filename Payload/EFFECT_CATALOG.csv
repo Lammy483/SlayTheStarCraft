@@ -130,3 +130,6 @@ Multiple Air Bogies,Mutation,Zerg air units occasionally attack your base,1
 Covert Assistance,Blessing,Tosh works independently to assist you. He does not respawn.,1
 Hybrid Research,Mutation,Each enemy structure releases a random hybrid when destroyed,4
 Immortals,Mutation,There are 30 immortals patrolling around the map,3
+Armored Enemies,Mutation,All enemies gain +5 armor,3
+Swarms of [unit],Mutation,"Every 4 minutes, a swarm of [unit]s attacks your base.",4
+Explosive Armor,Mutation,"Enemy units explode on death, dealing damage to enemies proportional to their supply cost",4
