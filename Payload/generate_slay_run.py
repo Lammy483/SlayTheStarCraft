@@ -2700,6 +2700,38 @@ def possible_mission_names(ap_root: Path) -> tuple[str, ...]:
                          and MissionFlag.NoBuild not in m.flags}, key=str.casefold))
 
 
+
+def possible_mission_groups(ap_root: Path) -> dict[str, tuple[str, ...]]:
+    """Normally supported missions, grouped by their ORIGINAL campaign.
+
+    Race-swapped versions are intentionally represented once under the original
+    mission's campaign. Prologue and epilogue belong in the LotV column.
+    """
+    root_str = str(ap_root)
+    if root_str not in sys.path:
+        sys.path.insert(0, root_str)
+    from worlds.sc2.mission_tables import SC2Campaign, SC2Mission, MissionFlag
+    groups: dict[str, set[str]] = {
+        "Wings of Liberty": set(),
+        "Heart of the Swarm": set(),
+        "Legacy of the Void": set(),
+    }
+    for mission in SC2Mission:
+        if (mission.campaign == SC2Campaign.GLOBAL
+                or mission.campaign.campaign_name not in DEFAULT_CAMPAIGNS
+                or MissionFlag.NoBuild in mission.flags):
+            continue
+        campaign = mission.campaign.campaign_name
+        if campaign == "Wings of Liberty":
+            column = "Wings of Liberty"
+        elif campaign == "Heart of the Swarm":
+            column = "Heart of the Swarm"
+        else:
+            column = "Legacy of the Void"
+        groups[column].add(mission.get_short_name())
+    return {name: tuple(sorted(names, key=str.casefold)) for name, names in groups.items()}
+
+
 def filter_possible_missions(candidates: list[dict[str, Any]], excluded: list[str]) -> list[dict[str, Any]]:
     """Exclude every race-swapped variant of each unchecked mission family."""
     forbidden = {name.strip().casefold() for name in excluded}
