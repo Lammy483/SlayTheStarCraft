@@ -1337,7 +1337,9 @@ def install_launcher_tab(manager: Any) -> None:
         raise RuntimeError("Slay generator is missing; cannot load Possible Missions")
     _mission_module = module_from_spec(_mission_spec)
     _mission_spec.loader.exec_module(_mission_module)
-    mission_names = _mission_module.possible_mission_names(archipelago_root())
+
+    mission_groups = _mission_module.possible_mission_groups(archipelago_root())
+    mission_names = tuple(dict.fromkeys(name for group in mission_groups.values() for name in group))
     mission_checks = {name: CheckBox(active=name.casefold() != "lab rat", size_hint_x=None, width=dp(42))
                       for name in mission_names}
     mission_select_button = Button(text="Possible Missions...", size_hint_y=None, height=dp(42))
@@ -1345,28 +1347,32 @@ def install_launcher_tab(manager: Any) -> None:
 
     def show_possible_missions(*_args: Any) -> None:
         shell = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(12))
-        note = Label(text="Uncheck a mission to exclude all race-swapped versions of it.\n"
-                          "Race and mode restrictions still apply. Lab Rat is off by default.",
-                     font_size=dp(13), size_hint_y=None, height=dp(52), halign="left")
-        note.bind(size=lambda inst, value: setattr(inst, "text_size", value))
-        shell.add_widget(note)
-        scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
-        contents = GridLayout(cols=1, spacing=dp(2), size_hint_y=None)
-        contents.bind(minimum_height=contents.setter("height"))
-        for name, previous_checkbox in list(mission_checks.items()):
-            # Each popup gets fresh widgets: Kivy forbids adding the same
-            # checkbox to a new parent when this dialog is reopened.
-            checkbox = CheckBox(active=previous_checkbox.active, size_hint_x=None, width=dp(42))
-            mission_checks[name] = checkbox
-            row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(35))
-            row.add_widget(checkbox)
-            label = Button(text=name, halign="left", background_normal="",
-                           background_color=(0, 0, 0, 0))
-            label.bind(on_release=lambda _button, check=checkbox: setattr(check, "active", not check.active))
-            row.add_widget(label)
-            contents.add_widget(row)
-        scroll.add_widget(contents)
-        shell.add_widget(scroll)
+        columns = BoxLayout(orientation="horizontal", spacing=dp(14))
+        for title, names in mission_groups.items():
+            panel = BoxLayout(orientation="vertical", spacing=dp(5), size_hint_x=1)
+            header = Label(text=title, size_hint_y=None, height=dp(32),
+                           font_size=dp(17), bold=True, halign="center", valign="middle")
+            header.bind(size=lambda widget, size: setattr(widget, "text_size", size))
+            panel.add_widget(header)
+            scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
+            contents = GridLayout(cols=1, spacing=dp(2), size_hint_y=None)
+            contents.bind(minimum_height=contents.setter("height"))
+            for name in names:
+                # Kivy widgets cannot be reparented on successive popup opens.
+                previous_checkbox = mission_checks[name]
+                checkbox = CheckBox(active=previous_checkbox.active, size_hint_x=None, width=dp(38))
+                mission_checks[name] = checkbox
+                row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(35))
+                row.add_widget(checkbox)
+                label = Button(text=name, halign="left", background_normal="",
+                               background_color=(0, 0, 0, 0))
+                label.bind(on_release=lambda _button, check=checkbox: setattr(check, "active", not check.active))
+                row.add_widget(label)
+                contents.add_widget(row)
+            scroll.add_widget(contents)
+            panel.add_widget(scroll)
+            columns.add_widget(panel)
+        shell.add_widget(columns)
         actions = BoxLayout(orientation="horizontal", spacing=dp(8), size_hint_y=None, height=dp(44))
         select_all = Button(text="Select All")
         select_none = Button(text="Deselect All")
@@ -1375,7 +1381,7 @@ def install_launcher_tab(manager: Any) -> None:
         actions.add_widget(select_none)
         actions.add_widget(done)
         shell.add_widget(actions)
-        popup = Popup(title="Possible Missions", content=shell, size_hint=(0.72, 0.85))
+        popup = Popup(title="Possible Missions", content=shell, size_hint=(0.94, 0.90))
         select_all.bind(on_release=lambda *_: [setattr(ch, "active", True) for ch in mission_checks.values()])
         select_none.bind(on_release=lambda *_: [setattr(ch, "active", False) for ch in mission_checks.values()])
         done.bind(on_release=lambda *_: popup.dismiss())
