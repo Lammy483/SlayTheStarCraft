@@ -8991,6 +8991,14 @@ void APRG_NuclearWorkerDeath(point p, int player) {
 
 bool APRG_IsWorkerTypeForDeath(string unitType) {
     if (unitType == "") { return false; }
+    // InfestedSCVEgg and similar production proxies include a worker name
+    // without actually being workers. Ignore deaths caused by morphing eggs.
+    if (StringContains(unitType, "Egg", c_stringAnywhere, c_stringNoCase) ||
+        StringContains(unitType, "Cocoon", c_stringAnywhere, c_stringNoCase) ||
+        StringContains(unitType, "Larva", c_stringAnywhere, c_stringNoCase) ||
+        StringContains(unitType, "Chrysalis", c_stringAnywhere, c_stringNoCase) ||
+        StringContains(unitType, "Dummy", c_stringAnywhere, c_stringNoCase) ||
+        StringContains(unitType, "Placeholder", c_stringAnywhere, c_stringNoCase)) { return false; }
     return StringContains(unitType, "SCV", c_stringAnywhere, c_stringNoCase) ||
         StringContains(unitType, "Drone", c_stringAnywhere, c_stringNoCase) ||
         StringContains(unitType, "Probe", c_stringAnywhere, c_stringNoCase) ||
@@ -9160,6 +9168,10 @@ bool APRG_DeathSpawnExcluded(unit dead, string unitType) {
     if (DataTableGetBool(true, "APRG_ArchonCannonMini_" + tag)) { return true; }
     if (DataTableGetBool(true, "APRG_Uncommandable_" + tag)) { return true; }
 
+    // Weapon projectiles and temporary shade projections are not real unit deaths.
+    if (StringContains(unitType, "Scarab", c_stringAnywhere, c_stringNoCase)) { return true; }
+    if (StringContains(unitType, "AdeptPhaseShift", c_stringAnywhere, c_stringNoCase) ||
+        StringContains(unitType, "AdeptShade", c_stringAnywhere, c_stringNoCase)) { return true; }
     if (StringContains(unitType, "Larva", c_stringAnywhere, c_stringNoCase)) { return true; }
     if (StringContains(unitType, "Egg", c_stringAnywhere, c_stringNoCase)) { return true; }
     if (StringContains(unitType, "Cocoon", c_stringAnywhere, c_stringNoCase)) { return true; }
@@ -9616,7 +9628,10 @@ bool APRG_Death_Func(bool testConds, bool runActions) {
     ) {
         APRG_QueueNoDeathsUltralisk(dead, p);
     }
-    if ((APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_NUCLEAR_WORKERS)) && owner == player && APRG_IsWorkerTypeForDeath(unitType)) {
+    if (APRG_PlayerMacroBaseReady(player) && APRG_HasExtension(APRG_EXT_MUT_NUCLEAR_WORKERS) &&
+        owner == player && APRG_IsWorkerTypeForDeath(unitType) &&
+        !APRG_UnitHasTimedLife(dead) && !UnitTypeTestAttribute(unitType, c_unitAttributeStructure) &&
+        !DataTableGetBool(true, "APRG_Uncommandable_" + IntToString(UnitGetTag(dead)))) {
         APRG_NuclearWorkerDeath(p, player);
     }
     if (
@@ -9970,19 +9985,19 @@ void APRG_SpawnVikingRaid(int player) {
     UnitGroupIssueOrder(created, OrderTargetingPoint(AbilityCommand("attack", 0), mineralLine), c_orderQueueAddToEnd);
 }
 
-bool APRG_VoidThrasherPointNearFriendlyUnits(point candidate, int player) {
+bool APRG_VoidThrasherPointNearFriendlyUnits(point candidate, int player, fixed radius) {
     unitgroup ownUnits;
     unitgroup alliedUnits;
     int i;
     unit u;
     if (candidate == null) { return true; }
     ownUnits = UnitGroup(
-        null, player, RegionCircle(candidate, 20.0),
+        null, player, RegionCircle(candidate, radius),
         UnitFilter(0, 0, (1 << c_targetFilterMissile), (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))), 0
     );
     if (UnitGroupCount(ownUnits, c_unitCountAlive) > 0) { return true; }
     alliedUnits = UnitGroupAlliance(
-        player, c_unitAllianceAlly, RegionCircle(candidate, 20.0),
+        player, c_unitAllianceAlly, RegionCircle(candidate, radius),
         UnitFilter(0, 0, (1 << c_targetFilterMissile), (1 << (c_targetFilterDead - 32)) | (1 << (c_targetFilterHidden - 32))), 0
     );
     for (i = UnitGroupCount(alliedUnits, c_unitCountAlive); i > 0; i -= 1) {
@@ -9994,7 +10009,11 @@ bool APRG_VoidThrasherPointNearFriendlyUnits(point candidate, int player) {
 
 point APRG_FindVoidThrasherPoint(int player) {
     unit base;
+    unitgroup anchors;
+    unit anchor;
+    int pass;
     int attempt;
+    int count;
     point candidate;
     point bestPoint;
     unit nearestPlayerStructure;
@@ -10006,11 +10025,13 @@ point APRG_FindVoidThrasherPoint(int player) {
     bestPoint = null;
     bestHomeDistance = 99999.0;
 
+    // Prefer the original safe, connected 30-70-radius ring.
     for (attempt = 0; attempt < 128; attempt += 1) {
         candidate = PointWithOffsetPolar(UnitGetPosition(base), RandomFixed(30.0, 70.0), libNtve_gf_RandomAngle());
         if (!RegionContainsPoint(RegionPlayableMap(), candidate) || !PointPathingPassable(candidate)) { continue; }
         if (APRG_GroundSpawnsNeedPlayerPathing() && !PointPathingIsConnected(candidate, UnitGetPosition(base))) { continue; }
-        if (APRG_VoidThrasherPointNearFriendlyUnits(candidate, player)) { continue; }
+        if (!APRG_LabRatEnemySpawnAllowed(candidate, player) || APRG_PointNearRakShirDuel(candidate, 24.0)) { continue; }
+        if (APRG_VoidThrasherPointNearFriendlyUnits(candidate, player, 20.0)) { continue; }
         nearestPlayerStructure = APRG_NearestPlayerStructure(candidate, player);
         if (nearestPlayerStructure == null) { continue; }
         nearestDistance = DistanceBetweenPoints(candidate, UnitGetPosition(nearestPlayerStructure));
@@ -10021,7 +10042,61 @@ point APRG_FindVoidThrasherPoint(int player) {
             bestPoint = candidate;
         }
     }
-    return bestPoint;
+    if (bestPoint != null) { return bestPoint; }
+
+    // Dark Whispers and other unusual maps may lack any connected location
+    // in the player's base ring. Use hostile strongholds or the whole map.
+    for (pass = 0; pass < 3; pass += 1) {
+        anchors = null;
+        count = 0;
+        if (pass == 0) { anchors = APRG_EnemyStructures(player); }
+        else if (pass == 1) { anchors = APRG_EnemyMobileUnits(player); }
+        if (anchors != null) { count = UnitGroupCount(anchors, c_unitCountAlive); }
+        if (pass < 2 && count <= 0) { continue; }
+        for (attempt = 0; attempt < 48; attempt += 1) {
+            if (pass < 2) {
+                anchor = UnitGroupUnitFromEnd(anchors, RandomInt(1, count));
+                if (anchor == null || !UnitIsAlive(anchor)) { continue; }
+                candidate = PointWithOffsetPolar(UnitGetPosition(anchor), RandomFixed(4.0, 20.0), libNtve_gf_RandomAngle());
+            }
+            else { candidate = RegionRandomPoint(RegionPlayableMap()); }
+            if (candidate == null || !RegionContainsPoint(RegionPlayableMap(), candidate) ||
+                !PointPathingPassable(candidate) ||
+                !APRG_LabRatEnemySpawnAllowed(candidate, player) ||
+                APRG_PointNearRakShirDuel(candidate, 24.0)) { continue; }
+            if (APRG_VoidThrasherPointNearFriendlyUnits(candidate, player, 12.0)) { continue; }
+            nearestPlayerStructure = APRG_NearestPlayerStructure(candidate, player);
+            if (nearestPlayerStructure != null &&
+                DistanceBetweenPoints(candidate, UnitGetPosition(nearestPlayerStructure)) < 16.0) { continue; }
+            return candidate;
+        }
+    }
+
+    // Thrasher movement is disabled and its creation ignores placement, so
+    // it does not need to stand on the same pathing island as the player.
+    for (pass = 0; pass < 2; pass += 1) {
+        if (pass == 0) { anchors = APRG_EnemyStructures(player); }
+        else { anchors = APRG_EnemyMobileUnits(player); }
+        count = UnitGroupCount(anchors, c_unitCountAlive);
+        for (attempt = 0; attempt < MinI(64, count); attempt += 1) {
+            anchor = UnitGroupUnitFromEnd(anchors, attempt + 1);
+            if (anchor == null || !UnitIsAlive(anchor)) { continue; }
+            candidate = UnitGetPosition(anchor);
+            if (candidate == null || !RegionContainsPoint(RegionPlayableMap(), candidate) ||
+                !APRG_LabRatEnemySpawnAllowed(candidate, player) ||
+                APRG_PointNearRakShirDuel(candidate, 24.0)) { continue; }
+            if (APRG_VoidThrasherPointNearFriendlyUnits(candidate, player, 7.0)) { continue; }
+            return candidate;
+        }
+    }
+    for (attempt = 0; attempt < 64; attempt += 1) {
+        candidate = RegionRandomPoint(RegionPlayableMap());
+        if (candidate == null || !APRG_LabRatEnemySpawnAllowed(candidate, player) ||
+            APRG_PointNearRakShirDuel(candidate, 24.0)) { continue; }
+        if (APRG_VoidThrasherPointNearFriendlyUnits(candidate, player, 7.0)) { continue; }
+        return candidate;
+    }
+    return null;
 }
 
 unitgroup APRG_CreateVoidThrasher(int owner, point p) {
@@ -10087,17 +10162,17 @@ void APRG_TickVoidThrasherMapVision() {
     }
 }
 
-void APRG_SpawnVoidThrasher(int player) {
+bool APRG_SpawnVoidThrasher(int player) {
     point p;
     int owner;
     unitgroup created;
     unit thrasher;
     p = APRG_FindVoidThrasherPoint(player);
-    if (p == null) { return; }
+    if (p == null) { return false; }
     owner = APRG_FindHostileOwnerNearPoint(player, p);
-    if (owner < 0) { return; }
+    if (owner < 0) { return false; }
     created = APRG_CreateVoidThrasher(owner, p);
-    if (created == null || UnitGroupCount(created, c_unitCountAlive) <= 0) { return; }
+    if (created == null || UnitGroupCount(created, c_unitCountAlive) <= 0) { return false; }
     UnitGroupAddUnitGroup(g_aprgVoidThrashers, created);
     if (UnitGroupUnitFromEnd(created, 1) != null) {
         thrasher = UnitGroupUnitFromEnd(created, 1);
@@ -10112,6 +10187,7 @@ void APRG_SpawnVoidThrasher(int player) {
     }
     MinimapPing(PlayerGroupSingle(player), p, 6.0, Color(100.0, 0.0, 0.0));
     UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText("[Slay] Void Thrasher detected."));
+    return true;
 }
 
 bool APRG_TryVoidThrasherLocalAbility(unit thrasher, int player) {
@@ -13471,7 +13547,7 @@ void APRG_EnsureBlinkOnUnit(int player, unit u) {
     string unitType;
     if (u == null || !UnitIsAlive(u) || !CatalogEntryIsValid(c_gameCatalogAbil, "APRogueBlink")) { return; }
     unitType = UnitGetType(u);
-    if (APRG_IsSpearCasterType(unitType)) {
+    if (APRG_IsSpearCasterType(unitType) || StringContains(unitType, "Instigator", c_stringAnywhere, c_stringNoCase)) {
         if (UnitAbilityExists(u, "APRogueBlink")) {
             UnitAbilityShow(u, "APRogueBlink", false);
             UnitAbilityEnable(u, "APRogueBlink", false);
@@ -27168,8 +27244,13 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
             g_aprgNextVoidThrasherTime = g_aprgMacroReadyTime + 240.0;
         }
         else if (now >= g_aprgNextVoidThrasherTime) {
-            APRG_SpawnVoidThrasher(player);
-            g_aprgNextVoidThrasherTime = now + RandomFixed(120.0, 180.0);
+            if (APRG_SpawnVoidThrasher(player)) {
+                g_aprgNextVoidThrasherTime = now + RandomFixed(120.0, 180.0);
+            }
+            else {
+                // No spawn means no consumed wave; retry much sooner.
+                g_aprgNextVoidThrasherTime = now + 8.0;
+            }
         }
     }
     if (
