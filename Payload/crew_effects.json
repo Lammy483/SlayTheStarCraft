@@ -552,6 +552,20 @@
       "description": "All enemies gain +5 armor",
       "severity": 3,
       "notes": ""
+    },
+    "swarms_of_unit": {
+      "title": "Swarms of [unit]",
+      "eligible": true,
+      "description": "Every 4 minutes, a swarm of [unit]s attacks your base.",
+      "severity": 4,
+      "notes": "Twice normal weight; starts 5m after base. Four wave positions. 3000+1000 per completed wave in unit resources."
+    },
+    "explosive_armor_mutation": {
+      "title": "Explosive Armor",
+      "eligible": true,
+      "description": "Enemy units explode on death, dealing damage to enemies proportional to their supply cost",
+      "severity": 4,
+      "notes": "Half the damage of the blessing."
     }
   },
   "blessing": {
