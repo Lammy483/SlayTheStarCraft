@@ -5895,6 +5895,8 @@ def _mutation_allowed_for_mission(ctx: Any, mission_id: int, effect: str) -> boo
         return False
     if mission_name.casefold().startswith("smash and grab") and effect in {"nexus_shield", "jetpacks"}:
         return False
+    if effect == "ten_minutes_until_destruction" and bool(data.get("timed_defense", False)) and mission_name.casefold() != "zero hour":
+        return False
     if effect == "point_defense_drones" and bool(data.get("timed_defense", False)):
         return False
     if effect == "hybrid_research" and bool(data.get("timed_defense", False)):
@@ -11151,6 +11153,8 @@ def _reroll_future_nodes(ctx: Any, purchase_index: int) -> int:
         if str(mission_name).startswith("Rak'Shir"): forbidden_mut.add("burrowed_zerglings")
 
         forbidden_mut.update(gen.crucible_mutation_exclusions(mission_name))
+        if bool(original.get("timed_defense", False)) and mission_name.casefold() != "zero hour":
+            forbidden_mut.add("ten_minutes_until_destruction")
         if mission_name.strip().casefold() in {"evacuation", "the evacuation"}:
             forbidden_mut.add("nuclear_annihilation")
 
@@ -13170,19 +13174,21 @@ def _mutation_tooltip_name_markup(ctx: Any, mission_id: int, effect_id: str) -> 
 
     severity = int(GOLDEN_GOOSE_MUTATIONS.get(str(effect_id), 0))
 
-    if severity < 4:
+    if severity < 3:
 
-        return f"[b]{name}[/b]"
+        return f"[b]{name}[/b]
 
     colors = {
 
-        4: "FFB0B0",
+        3: "FFB0B0",
 
-        5: "FF8888",
+        4: "FF8888",
 
-        6: "FF5C5C",
+        5: "FF5C5C",
 
-        7: "FF3333",
+        6: "FF3333",
+
+        7: "FF2020",
 
     }
 
