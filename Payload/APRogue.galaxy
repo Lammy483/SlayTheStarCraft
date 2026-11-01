@@ -18297,7 +18297,10 @@ unit APRG_CreateVerifiedShopKerriganUnit(int player, string requestedType, point
     if (!CatalogEntryIsValid(c_gameCatalogUnit, candidateType)) { candidateType = nativeType; }
     created = UnitCreate(1, candidateType, c_unitCreateIgnorePlacement,
         player, p, libNtve_gf_RandomAngle());
-    result = UnitGroupUnitFromEnd(created, 1);
+    result = null;
+    if (created != null && UnitGroupCount(created, c_unitCountAlive) > 0) {
+        result = UnitGroupUnitFromEnd(created, 1);
+    }
     if (result != null && UnitIsAlive(result) &&
         APRG_IsShopKerriganType(UnitGetType(result))) {
         DataTableSetBool(true, "APRG_ShopKerrigan_" + IntToString(UnitGetTag(result)), true);
@@ -18308,7 +18311,10 @@ unit APRG_CreateVerifiedShopKerriganUnit(int player, string requestedType, point
     if (candidateType != nativeType) {
         created = UnitCreate(1, nativeType, c_unitCreateIgnorePlacement,
             player, p, libNtve_gf_RandomAngle());
-        result = UnitGroupUnitFromEnd(created, 1);
+        result = null;
+        if (created != null && UnitGroupCount(created, c_unitCountAlive) > 0) {
+            result = UnitGroupUnitFromEnd(created, 1);
+        }
         if (result != null && UnitIsAlive(result) &&
             APRG_IsShopKerriganType(UnitGetType(result))) {
             DataTableSetBool(true, "APRG_ShopKerrigan_" + IntToString(UnitGetTag(result)), true);
