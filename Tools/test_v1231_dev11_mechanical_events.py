@@ -132,6 +132,22 @@ class Dev11MechanicalTest(TestCase):
         self.assertIn("APRG_OrderAttackMove(u, UnitGetPosition(home));", tick)
         self.assertNotIn("APRG_OrderAttackMove(u, UnitGetPosition(enemyAnchor));", tick)
 
+    def test_event_heroes_spawn_on_pathable_ground_and_banelings_disperse(self):
+        galaxy = (PAYLOAD / "APRogue.galaxy").read_text(encoding="utf-8")
+        hero = galaxy.split("unit APRG_EventEnemyHero(", 1)[1].split("\n}\n", 1)[0]
+        zagara = galaxy.split("void APRG_TickEventZagara(", 1)[1].split("\n}\n", 1)[0]
+        # Both variants must avoid overlapping their hostile base anchor.
+        self.assertIn("spawnPoint = APRG_FindHostileGroundPointNear(", hero)
+        self.assertIn("UnitGetOwner(anchor), spawnPoint,", hero)
+        self.assertIn("spawnPoint = APRG_FindHostileGroundPointNear(", zagara)
+        self.assertIn("UnitGetOwner(anchor), spawnPoint,", zagara)
+        self.assertNotIn("UnitGetOwner(anchor), UnitGetPosition(anchor),", hero)
+        self.assertNotIn("UnitGetOwner(anchor), UnitGetPosition(anchor),", zagara)
+        # A 100-Baneling wave is five groups, each with its own safe placement.
+        self.assertIn("waveIndex < 5", zagara)
+        self.assertIn("RandomFixed(3.0, 9.0)", zagara)
+        self.assertIn('APRG_CreatePlayerUnitsSafe(20, "Baneling"', zagara)
+
     def test_galaxy_uses_real_kill_event_and_separate_event_packet(self):
         galaxy = (PAYLOAD / "APRogue.galaxy").read_text(encoding="utf-8")
         installer = (PAYLOAD / "install_slay.py").read_text(encoding="utf-8")
