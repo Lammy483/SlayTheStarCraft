@@ -29,6 +29,12 @@ jobs:
           python -m compileall -q Payload Tools
           python .\Payload\verify_release.py --source-only
           python -m unittest Tools.test_v1231_dev3_deaths_thrashers_blink Tools.test_v1231_dev4_settings_mutations_mercs Tools.test_v1231_dev5_kerrigan_vortex Tools.test_v1231_dev6_events_framework Tools.test_v1231_dev8_events Tools.test_v1231_dev11_mechanical_events Tools.test_v1231_dev14_galaxy_and_assets
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\Tools\Update-ExistingSlay.ps1'), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_ }
+            throw 'In-place updater contains PowerShell syntax errors'
+          }
 
       - name: Build portable Windows launcher
         shell: pwsh
