@@ -312,6 +312,10 @@ const int APRG_MISSION_FLAG_EPILOGUE_KERRIGAN = 1048576;
 const int APRG_MISSION_FLAG_CREW_CHALLENGE = 2097152;
 const int APRG_MISSION_FLAG_SWARMS_OF_UNIT = 4194304;
 const int APRG_MISSION_FLAG_EXPLOSIVE_ARMOR_MUTATION = 8388608;
+// Events use bit 28, above the Swarms unit selection (bits 24-27).
+const int APRG_MISSION_FLAG_EVENT_MERCHANT_RAID = 268435456;
+bool g_aprgEventMerchantRaidWarned = false;
+bool g_aprgEventMerchantRaidDone = false;
 
 int g_aprgMaskA = 0;
 int g_aprgMaskB = 0;
@@ -22146,6 +22150,8 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgAirBogieBroodLords = 0;
     g_aprgAirBogieLastBroodMinute = 10;
     g_aprgCovertTosh = null;
+    g_aprgEventMerchantRaidWarned = false;
+    g_aprgEventMerchantRaidDone = false;
     g_aprgCovertToshSpawned = false;
     g_aprgCovertToshRetreating = false;
     g_aprgCovertToshLastTick = -1.0;
@@ -27009,6 +27015,41 @@ void APRG_TickCovertAssistance(int player, fixed now) {
     }
 }
 
+
+// Event: Merchant Vessel police raid. Reuse the existing Terran hostile
+// drop-pod payload and standardized raider AI. Exactly five pods, one wave.
+void APRG_TickEventMerchantRaid(int player, fixed now) {
+    int owner;
+    int i;
+    point center;
+    point landing;
+    unit home;
+    if ((g_aprgMissionFlags & APRG_MISSION_FLAG_EVENT_MERCHANT_RAID) == 0 ||
+        g_aprgEventMerchantRaidDone) { return; }
+    if (now >= 295.0 && !g_aprgEventMerchantRaidWarned) {
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+            StringToText("Mercenaries Incoming"));
+        g_aprgEventMerchantRaidWarned = true;
+    }
+    if (now < 300.0 || !APRG_PlayerMacroBaseReady(player)) { return; }
+    home = APRG_FindPlayerHomeStructure(player);
+    if (home == null || !UnitIsAlive(home)) { return; }
+    center = APRG_FindGroundPointNear(UnitGetPosition(home), 8.0, 14.0);
+    if (center == null) {
+        center = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
+    }
+    if (center == null) { return; }
+    owner = APRG_FindHostileOwnerNearPoint(player, center);
+    if (owner < 0) { return; }
+    for (i = 0; i < 5; i += 1) {
+        landing = PointWithOffsetPolar(center, RandomFixed(0.5, 3.0), libNtve_gf_RandomAngle());
+        if (!APRG_QueueRealDropPod(APRG_DROP_KIND_TERRAN_HOSTILE, owner, landing, null)) {
+            APRG_ResolveTerranHostileDrop(player, owner, landing);
+        }
+    }
+    g_aprgEventMerchantRaidDone = true;
+}
+
 bool APRG_Tick_Func(bool testConds, bool runActions) {
     int player;
     fixed now;
@@ -27024,6 +27065,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     }
     APRG_TickDominationAnyPicker(now);
     APRG_TickEngineOfDestructionLoki(player, now);
+    APRG_TickEventMerchantRaid(player, now);
 
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_HELLION_RUN_BY) != 0) { APRG_TickHellionRunBy(player, now); }
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_DIAMONDBACK_WANDERERS) != 0) { APRG_TickDiamondbackWanderers(player, now); }
