@@ -749,7 +749,10 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         s["purchases"] = purchases
         s["event_forfeited_ap_counts"] = forfeited
         awards = dict(s.get("event_awarded_items", {}))
+        # Logical ownership already includes prior event AP grants. Only
+        # count newly granted copies here to avoid deducting them twice.
         current = slay._logic_owned_item_counts(ctx)
+        new_grants: dict[str, int] = {}
         given: list[str] = []
         for unit in survivors:
             candidates = [
@@ -758,12 +761,13 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
                 and slay._item_race_key(name, data) == "zerg"
                 and unit in slay._unit_specific_parent_names(name, table)
                 and slay._is_unit_specific_upgrade(name, table)
-                and int(current.get(name, 0)) + int(awards.get(name, 0)) < (
+                and int(current.get(name, 0)) + int(new_grants.get(name, 0)) < (
                     int(getattr(data, "quantity", 0)) if int(getattr(data, "quantity", 0)) > 0 else 1)
             ]
             rng.shuffle(candidates)
             for name in candidates[:3]:
                 awards[name] = int(awards.get(name, 0)) + 1
+                new_grants[name] = int(new_grants.get(name, 0)) + 1
                 given.append(name)
         s["event_awarded_items"] = awards
         message = ("Abathur's experiment completed. Lost units: " +
