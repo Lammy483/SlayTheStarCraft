@@ -148,6 +148,15 @@ class Dev11MechanicalTest(TestCase):
         self.assertIn("RandomFixed(3.0, 9.0)", zagara)
         self.assertIn('APRG_CreatePlayerUnitsSafe(20, "Baneling"', zagara)
 
+    def test_solarite_success_receipt_prevents_double_charge(self):
+        galaxy = (PAYLOAD / "APRogue.galaxy").read_text(encoding="utf-8")
+        solarite = galaxy.split("void APRG_TickEventSolarite(", 1)[1].split("\n}\n", 1)[0]
+        already_paid = solarite.index(
+            "BankValueGetAsInt(g_aprgEventBank, g_aprgEventSection, successKey) == 1")
+        debit = solarite.index("PlayerModifyPropertyInt(player, propertyType, c_playerPropOperSetTo, 0)")
+        self.assertLess(already_paid, debit, "Replay may not charge an already-completed trial")
+        self.assertIn("g_aprgEventSolariteResolved = true;", solarite[already_paid:debit])
+
     def test_galaxy_uses_real_kill_event_and_separate_event_packet(self):
         galaxy = (PAYLOAD / "APRogue.galaxy").read_text(encoding="utf-8")
         installer = (PAYLOAD / "install_slay.py").read_text(encoding="utf-8")
