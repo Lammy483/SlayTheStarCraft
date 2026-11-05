@@ -549,13 +549,12 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         s["permanent_blessings"] = []
         s["permanent_mutations"] = []
         s["potion_inventory"] = []
-        s["shop_potions_bought"] = []
+        # Events are NOT victories, rerolls, or a new shop visit. In particular,
+        # keep the rolled offers, sale identities, frozen selection, potion
+        # purchase availability, cycle, and reroll nonce completely unchanged.
+        # The forfeited Shop Expansion affects future rolls only; already
+        # displayed stock is not replaced or cut down mid-cycle.
         s["shop_cycle_purchases"] = {}
-        s["shop_cycle_purchase_victory_count"] = -1
-        s["shop_frozen_item"] = ""
-        s["shop_stock"] = []
-        s["shop_cycle"] = -1
-        s["shop_reroll_nonce"] = int(s.get("shop_reroll_nonce", 0)) + 1
         s["shop_expansion"] = 0
         s["risky_investment_charges"] = 0
         s["saving_grace_charges"] = 0
