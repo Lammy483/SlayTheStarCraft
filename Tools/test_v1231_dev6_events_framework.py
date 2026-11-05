@@ -46,7 +46,7 @@ class EventsDev6(unittest.TestCase):
             self.assertIn(event_id, ev.EVENTS)
             self.assertEqual(len(ev.IMPLEMENTED_OPTIONS[event_id]),
                              len(ev.EVENTS[event_id]["options"]))
-        self.assertNotIn("vortex", ev.REGULAR_ENABLED)
+        self.assertIn("vortex", ev.REGULAR_ENABLED)
         self.assertNotIn("zagara", ev.REGULAR_ENABLED)
     def test_opening_event_merchant_purchases_and_completion(self):
         from types import SimpleNamespace
@@ -99,7 +99,7 @@ class EventsDev6(unittest.TestCase):
                 return False
         ctx = SimpleNamespace(slay_config={"campaign_length": 12, "run_seed": 123},
                               state={}, persisted=0)
-        with patch.object(ev, "_slay", return_value=FakeSlay):
+        with patch.object(ev, "_slay", return_value=FakeSlay), patch.object(ev, "REGULAR_ENABLED", ("merchant",)):
             self.assertEqual(ev.pending(ctx)["id"], "__test_select__")
             self.assertTrue(ev.select_test(ctx, "merchant")[0])
             self.assertEqual(ev.pending(ctx)["id"], "merchant")
@@ -189,7 +189,7 @@ class EventsDev6(unittest.TestCase):
         ctx = SimpleNamespace(slay_config={"run_seed": 15, "campaign_length": 12},
                               state={"event_assignments": {"0": "abathur"}}, saved=0)
         with patch.object(ev, "_slay", return_value=FakeSlay):
-            self.assertEqual(set(ev.eligible_regular(ctx)), {"merchant", "abathur"})
+            self.assertEqual(set(ev.eligible_regular(ctx)), {"merchant", "abathur", "vortex"})
             self.assertTrue(ev.display(ctx)["options"][0]["enabled"])
             ok, message, finished = ev.apply_choice(ctx, 0)
             self.assertTrue(ok and finished)
@@ -200,7 +200,7 @@ class EventsDev6(unittest.TestCase):
             self.assertIn("Lost units:", message)
             self.assertIn("Upgrades gained:", message)
             self.assertEqual(len(ev._owned_zerg_units(ctx)), 2)
-            self.assertEqual(ev.eligible_regular(ctx), ("merchant",))
+            self.assertEqual(ev.eligible_regular(ctx), ("merchant", "vortex"))
             self.assertGreater(ctx.saved, 0)
 
     def test_standard_only_and_full_installation(self):
