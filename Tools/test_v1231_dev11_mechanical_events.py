@@ -148,6 +148,15 @@ class Dev11MechanicalTest(TestCase):
         self.assertIn("RandomFixed(3.0, 9.0)", zagara)
         self.assertIn('APRG_CreatePlayerUnitsSafe(20, "Baneling"', zagara)
 
+    def test_swann_weapon_tree_is_cached_per_player(self):
+        galaxy = (PAYLOAD / "APRogue.galaxy").read_text(encoding="utf-8")
+        tree = galaxy.split("void APRG_EventMechBoostWeaponTree(", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('key = "APRG_EventMechTree_" + IntToString(owner)', tree)
+        self.assertIn("if (DataTableGetBool(true, key)) { return; }", tree)
+        self.assertIn("DataTableSetBool(true, key, true);", tree)
+        self.assertLess(tree.index("if (DataTableGetBool(true, key))"),
+                        tree.index("for (i = 0; i < 22; i += 1)"))
+
     def test_solarite_success_receipt_prevents_double_charge(self):
         galaxy = (PAYLOAD / "APRogue.galaxy").read_text(encoding="utf-8")
         solarite = galaxy.split("void APRG_TickEventSolarite(", 1)[1].split("\n}\n", 1)[0]
