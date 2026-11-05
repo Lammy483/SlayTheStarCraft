@@ -328,6 +328,11 @@ const int APRG_EVENT_BRAKK_ALLY = 128;
 const int APRG_EVENT_ORGANISM_TEST = 256;
 const int APRG_EVENT_ORGANISM_ALLY = 512;
 const int APRG_EVENT_ORGANISM_ENEMY = 1024;
+const int APRG_EVENT_SOLARITE_TRIAL = 2048;
+const int APRG_EVENT_SOLARITE_ENERGY_GAIN = 4096;
+const int APRG_EVENT_SOLARITE_ENERGY_LOSS = 8192;
+const int APRG_EVENT_SOLARITE_COOLDOWN_GAIN = 16384;
+const int APRG_EVENT_SOLARITE_COOLDOWN_LOSS = 32768;
 int g_aprgEventMask = 0;
 int g_aprgEventUnit = 0;
 int g_aprgEventCount = 0;
@@ -356,6 +361,8 @@ unit g_aprgEventTestBrutalisk = null;
 bool g_aprgEventTestBrutaliskSpawned = false;
 bool g_aprgEventAnyBrutaliskSpawned = false;
 bool g_aprgEventTestReported = false;
+bool g_aprgEventSolariteStarted = false;
+bool g_aprgEventSolariteResolved = false;
 
 int g_aprgMaskA = 0;
 int g_aprgMaskB = 0;
@@ -18767,6 +18774,8 @@ fixed APRG_SpearCooldownFactor() {
     fixed factor = 1.0;
     int i;
     for (i = 0; i < g_aprgSpearCooldownReductionStacks; i += 1) { factor *= 0.8; }
+    if ((g_aprgEventMask & APRG_EVENT_SOLARITE_COOLDOWN_GAIN) != 0) { factor *= 0.8; }
+    if ((g_aprgEventMask & APRG_EVENT_SOLARITE_COOLDOWN_LOSS) != 0) { factor *= 1.1; }
     return factor;
 }
 
@@ -18809,6 +18818,8 @@ fixed APRG_SpearBonusRegen() {
     fixed bonus = 0.0;
     int i;
     for (i = 0; i < g_aprgSpearEnergyRegenStacks; i += 1) { bonus += 0.5; }
+    if ((g_aprgEventMask & APRG_EVENT_SOLARITE_ENERGY_GAIN) != 0) { bonus += 0.5; }
+    if ((g_aprgEventMask & APRG_EVENT_SOLARITE_ENERGY_LOSS) != 0) { bonus -= 0.25; }
     return bonus;
 }
 
@@ -18818,7 +18829,7 @@ fixed APRG_SpearDesiredRegen(unit caster) {
     if (caster == null) { return 0.0; }
     baseKey = IntToString(UnitGetTag(caster));
     desired = DataTableGetFixed(true, "APRG_SpearBaseRegen_" + baseKey) + APRG_SpearBonusRegen();
-    return desired;
+    return MaxF(0.0, desired);
 }
 
 void APRG_PinSpearPreBase(unit caster, int player) {
@@ -22220,6 +22231,8 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgEventTestBrutaliskSpawned = false;
     g_aprgEventAnyBrutaliskSpawned = false;
     g_aprgEventTestReported = false;
+    g_aprgEventSolariteStarted = false;
+    g_aprgEventSolariteResolved = false;
     g_aprgCovertToshSpawned = false;
     g_aprgCovertToshRetreating = false;
     g_aprgCovertToshLastTick = -1.0;
@@ -27463,6 +27476,41 @@ void APRG_TickEventOrganism(int player, fixed now) {
     }
 }
 
+// Solarite is an automatic challenge: the first frame that the player holds
+// 5000 of the chosen resource, spend all of that resource and bank success.
+// The absent success receipt after a completed target mission is a failure.
+void APRG_TickEventSolarite(int player, fixed now) {
+    string checkpoint;
+    string startedKey;
+    string successKey;
+    int propertyType;
+    int amount;
+    if ((g_aprgEventMask & APRG_EVENT_SOLARITE_TRIAL) == 0 ||
+        g_aprgEventSolariteResolved || !APRG_PlayerMacroBaseReady(player) ||
+        g_aprgEventUnit < 1 || g_aprgEventUnit > 2) { return; }
+    if (g_aprgEventBank == null || g_aprgEventSection == "") { return; }
+    checkpoint = IntToString(g_aprgEventCount);
+    startedKey = "SolariteStartedAt" + checkpoint;
+    successKey = "SolariteSuccess" + checkpoint;
+    if (!g_aprgEventSolariteStarted) {
+        g_aprgEventSolariteStarted = true;
+        if (!BankKeyExists(g_aprgEventBank, g_aprgEventSection, startedKey)) {
+            BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, startedKey, g_aprgMissionLayer);
+            BankSave(g_aprgEventBank);
+        }
+    }
+    propertyType = c_playerPropMinerals;
+    if (g_aprgEventUnit == 2) { propertyType = c_playerPropVespene; }
+    amount = PlayerGetPropertyInt(player, propertyType);
+    if (amount < 5000) { return; }
+    PlayerModifyPropertyInt(player, propertyType, c_playerPropOperSetTo, 0);
+    BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, successKey, 1);
+    BankSave(g_aprgEventBank);
+    g_aprgEventSolariteResolved = true;
+    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+                     StringToText("Karax mission successful"));
+}
+
 void APRG_TickEventMerchantRaid(int player, fixed now) {
     int owner;
     int i;
@@ -27516,6 +27564,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     APRG_TickEventZagara(player, now);
     APRG_TickEventAllyBrakk(player);
     APRG_TickEventOrganism(player, now);
+    APRG_TickEventSolarite(player, now);
 
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_HELLION_RUN_BY) != 0) { APRG_TickHellionRunBy(player, now); }
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_DIAMONDBACK_WANDERERS) != 0) { APRG_TickDiamondbackWanderers(player, now); }
