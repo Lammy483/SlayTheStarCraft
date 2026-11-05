@@ -22218,13 +22218,12 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgCovertTosh = null;
     g_aprgEventMerchantRaidWarned = false;
     g_aprgEventMerchantRaidDone = false;
-    g_aprgEventMask = 0;
-    g_aprgEventUnit = 0;
-    g_aprgEventCount = 0;
-    g_aprgEventMechUnitIndex = 0;
-    g_aprgEventMechCount = 0;
-    g_aprgEventMechMode = 0;
-    g_aprgEventMechCheckpoint = 0;
+    // IMPORTANT: do not reset g_aprgEventMask / g_aprgEventMechMode or
+    // their packet values in the LOAD_FINISHED callback. AP's ?SlayEvent and
+    // ?SlayMech chat packets can arrive BEFORE this callback. The globals
+    // already start at zero for every new SC2 mission; clearing them here
+    // silently disables all events in those missions while ?APRogue
+    // mutations still work. Only clear per-mission *runtime* state below.
     g_aprgEventMechKills = 0;
     g_aprgEventMechSpawned = false;
     g_aprgEventMechSuccess = false;
@@ -22232,8 +22231,8 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgEventMechEnemyPatrol = UnitGroupEmpty();
     g_aprgEventMechNextTick = 0.0;
     g_aprgEventMechNextPatrol = 0.0;
-    g_aprgEventBank = null;
-    g_aprgEventSection = "";
+    // Event bank/section were set by ?SlayEvent, potentially pre-load.
+    // Preserve them along with the event mask and mechanical packet.
     g_aprgEventNovaAlly = null;
     g_aprgEventToshEnemy = null;
     g_aprgEventNovaEnemy = null;
@@ -27377,6 +27376,11 @@ bool APRG_EventConfig_Func(bool testConds, bool runActions) {
         g_aprgEventBank = BankLoad("SlayTheStarCraftEvents", player);
         g_aprgEventSection = "Run" + IntToString(g_aprgTestPotionRunToken);
     }
+    if (g_aprgEventMask != 0) {
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+            StringToText("[Slay] Event effects activated (mask " +
+                         IntToString(g_aprgEventMask) + ")"));
+    }
     return true;
 }
 
@@ -27848,6 +27852,11 @@ bool APRG_EventMechConfig_Func(bool testConds, bool runActions) {
     }
     if (g_aprgEventMechCount < 1) { g_aprgEventMechCount = 1; }
     if (g_aprgEventMechCount > 20) { g_aprgEventMechCount = 20; }
+    if (g_aprgEventMechMode != 0) {
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+            StringToText("[Slay] Swann trial activated (mode " +
+                         IntToString(g_aprgEventMechMode) + ")"));
+    }
     return true;
 }
 void APRG_TickEventMechanical(int player, fixed now) {
