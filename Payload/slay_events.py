@@ -104,14 +104,14 @@ EVENTS: dict[str, dict[str, Any]] = {
 # Only expose encounters with fully implemented outcomes in ordinary runs.
 # The initial development encounter can display all ten for inspection, but
 # unfinished options are visibly disabled rather than silently doing nothing.
-REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis", "nova", "colonists", "zagara", "organism", "solarite")
+REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis", "nova", "colonists", "zagara", "organism", "solarite", "mechanical")
 IMPLEMENTED_OPTIONS: dict[str, tuple[int, ...]] = {
     "merchant": (0, 1, 2, 3, 4),
     "nova": (0, 1),
     "zagara": (0, 1),
     "abathur": (0, 1),
     "organism": (0, 1),
-    "mechanical": (1,),
+    "mechanical": (0, 1),
     "colonists": (0, 1),
     "crystalis": (0, 1),
     "solarite": (0, 1, 2),
@@ -167,6 +167,57 @@ def _owned_zerg_units(ctx: Any) -> list[str]:
         and not slay._is_mercenary_unit(name, table[name])
     )
 
+# Canonical unit, SC2 native wire index, and mineral+gas cost. All candidates
+# are factory-produced, mechanically typed Terran ground units, excluding
+# flying Vikings and infantry. The generated AP item table is authoritative.
+MECHANICAL_UNITS = (
+    ("Hellion", 1, 100),
+    ("Vulture", 2, 75),
+    ("Goliath", 3, 200),
+    ("Siege Tank", 4, 275),
+    ("Diamondback", 5, 300),
+    ("Widow Mine", 6, 100),
+    ("Warhound", 7, 225),
+    ("Cyclone", 8, 250),
+    ("Thor", 9, 500),
+)
+
+def _mechanical_candidates(ctx: Any) -> list[tuple[str, int, int]]:
+    slay = _slay()
+    table = slay._item_table()
+    owned = slay._logic_owned_item_counts(ctx)
+    return [
+        (name, code, max(1, 1000 // cost))
+        for name, code, cost in MECHANICAL_UNITS
+        if name in table and getattr(table[name], "code", None) is not None
+        and int(owned.get(name, 0)) <= 0
+        and slay._item_race_key(name, table[name]) == "terran"
+        and slay._is_unit_unlock_type(str(getattr(getattr(table[name], "type", None), "display_name", "")))
+    ]
+
+def _mechanical_offer(ctx: Any, key: str) -> tuple[str, int, int] | None:
+    slay = _slay()
+    s = slay.state(ctx)
+    options = _mechanical_candidates(ctx)
+    saved = s.get("event_mechanical_offers", {}).get(str(key))
+    if isinstance(saved, dict):
+        try:
+            name = str(saved["name"])
+            unit_code = int(saved["unit_code"])
+            quantity = int(saved["quantity"])
+            if (name, unit_code, quantity) in options:
+                return name, unit_code, quantity
+        except (KeyError, ValueError, TypeError):
+            pass
+    if not options:
+        return None
+    material = hashlib.sha256(f'{ctx.slay_config.get("run_seed", 0)}:mechanical:{key}'.encode()).digest()
+    selected = random.Random(int.from_bytes(material[:8], "big")).choice(options)
+    s.setdefault("event_mechanical_offers", {})[str(key)] = dict(
+        name=selected[0], unit_code=selected[1], quantity=selected[2])
+    slay._persist_state(ctx)
+    return selected
+
 def eligible_regular(ctx: Any) -> tuple[str, ...]:
     # Check eligibility at event assignment, then persist the selected event
     # so reconnecting cannot reroll it based on inventory or purchases.
@@ -174,10 +225,12 @@ def eligible_regular(ctx: Any) -> tuple[str, ...]:
     slay = _slay()
     kerrigan = slay._progression_owned(ctx, slay.KERRIGAN_UNLOCK)
     spear = slay._progression_owned(ctx, slay.SPEAR_UNLOCK)
+    mechanical = bool(_mechanical_candidates(ctx))
     return tuple(x for x in REGULAR_ENABLED
                  if (x != "abathur" or enough_zerg)
                  and (x != "crystalis" or kerrigan)
-                 and (x != "solarite" or spear))
+                 and (x != "solarite" or spear)
+                 and (x != "mechanical" or mechanical))
 
 def pending(ctx: Any) -> dict[str, Any] | None:
     slay = _slay()
@@ -261,6 +314,10 @@ def display(ctx: Any) -> dict[str, Any] | None:
     shown = []
     for i, original in enumerate(data["options"]):
         label = original
+        if event_id == "mechanical":
+            offer = _mechanical_offer(ctx, key)
+            if offer is not None:
+                label = label.replace("[Mechanical Ground Terran Unit]", offer[0]).replace("[amount]", str(offer[2]))
         implemented = i in IMPLEMENTED_OPTIONS.get(event_id, ())
         can = implemented
         if event_id == "merchant" and i < 3:
@@ -272,6 +329,8 @@ def display(ctx: Any) -> dict[str, Any] | None:
                    and len(slay.potion_inventory(ctx)) < slay.POTION_CAPACITY)
         elif event_id == "merchant" and i == 3:
             can = can and len(slay.potion_inventory(ctx)) < slay.POTION_CAPACITY
+        elif event_id == "mechanical" and i == 0:
+            can = can and _mechanical_offer(ctx, key) is not None
         elif event_id == "abathur" and i == 0:
             can = can and len(_owned_zerg_units(ctx)) >= 4
         elif event_id == "crystalis":
@@ -286,7 +345,13 @@ def display(ctx: Any) -> dict[str, Any] | None:
             if i == 0:
                 can = can and slay.credits(ctx) >= 200
         shown.append({"text": label, "enabled": can, "implemented": implemented})
-    return dict(p, name=data["name"], description=data["description"], options=shown)
+    name, description = data["name"], data["description"]
+    if event_id == "mechanical":
+        offer = _mechanical_offer(ctx, key)
+        if offer is not None:
+            name = name.replace("[Mechanical Ground Terran Unit]", offer[0])
+            description = description.replace("[Mechanical Ground Terran Unit]", offer[0])
+    return dict(p, name=name, description=description, options=shown)
 
 # Event-native bits are transported separately from APRogue's occupied
 # mutation/boon banks. This tuple has a stable wire format for Galaxy.
@@ -475,6 +540,17 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         message = ("A hostile Brutalisk will spawn near enemy structures next mission. "
                    "Kill it to gain an allied Brutalisk every future mission; "
                    "otherwise the enemy gains one every future mission.")
+    elif event_id == "mechanical" and index == 0:
+        offer = _mechanical_offer(ctx, key)
+        if offer is None:
+            return False, "No eligible, unowned mechanical Terran unit remains.", False
+        name, unit_code, quantity = offer
+        s["event_mechanical_checkpoint"] = int(key)
+        s["event_mechanical_target"] = 0
+        s["event_mechanical_pending"] = True
+        s["event_mechanical_rewarded"] = False
+        message = (f"Rory Swann's {name} field test accepted. Next mission begins with "
+                   f"{quantity} {name}. Score 50 kills with those units to succeed.")
     elif event_id == "zagara":
         side = "zagara" if index == 0 else "brakk"
         s["event_zagara_side"] = side
@@ -544,6 +620,10 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         s["event_solarite_checkpoint"] = -1
         s["event_solarite_pending"] = False
         s["event_solarite_target"] = 0
+        s["event_mechanical_checkpoint"] = -1
+        s["event_mechanical_target"] = 0
+        s["event_mechanical_pending"] = False
+        s["event_mechanical_rewarded"] = False
         s["boon_purchases"] = {}
         s["permanent_boons"] = []
         s["permanent_blessings"] = []
