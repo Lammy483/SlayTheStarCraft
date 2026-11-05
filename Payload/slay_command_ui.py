@@ -1488,6 +1488,19 @@ def _slay_open_event_popup(manager):
                 # Multiple merchant purchases intentionally leave event open.
                 # Recreate the popup so sold-out offers and credits refresh.
                 close_and_refresh()
+                if complete and message:
+                    # Event consequences (including Abathur's item-loss report)
+                    # need a readable, scrollable popup instead of disappearing.
+                    result_scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
+                    result_label = Label(text=str(message), font_size=dp(15),
+                                         size_hint_y=None, halign='left', valign='top')
+                    result_label.bind(width=lambda widget, width:
+                                      setattr(widget, 'text_size', (max(dp(100), width - dp(20)), None)))
+                    result_label.bind(texture_size=lambda widget, size:
+                                      setattr(widget, 'height', max(dp(100), size[1] + dp(30))))
+                    result_scroll.add_widget(result_label)
+                    Popup(title='EVENT RESULT', content=result_scroll,
+                          size_hint=(.78, .60), auto_dismiss=True).open()
             item.bind(on_release=pick_option)
         options.add_widget(item)
     if info['id'] != '__test_select__' and info['checkpoint'] == 0:
