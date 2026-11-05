@@ -321,6 +321,10 @@ const int APRG_EVENT_NOVA_ALLY = 1;
 const int APRG_EVENT_TOSH_ENEMY = 2;
 const int APRG_EVENT_NOVA_ENEMY = 4;
 const int APRG_EVENT_COLONY_HUT = 8;
+const int APRG_EVENT_ZAGARA_BRAKK_QUEST = 16;
+const int APRG_EVENT_ZAGARA_BANELING_ALLY = 32;
+const int APRG_EVENT_ZAGARA_ENEMY = 64;
+const int APRG_EVENT_BRAKK_ALLY = 128;
 int g_aprgEventMask = 0;
 int g_aprgEventUnit = 0;
 int g_aprgEventCount = 0;
@@ -337,6 +341,14 @@ unit g_aprgEventColonyHut = null;
 bool g_aprgEventColonySpawned = false;
 bool g_aprgEventColonyDestroyed = false;
 fixed g_aprgEventColonyNextInfestation = -1.0;
+unit g_aprgEventQuestBrakk = null;
+unit g_aprgEventEnemyZagara = null;
+unit g_aprgEventAllyBrakk = null;
+bool g_aprgEventZagaraEnemySpawned = false;
+bool g_aprgEventZagaraDeadLocal = false;
+bool g_aprgEventAllyBrakkSpawned = false;
+bool g_aprgEventZagaraBurrowOrdered = false;
+fixed g_aprgEventAllyBanelingNext = 600.0;
 
 int g_aprgMaskA = 0;
 int g_aprgMaskB = 0;
@@ -22189,6 +22201,14 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgEventColonySpawned = false;
     g_aprgEventColonyDestroyed = false;
     g_aprgEventColonyNextInfestation = -1.0;
+    g_aprgEventQuestBrakk = null;
+    g_aprgEventEnemyZagara = null;
+    g_aprgEventAllyBrakk = null;
+    g_aprgEventZagaraEnemySpawned = false;
+    g_aprgEventZagaraDeadLocal = false;
+    g_aprgEventAllyBrakkSpawned = false;
+    g_aprgEventZagaraBurrowOrdered = false;
+    g_aprgEventAllyBanelingNext = 600.0;
     g_aprgCovertToshSpawned = false;
     g_aprgCovertToshRetreating = false;
     g_aprgCovertToshLastTick = -1.0;
@@ -25209,6 +25229,9 @@ void APRG_TickBrakkArmy(int player, fixed now) {
             APRG_AddCreatedToBrakkArmy(created);
             brakk = UnitGroupUnitFromEnd(created, 1);
             if (brakk != null) {
+                if ((g_aprgEventMask & APRG_EVENT_ZAGARA_BRAKK_QUEST) != 0) {
+                    g_aprgEventQuestBrakk = brakk;
+                }
                 // Only Brakk (not his pack or other instances of the unit type)
                 // receives the mutation boss's extra 1000 maximum/current HP.
                 UnitSetPropertyFixed(brakk, c_unitPropLifeMax, UnitGetPropertyFixed(brakk, c_unitPropLifeMax, c_unitPropCurrent) + 1000.0);
@@ -27256,6 +27279,113 @@ void APRG_TickEventColony(int player, fixed now) {
     }
 }
 
+void APRG_TickEventZagara(int player, fixed now) {
+    unit home;
+    unit anchor;
+    unitgroup created;
+    point spawnPoint;
+    string zagaraType;
+    string brakkType;
+    int wave;
+    fixed life;
+    fixed maxLife;
+    if ((g_aprgEventMask & (APRG_EVENT_ZAGARA_BRAKK_QUEST |
+        APRG_EVENT_ZAGARA_BANELING_ALLY | APRG_EVENT_ZAGARA_ENEMY |
+        APRG_EVENT_BRAKK_ALLY)) == 0 || !APRG_PlayerMacroBaseReady(player)) { return; }
+    // The Brakk quest is the normal Brakk's Pack mutation, but its boss death
+    // also permanently unlocks Zagara's allied ten-minute Baneling waves.
+    if ((g_aprgEventMask & APRG_EVENT_ZAGARA_BRAKK_QUEST) != 0 &&
+        g_aprgEventQuestBrakk != null && !UnitIsAlive(g_aprgEventQuestBrakk)) {
+        APRG_EventActorFallen(player, "BrakkDead", "Brakk is slain");
+        g_aprgEventQuestBrakk = null;
+    }
+    if ((g_aprgEventMask & APRG_EVENT_ZAGARA_BANELING_ALLY) != 0 &&
+        APRG_EventActorDead("BrakkDead") && now >= g_aprgEventAllyBanelingNext) {
+        home = APRG_FindPlayerHomeStructure(player);
+        anchor = APRG_RandomPathableHostileBaseAnchor(player);
+        if (home != null && anchor != null &&
+            CatalogEntryIsValid(c_gameCatalogUnit, "Baneling")) {
+            spawnPoint = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
+            if (spawnPoint != null) {
+                for (wave = 0; wave < 5; wave += 1) {
+                    created = APRG_CreatePlayerUnitsSafe(20, "Baneling", player, spawnPoint, libNtve_gf_RandomAngle());
+                    if (created != null) {
+                        UnitGroupIssueOrder(created, OrderTargetingPoint(
+                            AbilityCommand("attack", 0), UnitGetPosition(anchor)), c_orderQueueReplace);
+                    }
+                }
+                g_aprgEventAllyBanelingNext = now + 600.0;
+            }
+        }
+    }
+    if ((g_aprgEventMask & APRG_EVENT_ZAGARA_ENEMY) == 0 ||
+        APRG_EventActorDead("ZagaraDead") || g_aprgEventZagaraDeadLocal) { return; }
+    if (!g_aprgEventZagaraEnemySpawned) {
+        zagaraType = "ZaGara";
+        if (!CatalogEntryIsValid(c_gameCatalogUnit, zagaraType)) { zagaraType = "Zagara"; }
+        if (CatalogEntryIsValid(c_gameCatalogUnit, zagaraType)) {
+            anchor = APRG_RandomPathableHostileBaseAnchor(player);
+            if (anchor != null) {
+                created = UnitCreate(1, zagaraType, c_unitCreateIgnorePlacement,
+                                     UnitGetOwner(anchor), UnitGetPosition(anchor), 0.0);
+                g_aprgEventEnemyZagara = UnitGroupUnitFromEnd(created, 1);
+                if (g_aprgEventEnemyZagara != null) {
+                    maxLife = UnitGetPropertyFixed(g_aprgEventEnemyZagara, c_unitPropLifeMax, c_unitPropCurrent);
+                    if (maxLife > 0.0) {
+                        UnitSetPropertyFixed(g_aprgEventEnemyZagara, c_unitPropLifeMax, maxLife * 2.0);
+                        UnitSetPropertyFixed(g_aprgEventEnemyZagara, c_unitPropLife, maxLife * 2.0);
+                    }
+                    APRG_DisableGeneratedHeroRevive(g_aprgEventEnemyZagara);
+                    APRG_RegisterAlwaysVisibleUnit(g_aprgEventEnemyZagara, player);
+                    g_aprgEventZagaraEnemySpawned = true;
+                }
+            }
+        }
+    }
+    if (g_aprgEventZagaraEnemySpawned && (g_aprgEventEnemyZagara == null ||
+        !UnitIsAlive(g_aprgEventEnemyZagara))) {
+        g_aprgEventZagaraDeadLocal = true;
+        APRG_EventActorFallen(player, "ZagaraDead", "Zagara is slain");
+        return;
+    }
+    if (g_aprgEventEnemyZagara != null && UnitIsAlive(g_aprgEventEnemyZagara)) {
+        life = UnitGetPropertyFixed(g_aprgEventEnemyZagara, c_unitPropLife, c_unitPropCurrent);
+        maxLife = UnitGetPropertyFixed(g_aprgEventEnemyZagara, c_unitPropLifeMax, c_unitPropCurrent);
+        if (!g_aprgEventZagaraBurrowOrdered && maxLife > 0.0 && life < maxLife * 0.5 &&
+            UnitOrderIsValid(g_aprgEventEnemyZagara, Order(AbilityCommand("BurrowDown", 0)))) {
+            UnitIssueOrder(g_aprgEventEnemyZagara, Order(AbilityCommand("BurrowDown", 0)), c_orderQueueReplace);
+            g_aprgEventZagaraBurrowOrdered = true;
+        }
+        // Reuse the fully implemented 100-Baneling mutation rather than
+        // introducing another targeting and retargeting AI implementation.
+        if (!APRG_HasExtension2(APRG_EXT2_MUT_ZAGARAS_BANELINGS)) {
+            APRG_TickZagarasBanelings(player, now);
+        }
+    }
+}
+
+void APRG_TickEventAllyBrakk(int player) {
+    unit home;
+    point spawnPoint;
+    string brakkType;
+    unitgroup created;
+    if ((g_aprgEventMask & APRG_EVENT_BRAKK_ALLY) == 0 ||
+        APRG_EventActorDead("ZagaraDead") || !APRG_PlayerMacroBaseReady(player) ||
+        g_aprgEventAllyBrakkSpawned) { return; }
+    home = APRG_FindPlayerHomeStructure(player);
+    if (home == null) { return; }
+    brakkType = APRG_BrakkType();
+    if (brakkType == "") { return; }
+    spawnPoint = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
+    if (spawnPoint == null) { return; }
+    created = APRG_CreatePlayerUnitsSafe(1, brakkType, player, spawnPoint, 0.0);
+    g_aprgEventAllyBrakk = UnitGroupUnitFromEnd(created, 1);
+    if (g_aprgEventAllyBrakk != null) {
+        APRG_DisableGeneratedHeroRevive(g_aprgEventAllyBrakk);
+        g_aprgEventAllyBrakkSpawned = true;
+    }
+}
+
 void APRG_TickEventMerchantRaid(int player, fixed now) {
     int owner;
     int i;
@@ -27306,6 +27436,8 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     APRG_TickEventMerchantRaid(player, now);
     APRG_TickEventNova(player, now);
     APRG_TickEventColony(player, now);
+    APRG_TickEventZagara(player, now);
+    APRG_TickEventAllyBrakk(player);
 
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_HELLION_RUN_BY) != 0) { APRG_TickHellionRunBy(player, now); }
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_DIAMONDBACK_WANDERERS) != 0) { APRG_TickDiamondbackWanderers(player, now); }
