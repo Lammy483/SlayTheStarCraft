@@ -13700,9 +13700,7 @@ def ui_signature(ctx: Any) -> tuple[Any, ...]:
         tuple(s.get("event_price_penalties", [])),
         tuple(sorted(s.get("event_awarded_items", {}).items())),
         tuple(sorted(s.get("event_forfeited_ap_counts", {}).items())),
-        tuple(sorted(s.get("event_resolutions", {}).items())) if all(
-            isinstance(v, str) for v in s.get("event_resolutions", {}).values()) else
-            repr(s.get("event_resolutions", {})),
+        repr(s.get("event_resolutions", {})),
         str(s.get("shop_frozen_item", "")),
         tuple((row["id"], row["serial"]) for row in potion_inventory(ctx)),
 
