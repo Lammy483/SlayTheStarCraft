@@ -93,6 +93,10 @@ class EventsDev6(unittest.TestCase):
             @staticmethod
             def _logic_owned_item_counts(ctx):
                 return {}
+            KERRIGAN_UNLOCK = "Kerrigan"
+            @staticmethod
+            def _progression_owned(ctx, name):
+                return False
         ctx = SimpleNamespace(slay_config={"campaign_length": 12, "run_seed": 123},
                               state={}, persisted=0)
         with patch.object(ev, "_slay", return_value=FakeSlay):
@@ -146,6 +150,9 @@ class EventsDev6(unittest.TestCase):
                                                type=SimpleNamespace(display_name="Upgrade"),
                                                race=SimpleNamespace(name="zerg"), quantity=1)
         class FakeSlay:
+            KERRIGAN_UNLOCK = "Kerrigan"
+            @staticmethod
+            def _progression_owned(ctx, name): return False
             @staticmethod
             def events_enabled(ctx): return True
             @staticmethod
