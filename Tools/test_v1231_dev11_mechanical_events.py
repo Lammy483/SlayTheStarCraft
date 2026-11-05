@@ -123,13 +123,14 @@ class Dev11MechanicalTest(TestCase):
                 self.assertFalse(ev.sync_mechanical_quest(ctx))
         self.assertNotIn("event_awarded_items", ctx.state)
 
-    def test_failed_swann_patrol_attacks_player_base(self):
+    def test_failed_swann_patrols_reachable_enemy_territory(self):
         galaxy = (PAYLOAD / "APRogue.galaxy").read_text(encoding="utf-8")
         beginning = galaxy.index("void APRG_TickEventMechanical(int player, fixed now)")
         ending = galaxy.index("void APRG_TickEventMerchantRaid(", beginning)
         tick = galaxy[beginning:ending]
         self.assertIn("home = APRG_FindPlayerHomeStructure(player);", tick)
-        self.assertIn("APRG_OrderAttackMove(u, UnitGetPosition(home));", tick)
+        self.assertIn("where = APRG_EventHostilePatrolPoint(player);", tick)
+        self.assertIn("APRG_OrderAttackMove(u, where);", tick)
         self.assertNotIn("APRG_OrderAttackMove(u, UnitGetPosition(enemyAnchor));", tick)
 
     def test_event_heroes_spawn_on_pathable_ground_and_banelings_disperse(self):
@@ -137,9 +138,9 @@ class Dev11MechanicalTest(TestCase):
         hero = galaxy.split("unit APRG_EventEnemyHero(", 1)[1].split("\n}\n", 1)[0]
         zagara = galaxy.split("void APRG_TickEventZagara(", 1)[1].split("\n}\n", 1)[0]
         # Both variants must avoid overlapping their hostile base anchor.
-        self.assertIn("spawnPoint = APRG_FindHostileGroundPointNear(", hero)
-        self.assertIn("UnitGetOwner(anchor), spawnPoint,", hero)
-        self.assertIn("spawnPoint = APRG_FindHostileGroundPointNear(", zagara)
+        self.assertIn("spawnPoint = APRG_EventHostileGroundPoint(player, anchor);", hero)
+        self.assertIn("owner, spawnPoint,", hero)
+        self.assertIn("spawnPoint = APRG_EventHostileGroundPoint(player, anchor);", zagara)
         self.assertIn("UnitGetOwner(anchor), spawnPoint,", zagara)
         self.assertNotIn("UnitGetOwner(anchor), UnitGetPosition(anchor),", hero)
         self.assertNotIn("UnitGetOwner(anchor), UnitGetPosition(anchor),", zagara)
