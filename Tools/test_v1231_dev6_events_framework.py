@@ -205,6 +205,25 @@ class EventsDev6(unittest.TestCase):
             self.assertNotIn("abathur", ev.eligible_regular(ctx))
             self.assertGreater(ctx.saved, 0)
 
+            # Existing synthetic AP upgrades are included in logical counts.
+            # The event may still grant a second copy when the AP item permits it.
+            for unit in unit_names:
+                table[f"{unit} Upgrade 0"].quantity = 2
+            carried = {f"{unit} Upgrade 0": 1 for unit in unit_names}
+            ctx2 = SimpleNamespace(
+                slay_config={"run_seed": 15, "campaign_length": 12},
+                state={"event_assignments": {"0": "abathur"},
+                       "event_awarded_items": carried.copy()},
+                saved=0,
+            )
+            success, _, finished = ev.apply_choice(ctx2, 0)
+            self.assertTrue(success and finished)
+            for survivor in ev._owned_zerg_units(ctx2):
+                self.assertEqual(
+                    ctx2.state["event_awarded_items"][f"{survivor} Upgrade 0"], 2,
+                    "An already awarded AP upgrade should not be counted twice",
+                )
+
     def test_standard_only_and_full_installation(self):
         launcher = read("slay_launcher.py")
         generator = read("generate_slay_run.py")
