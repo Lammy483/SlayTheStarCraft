@@ -27529,6 +27529,13 @@ void APRG_TickEventSolarite(int player, fixed now) {
     checkpoint = IntToString(g_aprgEventCount);
     startedKey = "SolariteStartedAt" + checkpoint;
     successKey = "SolariteSuccess" + checkpoint;
+    // If a player replays the trial mission after banking success, the
+    // one-time solarite conversion must never charge 5000 resources again.
+    if (BankKeyExists(g_aprgEventBank, g_aprgEventSection, successKey) &&
+        BankValueGetAsInt(g_aprgEventBank, g_aprgEventSection, successKey) == 1) {
+        g_aprgEventSolariteResolved = true;
+        return;
+    }
     if (!g_aprgEventSolariteStarted) {
         g_aprgEventSolariteStarted = true;
         if (!BankKeyExists(g_aprgEventBank, g_aprgEventSection, startedKey)) {
