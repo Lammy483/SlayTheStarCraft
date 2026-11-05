@@ -27748,12 +27748,14 @@ void APRG_TickEventMechanical(int player, fixed now) {
         }
         if (now >= g_aprgEventMechNextPatrol) {
             g_aprgEventMechNextPatrol = now + 45.0;
-            enemyAnchor = APRG_RandomPathableHostileBaseAnchor(player);
-            if (enemyAnchor == null) { return; }
+            // Hostile Swann units should attack the player's base, not patrol
+            // toward another enemy structure on their own side of the map.
+            home = APRG_FindPlayerHomeStructure(player);
+            if (home == null) { return; }
             for (i = UnitGroupCount(g_aprgEventMechEnemyPatrol, c_unitCountAlive); i > 0; i -= 1) {
                 u = UnitGroupUnitFromEnd(g_aprgEventMechEnemyPatrol, i);
                 if (u != null && UnitIsAlive(u)) {
-                    APRG_OrderAttackMove(u, UnitGetPosition(enemyAnchor));
+                    APRG_OrderAttackMove(u, UnitGetPosition(home));
                 }
             }
         }
