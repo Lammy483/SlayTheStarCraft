@@ -8,6 +8,8 @@ from __future__ import annotations
 import hashlib
 import math
 import random
+import time
+import xml.etree.ElementTree as ET
 from typing import Any
 
 # The test encounter at floor zero is separate from the regular
@@ -102,14 +104,14 @@ EVENTS: dict[str, dict[str, Any]] = {
 # Only expose encounters with fully implemented outcomes in ordinary runs.
 # The initial development encounter can display all ten for inspection, but
 # unfinished options are visibly disabled rather than silently doing nothing.
-REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis", "nova")
+REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis", "nova", "colonists")
 IMPLEMENTED_OPTIONS: dict[str, tuple[int, ...]] = {
     "merchant": (0, 1, 2, 3, 4),
     "nova": (0, 1),
     "abathur": (0, 1),
     "organism": (1,),
     "mechanical": (1,),
-    "colonists": (1,),
+    "colonists": (0, 1),
     "crystalis": (0, 1),
     "solarite": (2,),
     "vortex": (0, 1),
@@ -286,6 +288,62 @@ def display(ctx: Any) -> dict[str, Any] | None:
 NOVA_ALLY = 1
 TOSH_ENEMY = 2
 NOVA_ENEMY = 4
+COLONY_HUT = 8
+
+def native_bank_values(ctx: Any) -> dict[str, int]:
+    """Read per-run event receipts from SC2 banks, never alter the bank files."""
+    slay = _slay()
+    if not slay.events_enabled(ctx) or not slay.state_ready(ctx):
+        return {}
+    token = int(slay.test_potion_run_token(ctx))
+    cached = getattr(ctx, "_slay_event_bank_cache", None)
+    now = time.monotonic()
+    if cached is not None and cached[0] == token and now < cached[1]:
+        return dict(cached[2])
+    from .crew_live_bot import banks
+    paths = []
+    for root in banks():
+        try:
+            paths.extend(root.rglob("SlayTheStarCraftEvents.SC2Bank"))
+        except OSError:
+            continue
+    values: dict[str, int] = {}
+    for path in sorted(set(paths), key=lambda p: p.stat().st_mtime if p.is_file() else 0,
+                       reverse=True):
+        try:
+            doc = ET.fromstring(path.read_bytes())
+            sections = doc.findall(".//Section[@name='Run" + str(token) + "']")
+            if len(sections) != 1:
+                continue
+            for item in sections[0].findall("Key"):
+                name = item.get("name", "")
+                value = item.find("Value")
+                if name and value is not None:
+                    raw = value.get("int", "")
+                    if raw.lstrip("-").isdecimal():
+                        values[name] = int(raw)
+            break
+        except (OSError, ET.ParseError, ValueError):
+            continue
+    ctx._slay_event_bank_cache = (token, now + 2.0, values)
+    return dict(values)
+
+def colony_earned_credits(ctx: Any) -> int:
+    slay = _slay()
+    if not slay.events_enabled(ctx) or not slay.state_ready(ctx):
+        return 0
+    s = slay.state(ctx)
+    checkpoint = int(s.get("event_colonists_checkpoint", -1))
+    if checkpoint < 0:
+        return 0
+    bank = native_bank_values(ctx)
+    if "ColonyStartedAt" not in bank:
+        return 0
+    victories = slay.victory_count(ctx)
+    death_layer = int(bank.get("ColonyDeadAt", 0))
+    if death_layer > 0:
+        victories = min(victories, death_layer - 1)
+    return 150 * max(0, victories - checkpoint)
 
 def native_values(ctx: Any, mission_id: int) -> tuple[int, int, int]:
     slay = _slay()
@@ -301,6 +359,8 @@ def native_values(ctx: Any, mission_id: int) -> tuple[int, int, int]:
             mask |= NOVA_ALLY | TOSH_ENEMY
         elif side == "tosh":
             mask |= NOVA_ENEMY
+    if layer >= int(s.get("event_colonists_checkpoint", 10000)):
+        mask |= COLONY_HUT
     return mask, 0, 0
 
 def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
@@ -347,6 +407,10 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
             message = f'Raided merchant vessel; gained {slay.POTION_CATALOG[pid]["name"]}. Mercenaries attack next mission.'
         else:
             message = "Left the merchant vessel."
+    elif event_id == "colonists" and index == 0:
+        s["event_colonists_checkpoint"] = int(key)
+        message = ("Dr Hansen's colony hut will appear at your base. "
+                   "Each mission completed with the hut surviving earns 150 credits.")
     elif event_id == "nova":
         unit_name = "Ghost" if index == 0 else "Spectre"
         item = slay._item_table().get(unit_name)
@@ -391,6 +455,7 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         s["event_awarded_items"] = {}
         s["event_crystalis_checkpoint"] = -1
         s["event_nova_side"] = ""
+        s["event_colonists_checkpoint"] = -1
         s["boon_purchases"] = {}
         s["permanent_boons"] = []
         s["permanent_blessings"] = []
