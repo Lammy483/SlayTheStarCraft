@@ -68,6 +68,7 @@ class EventsDev8(unittest.TestCase):
             "shop_rerolls_this_cycle": 2,
             "shop_potions_bought": ["potionA"],
             "shop_cycle_purchase_victory_count": 2,
+            "shop_cycle_purchases": {"Marine": 1, "Raven": 1},
             "shop_frozen_item": "Marine",
             "shop_expansion": 2,
         }
@@ -95,6 +96,8 @@ class EventsDev8(unittest.TestCase):
         self.assertEqual(state["shop_rerolls_this_cycle"], 2)
         self.assertEqual(state["shop_potions_bought"], ["potionA"])
         self.assertEqual(state["shop_cycle_purchase_victory_count"], 2)
+        self.assertEqual(state["shop_cycle_purchases"], {"Marine": 1, "Raven": 1},
+                         "Vortex must not restock items already purchased this cycle")
         self.assertEqual(state["shop_frozen_item"], "Marine")
         self.assertEqual(state["shop_expansion"], 0)
         self.assertEqual(ctx.saves, 1)
