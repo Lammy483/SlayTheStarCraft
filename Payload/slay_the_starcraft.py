@@ -1254,6 +1254,10 @@ DEFAULT_STATE: dict[str, Any] = {
     "event_nova_side": "",
     "event_nova_checkpoint": -1,
     "event_colonists_checkpoint": -1,
+    "event_zagara_side": "",
+    "event_zagara_checkpoint": -1,
+    "event_zagara_quest_pending": False,
+    "event_zagara_quest_target": 0,
     "event_merchant_raid_pending": False,
     "event_merchant_raid_target": 0,
 
@@ -2581,6 +2585,15 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
         state["event_colonists_checkpoint"] = max(-1, min(1000, int(value.get("event_colonists_checkpoint", -1))))
     except (TypeError, ValueError):
         state["event_colonists_checkpoint"] = -1
+    zagara_side = str(value.get("event_zagara_side", ""))
+    state["event_zagara_side"] = zagara_side if zagara_side in ("zagara", "brakk") else ""
+    try:
+        state["event_zagara_checkpoint"] = max(-1, min(1000, int(value.get("event_zagara_checkpoint", -1))))
+        state["event_zagara_quest_target"] = max(0, int(value.get("event_zagara_quest_target", 0)))
+    except (TypeError, ValueError):
+        state["event_zagara_checkpoint"] = -1
+        state["event_zagara_quest_target"] = 0
+    state["event_zagara_quest_pending"] = bool(value.get("event_zagara_quest_pending", False))
 
     cycle_purchases: dict[str, int] = {}
 
@@ -3214,6 +3227,17 @@ def _merged_nodes(ctx: Any) -> dict[int, dict[str, Any]]:
                     names.append(("brakk_primal_army", "dehakas_pack")[roll])
                     merged["mutators"] = names
                     merged["_event_crystalis_mutation"] = names[-1]
+        if events_enabled(ctx) and state_ready(ctx):
+            ev_state = state(ctx)
+            if (ev_state.get("event_zagara_side") == "zagara" and
+                ((int(ev_state.get("event_zagara_quest_target", 0)) == mid) or
+                 (bool(ev_state.get("event_zagara_quest_pending", False)) and
+                  int(merged.get("layer", -1)) == int(ev_state.get("event_zagara_checkpoint", -1))))):
+                mutators = list(merged.get("mutators", ()))
+                if "brakk_primal_army" not in mutators:
+                    mutators.append("brakk_primal_army")
+                    merged["mutators"] = mutators
+                merged["_event_zagara_brakk_quest"] = "brakk_primal_army"
         result[mid] = merged
 
     return result
@@ -5964,6 +5988,9 @@ def commit_mission(ctx: Any, mission_id: int) -> bool:
     if events_enabled(ctx) and s.get("event_merchant_raid_pending", False):
         s["event_merchant_raid_target"] = mission_id
         s["event_merchant_raid_pending"] = False
+    if events_enabled(ctx) and s.get("event_zagara_quest_pending", False):
+        s["event_zagara_quest_target"] = mission_id
+        s["event_zagara_quest_pending"] = False
     _persist_state(ctx)
 
     _consume_auto_victory_for_mission(ctx, mission_id)
@@ -6437,10 +6464,11 @@ def _effective_mutations(ctx: Any, mission_id: int) -> list[str]:
 
         result.extend(str(x) for x in state(ctx).get("permanent_mutations", []))
 
-    forced = str(data.get("_event_crystalis_mutation", ""))
+    forced = {str(data.get("_event_crystalis_mutation", "")),
+              str(data.get("_event_zagara_brakk_quest", ""))}
     return list(dict.fromkeys(
         x for x in result if x in EFFECT_BANK_BITS and
-        (x == forced or _mutation_allowed_for_mission(ctx, mission_id, x))
+        (x in forced or _mutation_allowed_for_mission(ctx, mission_id, x))
     ))
 
 
@@ -6480,6 +6508,12 @@ def dependency_variant_for_mission(ctx: Any, mission_id: int) -> str:
     campaign = str(data.get("campaign", ""))
 
     need_swarm = bool(mutations & SWARM_DEPENDENCY_MUTATIONS or blessings & SWARM_DEPENDENCY_BLESSINGS)
+    if events_enabled(ctx) and state_ready(ctx):
+        ev_state = state(ctx)
+        ev_layer = int((node(ctx, mission_id) or {}).get("layer", -1))
+        if (ev_state.get("event_zagara_side") in ("zagara", "brakk") and
+            ev_layer >= int(ev_state.get("event_zagara_checkpoint", 10000))):
+            need_swarm = True
 
     # K5Kerrigan needs the Swarm and SwarmStory catalogs on non-HotS campaigns
     # too. In particular Archipelago classifies A Sinister Turn under Prophecy,
