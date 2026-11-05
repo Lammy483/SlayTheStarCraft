@@ -62,7 +62,7 @@ EVENTS: dict[str, dict[str, Any]] = {
         "name": "[Mechanical Ground Terran Unit] Field Test",
         "description": "Rory Swann wants to test [Mechanical Ground Terran Unit]s in the field. He offers you some schematics and upgrades if you complete the task.",
         "options": [
-            "Agree: Start next mission with [amount] [Mechanical Ground Terran Unit]s. If they get a total of 50 kills then you succeed, unlocking that unit and giving that unit a permanent +20% hp, speed, and damage. If you fail, Rory Swann will give [Mechanical Ground Terran Unit] to the enemy team for all remaining missions with those same bonuses.",
+            "Agree: Start next mission with [amount] [Mechanical Ground Terran Unit]s. If they get a total of 50 kills then you succeed, unlocking that unit and giving that unit a permanent +20% hp, speed, and damage. If you fail, Rory Swann will give [Mechanical Ground Terran Unit]s to the enemy team for all remaining missions with those same bonuses.",
             "Refuse: unlocking terran units costs 50% additional credits for the rest of the campaign",
         ],
     },
@@ -623,7 +623,7 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         s["event_organism_checkpoint"] = int(key)
         s["event_organism_pending"] = True
         s["event_organism_target"] = 0
-        message = ("A hostile Brutalisk will spawn near enemy structures next mission. "
+        message = ("A Brutalisk will appear in the next mission. "
                    "Kill it to gain an allied Brutalisk every future mission; "
                    "otherwise the enemy gains one every future mission.")
     elif event_id == "mechanical" and index == 0:
@@ -636,7 +636,7 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         s["event_mechanical_pending"] = True
         s["event_mechanical_rewarded"] = False
         message = (f"Rory Swann's {name} field test accepted. Next mission begins with "
-                   f"{quantity} {name}. Score 50 kills with those units to succeed.")
+                   f"{quantity} {name}s. Score 50 kills with those units to succeed.")
     elif event_id == "zagara":
         side = "zagara" if index == 0 else "brakk"
         s["event_zagara_side"] = side
