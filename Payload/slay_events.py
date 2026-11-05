@@ -138,3 +138,167 @@ def potion_offers(seed: int, checkpoint: int, names: list[str]) -> tuple[str, ..
     valid = sorted(set(names))
     rng.shuffle(valid)
     return tuple(valid[:3])
+
+
+def _slay():
+    # Local import avoids importing the runtime until its module initialization
+    # and Archipelago item catalog are complete.
+    from . import slay_the_starcraft
+    return slay_the_starcraft
+
+def pending(ctx: Any) -> dict[str, Any] | None:
+    slay = _slay()
+    if not slay.events_enabled(ctx) or not slay.state_ready(ctx):
+        return None
+    s = slay.state(ctx)
+    count = slay.victory_count(ctx)
+    for checkpoint in checkpoints(int(ctx.slay_config.get("campaign_length", 12))):
+        key = str(checkpoint)
+        if checkpoint > count:
+            break
+        if key in s.get("event_resolutions", {}):
+            continue
+        event_id = str(s.get("event_assignments", {}).get(key, ""))
+        if not event_id:
+            if checkpoint == 0:
+                event_id = "__test_select__"
+            else:
+                seed = int(ctx.slay_config.get("run_seed", 0))
+                used = tuple(str(x) for k, x in s.get("event_assignments", {}).items()
+                             if k != "0" and x in REGULAR_ENABLED)
+                event_id = deterministic_event(seed, checkpoint, used)
+            s.setdefault("event_assignments", {})[key] = event_id
+            slay._persist_state(ctx)
+        return {"checkpoint": checkpoint, "key": key, "id": event_id}
+    return None
+
+def select_test(ctx: Any, event_id: str) -> tuple[bool, str]:
+    slay = _slay()
+    p = pending(ctx)
+    if p is None or p["checkpoint"] != 0 or event_id not in EVENTS:
+        return False, "There is no opening test event to select."
+    slay.state(ctx).setdefault("event_assignments", {})["0"] = event_id
+    slay._persist_state(ctx)
+    return True, "Selected " + EVENTS[event_id]["name"]
+
+def _merchant_offers(ctx: Any, key: str) -> tuple[str, ...]:
+    slay = _slay()
+    s = slay.state(ctx)
+    saved = s.setdefault("event_merchant_potions", {}).get(key)
+    if isinstance(saved, list) and len(saved) == 3 and all(x in slay.POTION_CATALOG for x in saved):
+        return tuple(saved)
+    candidates = [name for name in slay.POTION_CATALOG
+                  if not name.startswith(slay.POTION_VARIANT_PREFIX)
+                  and slay._potion_unlock_eligible(ctx, name)]
+    names = list(potion_offers(int(ctx.slay_config.get("run_seed", 0)), int(key), candidates))
+    if len(names) < 3:
+        for emergency in (slay.POTION_PREFIX + "1", slay.POTION_PREFIX + "2", slay.POTION_PREFIX + "7"):
+            if emergency not in names:
+                names.append(emergency)
+            if len(names) >= 3:
+                break
+    seed = hashlib.sha256(f'{ctx.slay_config.get("run_seed", 0)}:merchant-units:{key}'.encode()).digest()
+    rng = random.Random(int.from_bytes(seed[:8], "big"))
+    # Potion 19 must carry a concrete unit variant, never its roll placeholder.
+    names = [(slay.POTION_VARIANT_PREFIX + str(rng.randint(1, len(slay.POTION_RANDOM_UNITS))))
+             if x == slay.POTION_PREFIX + "19" else x for x in names[:3]]
+    s.setdefault("event_merchant_potions", {})[key] = names
+    slay._persist_state(ctx)
+    return tuple(names)
+
+def display(ctx: Any) -> dict[str, Any] | None:
+    slay = _slay()
+    p = pending(ctx)
+    if p is None:
+        return None
+    key, event_id = p["key"], p["id"]
+    if event_id == "__test_select__":
+        return dict(p, name="Event Test Selection",
+                    description="Choose an event to test at the start of the run.",
+                    options=[{"text": event["name"], "enabled": True, "implemented": True}
+                             for event in EVENTS.values()],
+                    selector_ids=list(EVENTS))
+    data = EVENTS.get(event_id)
+    if data is None:
+        return None
+    bought = set(slay.state(ctx).get("event_merchant_purchases", {}).get(key, []))
+    shown = []
+    for i, original in enumerate(data["options"]):
+        label = original
+        implemented = i in IMPLEMENTED_OPTIONS.get(event_id, ())
+        can = implemented
+        if event_id == "merchant" and i < 3:
+            potion_id = _merchant_offers(ctx, key)[i]
+            potion = slay.POTION_CATALOG[potion_id]
+            price = int(potion["severity"]) * (80 - 20 * i)
+            label = f'Buy {potion["name"]} ({price} credits)'
+            can = (can and i not in bought and slay.credits(ctx) >= price
+                   and len(slay.potion_inventory(ctx)) < slay.POTION_CAPACITY)
+        elif event_id == "merchant" and i == 3:
+            can = can and len(slay.potion_inventory(ctx)) < slay.POTION_CAPACITY
+        shown.append({"text": label, "enabled": can, "implemented": implemented})
+    return dict(p, name=data["name"], description=data["description"], options=shown)
+
+def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
+    slay = _slay()
+    p = pending(ctx)
+    if p is None or p["id"] not in EVENTS:
+        return False, "No event is ready.", False
+    key, event_id = p["key"], p["id"]
+    data = EVENTS[event_id]
+    if index < 0 or index >= len(data["options"]) or index not in IMPLEMENTED_OPTIONS.get(event_id, ()):
+        return False, "This option is not implemented yet.", False
+    active = display(ctx)
+    if active is None or not active["options"][index]["enabled"]:
+        return False, "This option is not currently available.", False
+    s = slay.state(ctx)
+    done = True
+    if event_id == "merchant":
+        if index < 3:
+            pid = _merchant_offers(ctx, key)[index]
+            potion = slay.POTION_CATALOG[pid]
+            price = int(potion["severity"]) * (80 - 20 * index)
+            slots = slay.potion_inventory(ctx)
+            if slay.credits(ctx) < price or len(slots) >= slay.POTION_CAPACITY:
+                return False, "Cannot purchase that potion.", False
+            serial = max([int(s.get("potion_serial", 0))] + [int(x.get("serial", 0)) for x in slots]) + 1
+            s["potion_serial"] = serial
+            s["potion_inventory"] = slots + [{"id": pid, "serial": serial}]
+            s["spent"] = int(s.get("spent", 0)) + price
+            s.setdefault("event_merchant_purchases", {}).setdefault(key, []).append(index)
+            done = False
+            message = f'Bought {potion["name"]} for {price} credits.'
+        elif index == 3:
+            slots = slay.potion_inventory(ctx)
+            if len(slots) >= slay.POTION_CAPACITY:
+                return False, "Both potion slots are full.", False
+            seed = hashlib.sha256(f'{ctx.slay_config.get("run_seed",0)}:raid:{key}'.encode()).digest()
+            rng = random.Random(int.from_bytes(seed[:8], "big"))
+            pid = rng.choice(_merchant_offers(ctx, key))
+            serial = max([int(s.get("potion_serial", 0))] + [int(x.get("serial", 0)) for x in slots]) + 1
+            s["potion_serial"] = serial
+            s["potion_inventory"] = slots + [{"id": pid, "serial": serial}]
+            bonus = rng.randint(50, 200)
+            s["event_credit_bonus"] = int(s.get("event_credit_bonus", 0)) + bonus
+            s["event_merchant_raid_pending"] = True
+            message = f'Raided merchant vessel; gained {slay.POTION_CATALOG[pid]["name"]} and {bonus} credits. Mercenaries attack next mission.'
+        else:
+            message = "Left the merchant vessel."
+    else:
+        penalty = {
+            ("abathur", 1): "zerg_upgrade_50",
+            ("organism", 1): "zerg_upgrade_20",
+            ("mechanical", 1): "terran_unlock_50",
+            ("crystalis", 1): "kerrigan_upgrade_20",
+            ("solarite", 2): "spear_upgrade_20",
+        }.get((event_id, index))
+        if penalty:
+            penalties = list(s.get("event_price_penalties", []))
+            if penalty not in penalties:
+                penalties.append(penalty)
+            s["event_price_penalties"] = penalties
+        message = data["options"][index]
+    if done:
+        s.setdefault("event_resolutions", {})[key] = {"id": event_id, "option": index}
+    slay._persist_state(ctx)
+    return True, message, done
