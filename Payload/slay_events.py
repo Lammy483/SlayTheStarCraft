@@ -175,7 +175,7 @@ def pending(ctx: Any) -> dict[str, Any] | None:
 def select_test(ctx: Any, event_id: str) -> tuple[bool, str]:
     slay = _slay()
     p = pending(ctx)
-    if p is None or p["checkpoint"] != 0 or event_id not in EVENTS:
+    if p is None or p["checkpoint"] != 0 or (event_id not in EVENTS and event_id != "__test_select__"):
         return False, "There is no opening test event to select."
     slay.state(ctx).setdefault("event_assignments", {})["0"] = event_id
     slay._persist_state(ctx)
