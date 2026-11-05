@@ -27619,7 +27619,12 @@ void APRG_EventMechBoostWeaponTree(string rootEffect, int owner) {
     int j;
     string child;
     string grandchild;
+    string key;
     if (rootEffect == "" || !CatalogEntryIsValid(c_gameCatalogEffect, rootEffect)) { return; }
+    // Damage catalog changes affect every unit of this owner using the effect.
+    // Walk this tree once per owner rather than 22x22 for every unit each tick.
+    key = "APRG_EventMechTree_" + IntToString(owner) + "_" + rootEffect;
+    if (DataTableGetBool(true, key)) { return; }
     APRG_EventMechBoostDamageEffect(rootEffect, owner);
     // Search native effect wrappers two levels deep, with bounded work.
     for (i = 0; i < 22; i += 1) {
@@ -27633,6 +27638,7 @@ void APRG_EventMechBoostWeaponTree(string rootEffect, int owner) {
             }
         }
     }
+    DataTableSetBool(true, key, true);
 }
 void APRG_EventMechBoostUnit(unit u) {
     int owner;
