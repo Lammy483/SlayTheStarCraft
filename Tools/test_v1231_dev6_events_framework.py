@@ -47,7 +47,7 @@ class EventsDev6(unittest.TestCase):
             self.assertEqual(len(ev.IMPLEMENTED_OPTIONS[event_id]),
                              len(ev.EVENTS[event_id]["options"]))
         self.assertIn("vortex", ev.REGULAR_ENABLED)
-        self.assertNotIn("zagara", ev.REGULAR_ENABLED)
+        self.assertIn("zagara", ev.REGULAR_ENABLED)
     def test_opening_event_merchant_purchases_and_completion(self):
         from types import SimpleNamespace
         from unittest.mock import patch
