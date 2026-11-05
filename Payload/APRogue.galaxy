@@ -336,6 +336,18 @@ const int APRG_EVENT_SOLARITE_COOLDOWN_LOSS = 32768;
 int g_aprgEventMask = 0;
 int g_aprgEventUnit = 0;
 int g_aprgEventCount = 0;
+// Separate Swann quest packet; never consume Spear/Solarite event parameters.
+int g_aprgEventMechUnitIndex = 0;
+int g_aprgEventMechCount = 0;
+int g_aprgEventMechMode = 0;
+int g_aprgEventMechCheckpoint = 0;
+int g_aprgEventMechKills = 0;
+bool g_aprgEventMechSpawned = false;
+bool g_aprgEventMechSuccess = false;
+unitgroup g_aprgEventMechTestUnits = null;
+unitgroup g_aprgEventMechEnemyPatrol = null;
+fixed g_aprgEventMechNextTick = 0.0;
+fixed g_aprgEventMechNextPatrol = 0.0;
 bank g_aprgEventBank = null;
 string g_aprgEventSection = "";
 unit g_aprgEventNovaAlly = null;
@@ -22206,6 +22218,17 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgEventMask = 0;
     g_aprgEventUnit = 0;
     g_aprgEventCount = 0;
+    g_aprgEventMechUnitIndex = 0;
+    g_aprgEventMechCount = 0;
+    g_aprgEventMechMode = 0;
+    g_aprgEventMechCheckpoint = 0;
+    g_aprgEventMechKills = 0;
+    g_aprgEventMechSpawned = false;
+    g_aprgEventMechSuccess = false;
+    g_aprgEventMechTestUnits = UnitGroupEmpty();
+    g_aprgEventMechEnemyPatrol = UnitGroupEmpty();
+    g_aprgEventMechNextTick = 0.0;
+    g_aprgEventMechNextPatrol = 0.0;
     g_aprgEventBank = null;
     g_aprgEventSection = "";
     g_aprgEventNovaAlly = null;
@@ -27511,6 +27534,232 @@ void APRG_TickEventSolarite(int player, fixed now) {
                      StringToText("Karax mission successful"));
 }
 
+// Rory Swann's mechanically typed factory-unit test. All nine indices map
+// to ordinary native unit types; Archipelago item ownership is granted in
+// Python only after the bank certifies the 50th unit kill.
+string APRG_EventMechUnitType(int index) {
+    if (index == 1) { return "Hellion"; }
+    if (index == 2) { return "Vulture"; }
+    if (index == 3) { return "Goliath"; }
+    if (index == 4) { return "SiegeTank"; }
+    if (index == 5) { return "Diamondback"; }
+    if (index == 6) { return "WidowMine"; }
+    if (index == 7) { return "Warhound"; }
+    if (index == 8) { return "Cyclone"; }
+    if (index == 9) { return "Thor"; }
+    return "";
+}
+bool APRG_EventMechMatches(unit u) {
+    string native;
+    string actual;
+    if (u == null || !UnitIsAlive(u) || g_aprgEventMechUnitIndex <= 0) { return false; }
+    native = APRG_EventMechUnitType(g_aprgEventMechUnitIndex);
+    if (native == "") { return false; }
+    actual = UnitGetType(u);
+    if (actual == native || actual == "AP_" + native) { return true; }
+    if (native == "SiegeTank" && (actual == "SiegeTankSieged" ||
+        actual == "AP_SiegeTankSieged")) { return true; }
+    if (native == "WidowMine" && (actual == "WidowMineBurrowed" ||
+        actual == "AP_WidowMineBurrowed")) { return true; }
+    return false;
+}
+void APRG_EventMechScaleDamageField(string effectType, int owner, string field) {
+    string valueText;
+    fixed value;
+    if (!CatalogEntryIsValid(c_gameCatalogEffect, effectType)) { return; }
+    valueText = CatalogFieldValueGet(c_gameCatalogEffect, effectType, field, owner);
+    if (valueText == "") { return; }
+    value = StringToFixed(valueText);
+    if (value <= 0.0) { return; }
+    CatalogFieldValueSet(c_gameCatalogEffect, effectType, field, owner,
+        FixedToString(MinF(value * 1.2, 3000.0), c_fixedPrecisionAny));
+}
+void APRG_EventMechBoostDamageEffect(string effectType, int owner) {
+    string key;
+    string amount;
+    if (effectType == "" || !CatalogEntryIsValid(c_gameCatalogEffect, effectType)) { return; }
+    key = "APRG_EventMechDamage_" + IntToString(owner) + "_" + effectType;
+    if (DataTableGetBool(true, key)) { return; }
+    amount = CatalogFieldValueGet(c_gameCatalogEffect, effectType, "Amount", owner);
+    if (amount == "" || StringToFixed(amount) <= 0.0) { return; }
+    APRG_EventMechScaleDamageField(effectType, owner, "Amount");
+    APRG_EventMechScaleDamageField(effectType, owner, "AttributeBonus[Light]");
+    APRG_EventMechScaleDamageField(effectType, owner, "AttributeBonus[Armored]");
+    APRG_EventMechScaleDamageField(effectType, owner, "AttributeBonus[Biological]");
+    APRG_EventMechScaleDamageField(effectType, owner, "AttributeBonus[Mechanical]");
+    APRG_EventMechScaleDamageField(effectType, owner, "AttributeBonus[Massive]");
+    APRG_EventMechScaleDamageField(effectType, owner, "AttributeBonus[Psionic]");
+    APRG_EventMechScaleDamageField(effectType, owner, "AttributeBonus[Structure]");
+    APRG_EventMechScaleDamageField(effectType, owner, "AttributeBonus[Heroic]");
+    DataTableSetBool(true, key, true);
+}
+void APRG_EventMechBoostWeaponTree(string rootEffect, int owner) {
+    int i;
+    int j;
+    string child;
+    string grandchild;
+    if (rootEffect == "" || !CatalogEntryIsValid(c_gameCatalogEffect, rootEffect)) { return; }
+    APRG_EventMechBoostDamageEffect(rootEffect, owner);
+    // Search native effect wrappers two levels deep, with bounded work.
+    for (i = 0; i < 22; i += 1) {
+        child = APRG_AdamantiumChildEffect(rootEffect, owner, i);
+        if (child == "" || child == rootEffect) { continue; }
+        APRG_EventMechBoostDamageEffect(child, owner);
+        for (j = 0; j < 22; j += 1) {
+            grandchild = APRG_AdamantiumChildEffect(child, owner, j);
+            if (grandchild != "" && grandchild != rootEffect) {
+                APRG_EventMechBoostDamageEffect(grandchild, owner);
+            }
+        }
+    }
+}
+void APRG_EventMechBoostUnit(unit u) {
+    int owner;
+    int i;
+    int weaponCount;
+    string key;
+    string weapon;
+    string effectType;
+    fixed maximum;
+    fixed current;
+    fixed speed;
+    if (!APRG_EventMechMatches(u)) { return; }
+    owner = UnitGetOwner(u);
+    if (owner < 0) { return; }
+    key = "APRG_EventMechBoostTag_" + IntToString(UnitGetTag(u));
+    if (!DataTableGetBool(true, key)) {
+        maximum = UnitGetPropertyFixed(u, c_unitPropLifeMax, c_unitPropCurrent);
+        current = UnitGetPropertyFixed(u, c_unitPropLife, c_unitPropCurrent);
+        if (maximum > 0.0) {
+            UnitSetPropertyFixed(u, c_unitPropLifeMax, maximum * 1.2);
+            UnitSetPropertyFixed(u, c_unitPropLife, current * 1.2);
+        }
+        speed = UnitGetPropertyFixed(u, c_unitPropMovementSpeed, c_unitPropCurrent);
+        if (speed > 0.0) {
+            UnitSetPropertyFixed(u, c_unitPropMovementSpeed, speed * 1.2);
+        }
+        DataTableSetBool(true, key, true);
+    }
+    weaponCount = UnitWeaponCount(u);
+    for (i = 1; i <= weaponCount; i += 1) {
+        weapon = UnitWeaponGet(u, i);
+        if (weapon == "" || !CatalogEntryIsValid(c_gameCatalogWeapon, weapon)) { continue; }
+        effectType = CatalogFieldValueGet(c_gameCatalogWeapon, weapon, "DisplayEffect", owner);
+        APRG_EventMechBoostWeaponTree(effectType, owner);
+    }
+}
+bool APRG_EventMechKill_Func(bool testConds, bool runActions) {
+    unit killer;
+    unit victim;
+    int player;
+    string key;
+    if (!runActions || g_aprgEventMechMode != 1 || !g_aprgEventMechSpawned ||
+        g_aprgEventMechSuccess || g_aprgEventMechTestUnits == null) { return true; }
+    killer = libNtve_gf_KillingUnit();
+    victim = EventUnit();
+    player = APRG_GetPrimaryPlayer();
+    if (killer == null || victim == null || UnitGetOwner(victim) == player ||
+        !UnitGroupHasUnit(g_aprgEventMechTestUnits, killer)) { return true; }
+    g_aprgEventMechKills += 1;
+    if (g_aprgEventMechKills < 50) { return true; }
+    g_aprgEventMechSuccess = true;
+    key = "MechOutcome" + IntToString(g_aprgEventMechCheckpoint);
+    if (g_aprgEventBank != null && g_aprgEventSection != "") {
+        BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, key, 1);
+        BankSave(g_aprgEventBank);
+    }
+    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+        StringToText("Rory Swann Quest Complete"));
+    return true;
+}
+bool APRG_EventMechConfig_Func(bool testConds, bool runActions) {
+    int player;
+    if (!runActions) { return true; }
+    player = APRG_GetPrimaryPlayer();
+    if (EventPlayer() != player) { return true; }
+    g_aprgEventMechUnitIndex = StringToInt(StringWord(EventChatMessage(false), 2));
+    g_aprgEventMechCount = StringToInt(StringWord(EventChatMessage(false), 3));
+    g_aprgEventMechMode = StringToInt(StringWord(EventChatMessage(false), 4));
+    g_aprgEventMechCheckpoint = StringToInt(StringWord(EventChatMessage(false), 5));
+    if (g_aprgEventMechUnitIndex < 1 || g_aprgEventMechUnitIndex > 9 ||
+        g_aprgEventMechMode < 1 || g_aprgEventMechMode > 3) {
+        g_aprgEventMechMode = 0;
+    }
+    if (g_aprgEventMechCount < 1) { g_aprgEventMechCount = 1; }
+    if (g_aprgEventMechCount > 20) { g_aprgEventMechCount = 20; }
+    return true;
+}
+void APRG_TickEventMechanical(int player, fixed now) {
+    int i;
+    int owner;
+    unit home;
+    unit anchor;
+    unit enemyAnchor;
+    unit u;
+    unitgroup created;
+    unitgroup candidates;
+    point where;
+    string native;
+    string key;
+    if (g_aprgEventMechMode == 0 || !APRG_PlayerMacroBaseReady(player)) { return; }
+    native = APRG_EventMechUnitType(g_aprgEventMechUnitIndex);
+    if (!CatalogEntryIsValid(c_gameCatalogUnit, native)) { return; }
+    if (g_aprgEventMechMode == 1 && !g_aprgEventMechSpawned) {
+        home = APRG_FindPlayerHomeStructure(player);
+        if (home == null || g_aprgEventBank == null || g_aprgEventSection == "") { return; }
+        where = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
+        if (where == null) { return; }
+        created = APRG_CreatePlayerUnitsSafe(g_aprgEventMechCount, native, player, where, 0.0);
+        if (created == null || UnitGroupCount(created, c_unitCountAlive) <= 0) { return; }
+        g_aprgEventMechTestUnits = created;
+        g_aprgEventMechSpawned = true;
+        key = "MechStartedAt" + IntToString(g_aprgEventMechCheckpoint);
+        if (!BankKeyExists(g_aprgEventBank, g_aprgEventSection, key)) {
+            BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, key, g_aprgMissionLayer);
+            BankSave(g_aprgEventBank);
+        }
+    }
+    if (g_aprgEventMechMode == 2 && now >= g_aprgEventMechNextTick) {
+        g_aprgEventMechNextTick = now + 2.0;
+        candidates = APRG_PlayerAllUnits(player);
+        for (i = UnitGroupCount(candidates, c_unitCountAlive); i > 0; i -= 1) {
+            u = UnitGroupUnitFromEnd(candidates, i);
+            if (u != null && UnitGetOwner(u) == player) { APRG_EventMechBoostUnit(u); }
+        }
+    }
+    if (g_aprgEventMechMode == 3) {
+        if (!g_aprgEventMechSpawned) {
+            anchor = APRG_RandomPathableHostileBaseAnchor(player);
+            if (anchor == null) { return; }
+            owner = UnitGetOwner(anchor);
+            where = APRG_FindHostileGroundPointNear(player, UnitGetPosition(anchor), 3.0, 10.0);
+            if (where == null) { return; }
+            created = UnitCreate(g_aprgEventMechCount, native, c_unitCreateIgnorePlacement,
+                                 owner, where, libNtve_gf_RandomAngle());
+            if (created == null || UnitGroupCount(created, c_unitCountAlive) <= 0) { return; }
+            g_aprgEventMechEnemyPatrol = created;
+            g_aprgEventMechSpawned = true;
+            APRG_RegisterMutationEnemyGroup(created);
+            for (i = UnitGroupCount(created, c_unitCountAlive); i > 0; i -= 1) {
+                u = UnitGroupUnitFromEnd(created, i);
+                if (u != null) { APRG_EventMechBoostUnit(u); }
+            }
+            g_aprgEventMechNextPatrol = now;
+        }
+        if (now >= g_aprgEventMechNextPatrol) {
+            g_aprgEventMechNextPatrol = now + 45.0;
+            enemyAnchor = APRG_RandomPathableHostileBaseAnchor(player);
+            if (enemyAnchor == null) { return; }
+            for (i = UnitGroupCount(g_aprgEventMechEnemyPatrol, c_unitCountAlive); i > 0; i -= 1) {
+                u = UnitGroupUnitFromEnd(g_aprgEventMechEnemyPatrol, i);
+                if (u != null && UnitIsAlive(u)) {
+                    APRG_OrderAttackMove(u, UnitGetPosition(enemyAnchor));
+                }
+            }
+        }
+    }
+}
+
 void APRG_TickEventMerchantRaid(int player, fixed now) {
     int owner;
     int i;
@@ -27565,6 +27814,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     APRG_TickEventAllyBrakk(player);
     APRG_TickEventOrganism(player, now);
     APRG_TickEventSolarite(player, now);
+    APRG_TickEventMechanical(player, now);
 
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_HELLION_RUN_BY) != 0) { APRG_TickHellionRunBy(player, now); }
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_DIAMONDBACK_WANDERERS) != 0) { APRG_TickDiamondbackWanderers(player, now); }
@@ -28206,6 +28456,9 @@ void APRogue_Init() {
     TriggerAddEventChatMessage(g_aprgConfigTrigger, c_playerAny, "?APRogue", false);
     TriggerAddEventChatMessage(TriggerCreate("APRG_EventConfig_Func"),
         c_playerAny, "?SlayEvent", false);
+    TriggerAddEventChatMessage(TriggerCreate("APRG_EventMechConfig_Func"),
+        c_playerAny, "?SlayMech", false);
+    TriggerAddEventUnitDied(TriggerCreate("APRG_EventMechKill_Func"), null);
     g_aprgCrewUnlockInputTrigger = TriggerCreate("APRG_CrewUnlockInput_Func");
     TriggerAddEventChatMessage(g_aprgCrewUnlockInputTrigger, c_playerAny, "?SlayCrewUnlockInput", false);
     g_aprgCrewSessionTrigger = TriggerCreate("APRG_CrewSession_Func");
