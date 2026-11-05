@@ -688,8 +688,11 @@ def verify_v10216_changes(payload_dir: Path) -> None:
 def verify_v10217_changes(payload_dir: Path) -> None:
     generator = (payload_dir / "generate_slay_run.py").read_text(encoding="utf-8")
     galaxy = (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8")
-    if 'EFFECT_SELECTION_MULTIPLIER = {"general": 3.0, "multi_class": 2.0}' not in generator:
-        raise RuntimeError("New-effect development selection boosts were not removed")
+    # General/Multi-Class are the established weights. The intentional 2x
+    # Swarms of [unit] mutation from Dev4 is a gameplay rule, not a leaked
+    # development test multiplier.
+    if 'EFFECT_SELECTION_MULTIPLIER = {"general": 3.0, "multi_class": 2.0, "swarms_of_unit": 2.0}' not in generator:
+        raise RuntimeError("Effect selection weights differ from the declared release balance")
     for token in (
         "destination = RegionRandomPoint(RegionPlayableMap());",
         "this deliberately allows routes through the player's base",
