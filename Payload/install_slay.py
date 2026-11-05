@@ -1656,6 +1656,9 @@ def patch_client(text: str) -> str:
         '            event_mask, event_unit, event_count = '
         'slay.event_native_values_for_mission(self.ctx, self.mission_id)\n'
         '            await self.chat_send(f"?SlayEvent {event_mask} {event_unit} {event_count}")\n'
+        '            mech_unit, mech_qty, mech_mode, mech_checkpoint = '
+        'slay.event_mechanical_values_for_mission(self.ctx, self.mission_id)\n'
+        '            await self.chat_send(f"?SlayMech {mech_unit} {mech_qty} {mech_mode} {mech_checkpoint}")\n'
     )
     if "event_native_values_for_mission(self.ctx, self.mission_id)" not in text:
         current_launch = '            await self.chat_send(f"' + current_send + '")\n'
