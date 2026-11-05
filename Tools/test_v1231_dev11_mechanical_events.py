@@ -123,6 +123,15 @@ class Dev11MechanicalTest(TestCase):
                 self.assertFalse(ev.sync_mechanical_quest(ctx))
         self.assertNotIn("event_awarded_items", ctx.state)
 
+    def test_failed_swann_patrol_attacks_player_base(self):
+        galaxy = (PAYLOAD / "APRogue.galaxy").read_text(encoding="utf-8")
+        beginning = galaxy.index("void APRG_TickEventMechanical(int player, fixed now)")
+        ending = galaxy.index("void APRG_TickEventMerchantRaid(", beginning)
+        tick = galaxy[beginning:ending]
+        self.assertIn("home = APRG_FindPlayerHomeStructure(player);", tick)
+        self.assertIn("APRG_OrderAttackMove(u, UnitGetPosition(home));", tick)
+        self.assertNotIn("APRG_OrderAttackMove(u, UnitGetPosition(enemyAnchor));", tick)
+
     def test_galaxy_uses_real_kill_event_and_separate_event_packet(self):
         galaxy = (PAYLOAD / "APRogue.galaxy").read_text(encoding="utf-8")
         installer = (PAYLOAD / "install_slay.py").read_text(encoding="utf-8")
