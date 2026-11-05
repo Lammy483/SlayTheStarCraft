@@ -4660,6 +4660,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
     bundled_client_entry = source / "slay_client_entry.py"
 
     bundled_theme = source / "slay_theme.py"
+    bundled_asset_recovery = source / "slay_asset_recovery.py"
     bundled_theme_assets = source / "slay_assets"
 
     bundled_effect_catalog = source / "EFFECT_CATALOG.csv"
@@ -4700,6 +4701,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
         (bundled_client_entry, "portable launcher client entry"),
 
         (bundled_theme, "English SC2 theme module"),
+        (bundled_asset_recovery, "optional local SC2 art recovery module"),
 
         (bundled_effect_catalog, "effect catalog"),
 
@@ -4970,7 +4972,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         client_entry_target: bundled_client_entry.read_text(encoding="utf-8"),
 
-        **{ap_root / name: (source / name).read_text(encoding="utf-8-sig") for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py")},
+        **{ap_root / name: (source / name).read_text(encoding="utf-8-sig") for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_asset_recovery.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py")},
 
         generator_target: bundled_generator.read_text(encoding="utf-8"),
 
@@ -5070,7 +5072,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         shutil.copy2(bundled_client_entry, client_entry_target)
 
-        for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py"):
+        for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_asset_recovery.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py"):
             shutil.copy2(source / name, ap_root / name)
         assets_source = source / "slay_assets"
         if assets_source.is_dir():
@@ -5346,7 +5348,7 @@ def uninstall(ap_root: pathlib.Path, sc2_root: pathlib.Path) -> None:
 
             path.unlink()
 
-    for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py"):
+    for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_asset_recovery.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py"):
         extra = ap_root / name
         if extra.exists():
             extra.unlink()
