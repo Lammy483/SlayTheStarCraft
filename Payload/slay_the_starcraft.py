@@ -1249,6 +1249,8 @@ DEFAULT_STATE: dict[str, Any] = {
     "event_price_penalties": [],
     "event_forfeited_ap_counts": {},
     "event_awarded_items": {},
+    "event_crystalis_checkpoint": -1,
+    "event_crystalis_reroll_nonce": 0,
     "event_merchant_raid_pending": False,
     "event_merchant_raid_target": 0,
 
@@ -2560,6 +2562,12 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
         except (TypeError, ValueError):
             state[key] = 0
     state["event_merchant_raid_pending"] = bool(value.get("event_merchant_raid_pending", False))
+    try:
+        state["event_crystalis_checkpoint"] = max(-1, min(1000, int(value.get("event_crystalis_checkpoint", -1))))
+        state["event_crystalis_reroll_nonce"] = max(0, min(1000000, int(value.get("event_crystalis_reroll_nonce", 0))))
+    except (TypeError, ValueError):
+        state["event_crystalis_checkpoint"] = -1
+        state["event_crystalis_reroll_nonce"] = 0
 
     cycle_purchases: dict[str, int] = {}
 
@@ -3178,6 +3186,21 @@ def _merged_nodes(ctx: Any) -> dict[int, dict[str, Any]]:
 
                 merged.pop("kerrigan_adjustment", None)
 
+        # Crystalis-added mutations are actual mission effects in the map and
+        # Galaxy launch masks. They never change generated credit rewards,
+        # severity, danger weighting, or reroll credit calculations.
+        if events_enabled(ctx) and state_ready(ctx):
+            ev_state = state(ctx)
+            checkpoint = int(ev_state.get("event_crystalis_checkpoint", -1))
+            if checkpoint >= 0 and int(merged.get("layer", -1)) >= checkpoint:
+                names = list(merged.get("mutators", ()))
+                if not {"brakk_primal_army", "dehakas_pack"} & set(names):
+                    material = (f"{ctx.slay_config.get('run_seed', 0)}:crystalis:{mid}:"
+                                f"{ev_state.get('event_crystalis_reroll_nonce', 0)}")
+                    roll = hashlib.sha256(material.encode("utf-8")).digest()[0] % 2
+                    names.append(("brakk_primal_army", "dehakas_pack")[roll])
+                    merged["mutators"] = names
+                    merged["_event_crystalis_mutation"] = names[-1]
         result[mid] = merged
 
     return result
@@ -6395,7 +6418,11 @@ def _effective_mutations(ctx: Any, mission_id: int) -> list[str]:
 
         result.extend(str(x) for x in state(ctx).get("permanent_mutations", []))
 
-    return list(dict.fromkeys(x for x in result if x in EFFECT_BANK_BITS and _mutation_allowed_for_mission(ctx, mission_id, x)))
+    forced = str(data.get("_event_crystalis_mutation", ""))
+    return list(dict.fromkeys(
+        x for x in result if x in EFFECT_BANK_BITS and
+        (x == forced or _mutation_allowed_for_mission(ctx, mission_id, x))
+    ))
 
 
 
@@ -11476,6 +11503,8 @@ def _reroll_future_nodes(ctx: Any, purchase_index: int) -> int:
         changed+=1
 
     s["node_effect_overrides"]=overrides
+    if changed and events_enabled(ctx) and int(s.get("event_crystalis_checkpoint", -1)) >= 0:
+        s["event_crystalis_reroll_nonce"] = int(s.get("event_crystalis_reroll_nonce", 0)) + 1
 
     return changed
 
