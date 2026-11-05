@@ -196,7 +196,7 @@ def artwork_picker() -> None:
                            size_hint_y=None, height=dp(40))
     chooser = FileChooserListView(path=path_input.text, dirselect=True)
     chooser.bind(path=lambda _widget, value: setattr(path_input, "text", value))
-    message = Label(text="Select the folder of your previous Slay the StarCraft installation.\\n"
+    message = Label(text="Select the folder of your previous Slay the StarCraft installation.\n"
                          "That folder must still contain the original UI PNGs.",
                     size_hint_y=None, height=dp(64), halign="left")
     message.bind(size=lambda widget, value: setattr(widget, "text_size", value))
