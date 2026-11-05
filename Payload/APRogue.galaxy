@@ -27286,7 +27286,7 @@ void APRG_TickEventZagara(int player, fixed now) {
     point spawnPoint;
     string zagaraType;
     string brakkType;
-    int wave;
+    int waveIndex;
     fixed life;
     fixed maxLife;
     if ((g_aprgEventMask & (APRG_EVENT_ZAGARA_BRAKK_QUEST |
@@ -27307,7 +27307,7 @@ void APRG_TickEventZagara(int player, fixed now) {
             CatalogEntryIsValid(c_gameCatalogUnit, "Baneling")) {
             spawnPoint = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
             if (spawnPoint != null) {
-                for (wave = 0; wave < 5; wave += 1) {
+                for (waveIndex = 0; waveIndex < 5; waveIndex += 1) {
                     created = APRG_CreatePlayerUnitsSafe(20, "Baneling", player, spawnPoint, libNtve_gf_RandomAngle());
                     if (created != null) {
                         UnitGroupIssueOrder(created, OrderTargetingPoint(
