@@ -427,6 +427,92 @@ def colony_earned_credits(ctx: Any) -> int:
         victories = min(victories, death_layer - 1)
     return 150 * max(0, victories - checkpoint)
 
+def _selected_mechanical_offer(ctx: Any) -> tuple[str, int, int] | None:
+    slay = _slay()
+    s = slay.state(ctx)
+    checkpoint = int(s.get("event_mechanical_checkpoint", -1))
+    if checkpoint < 0:
+        return None
+    offer = s.get("event_mechanical_offers", {}).get(str(checkpoint))
+    if not isinstance(offer, dict):
+        return None
+    try:
+        name = str(offer["name"])
+        code = int(offer["unit_code"])
+        quantity = int(offer["quantity"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not any(name == n and code == i and quantity == max(1, 1000 // cost)
+               for n, i, cost in MECHANICAL_UNITS):
+        return None
+    return name, code, quantity
+
+def sync_mechanical_quest(ctx: Any) -> bool:
+    """Grant an ordinary AP unit item once the SC2 bank certifies 50 kills.
+
+    Bank data is a durable event receipt, not an inventory implementation.
+    Actual SC2 ownership is handled by the existing synthetic AP item stream.
+    """
+    slay = _slay()
+    if not slay.events_enabled(ctx) or not slay.state_ready(ctx):
+        return False
+    s = slay.state(ctx)
+    if bool(s.get("event_mechanical_rewarded", False)):
+        return False
+    checkpoint = int(s.get("event_mechanical_checkpoint", -1))
+    offer = _selected_mechanical_offer(ctx)
+    if checkpoint < 0 or offer is None:
+        return False
+    bank = native_bank_values(ctx)
+    if int(bank.get("MechOutcome" + str(checkpoint), 0)) != 1:
+        return False
+    unit_name = offer[0]
+    table = slay._item_table()
+    data = table.get(unit_name)
+    if data is None or getattr(data, "code", None) is None:
+        return False
+    awards = dict(s.get("event_awarded_items", {}))
+    current = slay._logic_owned_item_counts(ctx)
+    if int(current.get(unit_name, 0)) <= 0:
+        awards[unit_name] = max(1, int(awards.get(unit_name, 0)))
+        s["event_awarded_items"] = awards
+    s["event_mechanical_rewarded"] = True
+    slay._persist_state(ctx)
+    refresher = getattr(slay, "_request_live_item_refresh", None)
+    if callable(refresher):
+        refresher(ctx)
+    return True
+
+def mechanical_values(ctx: Any, mission_id: int) -> tuple[int, int, int, int]:
+    """SC2 payload: native unit index, quantity, mode, and test checkpoint.
+
+    Mode 1: one-time test next mission; 2: allied permanent stat upgrades;
+    3: failed quest's permanent upgraded enemy patrol.
+    """
+    slay = _slay()
+    if not slay.events_enabled(ctx) or not slay.state_ready(ctx):
+        return 0, 0, 0, 0
+    s = slay.state(ctx)
+    offer = _selected_mechanical_offer(ctx)
+    checkpoint = int(s.get("event_mechanical_checkpoint", -1))
+    target = int(s.get("event_mechanical_target", 0))
+    if offer is None or checkpoint < 0 or target <= 0:
+        return 0, 0, 0, 0
+    name, unit_code, quantity = offer
+    if target == int(mission_id):
+        return unit_code, quantity, 1, checkpoint
+    mission = slay.node(ctx, int(mission_id)) or {}
+    if int(mission.get("layer", -1)) < checkpoint:
+        return 0, 0, 0, 0
+    bank = native_bank_values(ctx)
+    if (int(bank.get("MechStartedAt" + str(checkpoint), 0)) <= 0
+            or slay.victory_count(ctx) <= checkpoint):
+        return 0, 0, 0, 0
+    if int(bank.get("MechOutcome" + str(checkpoint), 0)) == 1:
+        sync_mechanical_quest(ctx)
+        return unit_code, quantity, 2, checkpoint
+    return unit_code, quantity, 3, checkpoint
+
 def native_values(ctx: Any, mission_id: int) -> tuple[int, int, int]:
     slay = _slay()
     if not slay.events_enabled(ctx) or not slay.state_ready(ctx):
