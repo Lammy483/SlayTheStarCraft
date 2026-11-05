@@ -203,6 +203,8 @@ def select_test(ctx: Any, event_id: str) -> tuple[bool, str]:
         return False, "There is no opening test event to select."
     slay.state(ctx).setdefault("event_assignments", {})["0"] = event_id
     slay._persist_state(ctx)
+    if event_id == "__test_select__":
+        return True, "Choose a different event to test."
     return True, "Selected " + EVENTS[event_id]["name"]
 
 def _merchant_offers(ctx: Any, key: str) -> tuple[str, ...]:
