@@ -42,8 +42,7 @@ class EventsDev16HandshakeTests(unittest.TestCase):
         self.assertIn('"?SlayMech"', GALAXY)
 
     def test_client_sends_both_packets_after_normal_config(self):
-        config = INSTALLER.index('current_send + event_send')
-        self.assertGreater(config, 0)
+        self.assertIn('text.replace(current_launch, current_launch + event_send, 1)', INSTALLER)
         self.assertIn('slay.event_native_values_for_mission(self.ctx, self.mission_id)', INSTALLER)
         self.assertIn('slay.event_mechanical_values_for_mission(self.ctx, self.mission_id)', INSTALLER)
         self.assertIn('await self.chat_send(f"?SlayEvent', INSTALLER)
