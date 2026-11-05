@@ -4739,7 +4739,7 @@ def build_run_json(
 
     game_speed: str = "default", extra_shop_slots: int = 0,
     start_with_spear: bool = False, start_with_kerrigan: bool = False,
-    game_mode: str = "adventure",
+    game_mode: str = "adventure", events: bool = False,
 
 ) -> dict[str, Any]:
 
@@ -4869,6 +4869,7 @@ def build_run_json(
 
         "enabled": True,
         "game_mode": game_mode,
+        "events": bool(events) if game_mode == "adventure" else False,
 
         "run_id": run_id,
 
@@ -5224,6 +5225,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start-with-spear", action="store_true")
 
     parser.add_argument("--start-with-kerrigan", action="store_true")
+    parser.add_argument("--events", action="store_true", help="Enable Standard-mode Events (BETA)")
 
     parser.add_argument("--races", nargs="+", choices=["terran", "zerg", "protoss"], default=["terran", "zerg", "protoss"])
 
@@ -5457,7 +5459,7 @@ def main() -> int:
             mutation_frequency, blessing_frequency,
 
             victory_reward_multiplier, item_reward_credits, args.game_speed,
-            args.extra_shop_slots, args.start_with_spear, args.start_with_kerrigan, args.game_mode,
+            args.extra_shop_slots, args.start_with_spear, args.start_with_kerrigan, args.game_mode, args.events,
 
         )
 
