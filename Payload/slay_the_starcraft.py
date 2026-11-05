@@ -5238,7 +5238,12 @@ def event_apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
     if not events_enabled(ctx) or not state_ready(ctx):
         return False, "Events are not enabled in this run.", False
     from . import slay_events
-    return slay_events.apply_choice(ctx, int(index))
+    ok, message, complete = slay_events.apply_choice(ctx, int(index))
+    if ok:
+        # AP grants/forfeitures affect actual SC2 inventory. Refresh the
+        # client projection without touching the shop cycle or stock.
+        _request_live_item_refresh(ctx)
+    return ok, message, complete
 
 def event_checkpoints(ctx: Any) -> tuple[int, ...]:
     if not events_enabled(ctx):
@@ -13692,6 +13697,12 @@ def ui_signature(ctx: Any) -> tuple[Any, ...]:
         int(s.get("shop_cycle", -1)),
 
         tuple(s.get("shop_stock", [])),
+        tuple(s.get("event_price_penalties", [])),
+        tuple(sorted(s.get("event_awarded_items", {}).items())),
+        tuple(sorted(s.get("event_forfeited_ap_counts", {}).items())),
+        tuple(sorted(s.get("event_resolutions", {}).items())) if all(
+            isinstance(v, str) for v in s.get("event_resolutions", {}).values()) else
+            repr(s.get("event_resolutions", {})),
         str(s.get("shop_frozen_item", "")),
         tuple((row["id"], row["serial"]) for row in potion_inventory(ctx)),
 
