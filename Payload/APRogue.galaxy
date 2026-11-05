@@ -316,6 +316,22 @@ const int APRG_MISSION_FLAG_EXPLOSIVE_ARMOR_MUTATION = 8388608;
 const int APRG_MISSION_FLAG_EVENT_MERCHANT_RAID = 268435456;
 bool g_aprgEventMerchantRaidWarned = false;
 bool g_aprgEventMerchantRaidDone = false;
+// Standard-mode event packets are separate from the legacy APRogue masks.
+const int APRG_EVENT_NOVA_ALLY = 1;
+const int APRG_EVENT_TOSH_ENEMY = 2;
+const int APRG_EVENT_NOVA_ENEMY = 4;
+int g_aprgEventMask = 0;
+int g_aprgEventUnit = 0;
+int g_aprgEventCount = 0;
+bank g_aprgEventBank = null;
+string g_aprgEventSection = "";
+unit g_aprgEventNovaAlly = null;
+unit g_aprgEventToshEnemy = null;
+unit g_aprgEventNovaEnemy = null;
+bool g_aprgEventNovaSpawned = false;
+bool g_aprgEventToshSpawned = false;
+bool g_aprgEventNovaEnemySpawned = false;
+fixed g_aprgEventHeroNextPatrol = 0.0;
 
 int g_aprgMaskA = 0;
 int g_aprgMaskB = 0;
@@ -22152,6 +22168,18 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgCovertTosh = null;
     g_aprgEventMerchantRaidWarned = false;
     g_aprgEventMerchantRaidDone = false;
+    g_aprgEventMask = 0;
+    g_aprgEventUnit = 0;
+    g_aprgEventCount = 0;
+    g_aprgEventBank = null;
+    g_aprgEventSection = "";
+    g_aprgEventNovaAlly = null;
+    g_aprgEventToshEnemy = null;
+    g_aprgEventNovaEnemy = null;
+    g_aprgEventNovaSpawned = false;
+    g_aprgEventToshSpawned = false;
+    g_aprgEventNovaEnemySpawned = false;
+    g_aprgEventHeroNextPatrol = 0.0;
     g_aprgCovertToshSpawned = false;
     g_aprgCovertToshRetreating = false;
     g_aprgCovertToshLastTick = -1.0;
@@ -27018,6 +27046,133 @@ void APRG_TickCovertAssistance(int player, fixed now) {
 
 // Event: Merchant Vessel police raid. Reuse the existing Terran hostile
 // drop-pod payload and standardized raider AI. Exactly five pods, one wave.
+// Event bank is per run: unit deaths survive mission reloads and client
+// restarts, but cannot carry over to a fresh run with another run token.
+bool APRG_EventActorDead(string key) {
+    if (g_aprgEventBank == null || g_aprgEventSection == "") { return false; }
+    if (!BankKeyExists(g_aprgEventBank, g_aprgEventSection, key)) { return false; }
+    return BankValueGetAsInt(g_aprgEventBank, g_aprgEventSection, key) == 1;
+}
+void APRG_EventActorFallen(int player, string key, string message) {
+    if (APRG_EventActorDead(key)) { return; }
+    if (g_aprgEventBank != null && g_aprgEventSection != "") {
+        BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, key, 1);
+        BankSave(g_aprgEventBank);
+    }
+    UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText(message));
+}
+
+unit APRG_EventEnemyHero(string firstType, string fallbackType, int player) {
+    unit anchor;
+    unitgroup created;
+    unit hero;
+    string nativeType;
+    anchor = APRG_RandomPathableHostileBaseAnchor(player);
+    if (anchor == null) { return null; }
+    nativeType = firstType;
+    if (!CatalogEntryIsValid(c_gameCatalogUnit, nativeType)) { nativeType = fallbackType; }
+    if (!CatalogEntryIsValid(c_gameCatalogUnit, nativeType)) { return null; }
+    created = UnitCreate(1, nativeType, c_unitCreateIgnorePlacement,
+                         UnitGetOwner(anchor), UnitGetPosition(anchor), libNtve_gf_RandomAngle());
+    hero = UnitGroupUnitFromEnd(created, 1);
+    if (hero == null) { return null; }
+    APRG_DisableGeneratedHeroRevive(hero);
+    APRG_RegisterAlwaysVisibleUnit(hero, player);
+    return hero;
+}
+
+void APRG_TickEventNova(int player, fixed now) {
+    unit home;
+    unit anchor;
+    point where;
+    unitgroup created;
+    fixed health;
+    fixed maximum;
+    if (g_aprgEventMask == 0 || !APRG_PlayerMacroBaseReady(player)) { return; }
+    home = APRG_FindPlayerHomeStructure(player);
+    if ((g_aprgEventMask & APRG_EVENT_NOVA_ALLY) != 0) {
+        if (!g_aprgEventNovaSpawned && !APRG_EventActorDead("NovaDead")
+            && home != null && CatalogEntryIsValid(c_gameCatalogUnit, "Nova")) {
+            where = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
+            if (where != null) {
+                created = APRG_CreatePlayerUnitsSafe(1, "Nova", player, where, 0.0);
+                g_aprgEventNovaAlly = UnitGroupUnitFromEnd(created, 1);
+                if (g_aprgEventNovaAlly != null) {
+                    APRG_DisableGeneratedHeroRevive(g_aprgEventNovaAlly);
+                    g_aprgEventNovaSpawned = true;
+                }
+            }
+        }
+        if (g_aprgEventNovaSpawned && (g_aprgEventNovaAlly == null ||
+            !UnitIsAlive(g_aprgEventNovaAlly))) {
+            APRG_EventActorFallen(player, "NovaDead", "Nova has fallen");
+            g_aprgEventNovaSpawned = false;
+        }
+    }
+    if ((g_aprgEventMask & APRG_EVENT_TOSH_ENEMY) != 0) {
+        if (!g_aprgEventToshSpawned && !APRG_EventActorDead("ToshDead")) {
+            g_aprgEventToshEnemy = APRG_EventEnemyHero("Tosh", "ToshHero", player);
+            g_aprgEventToshSpawned = g_aprgEventToshEnemy != null;
+        }
+        if (g_aprgEventToshSpawned && (g_aprgEventToshEnemy == null ||
+            !UnitIsAlive(g_aprgEventToshEnemy))) {
+            APRG_EventActorFallen(player, "ToshDead", "Tosh has fallen");
+            g_aprgEventToshSpawned = false;
+        }
+    }
+    if ((g_aprgEventMask & APRG_EVENT_NOVA_ENEMY) != 0) {
+        if (!g_aprgEventNovaEnemySpawned && !APRG_EventActorDead("NovaDead")) {
+            g_aprgEventNovaEnemy = APRG_EventEnemyHero("Nova", "NovaCovertOps", player);
+            g_aprgEventNovaEnemySpawned = g_aprgEventNovaEnemy != null;
+        }
+        if (g_aprgEventNovaEnemySpawned && (g_aprgEventNovaEnemy == null ||
+            !UnitIsAlive(g_aprgEventNovaEnemy))) {
+            APRG_EventActorFallen(player, "NovaDead", "Nova has fallen");
+            g_aprgEventNovaEnemySpawned = false;
+        }
+    }
+    if (now < g_aprgEventHeroNextPatrol) { return; }
+    g_aprgEventHeroNextPatrol = now + 12.0;
+    anchor = APRG_RandomPathableHostileBaseAnchor(player);
+    if (anchor == null) { return; }
+    // Patrol among enemy structures, never blindly charge the player's CC.
+    if (g_aprgEventToshEnemy != null && UnitIsAlive(g_aprgEventToshEnemy)) {
+        health = UnitGetPropertyFixed(g_aprgEventToshEnemy, c_unitPropLife, c_unitPropCurrent);
+        maximum = UnitGetPropertyFixed(g_aprgEventToshEnemy, c_unitPropLifeMax, c_unitPropCurrent);
+        if (maximum > 0.0 && health < maximum * 0.75) {
+            UnitIssueOrder(g_aprgEventToshEnemy,
+                OrderTargetingPoint(AbilityCommand("move", 0), UnitGetPosition(anchor)), c_orderQueueReplace);
+        }
+        else { APRG_OrderAttackMove(g_aprgEventToshEnemy, UnitGetPosition(anchor)); }
+    }
+    if (g_aprgEventNovaEnemy != null && UnitIsAlive(g_aprgEventNovaEnemy)) {
+        health = UnitGetPropertyFixed(g_aprgEventNovaEnemy, c_unitPropLife, c_unitPropCurrent);
+        maximum = UnitGetPropertyFixed(g_aprgEventNovaEnemy, c_unitPropLifeMax, c_unitPropCurrent);
+        if (maximum > 0.0 && health < maximum * 0.75) {
+            UnitIssueOrder(g_aprgEventNovaEnemy,
+                OrderTargetingPoint(AbilityCommand("move", 0), UnitGetPosition(anchor)), c_orderQueueReplace);
+        }
+        else { APRG_OrderAttackMove(g_aprgEventNovaEnemy, UnitGetPosition(anchor)); }
+    }
+}
+
+// Delivered once just after the stable APRogue parameter packet.
+bool APRG_EventConfig_Func(bool testConds, bool runActions) {
+    int player;
+    if (!runActions) { return true; }
+    player = APRG_GetPrimaryPlayer();
+    if (EventPlayer() != player) { return true; }
+    g_aprgEventMask = StringToInt(StringWord(EventChatMessage(false), 2));
+    g_aprgEventUnit = StringToInt(StringWord(EventChatMessage(false), 3));
+    g_aprgEventCount = StringToInt(StringWord(EventChatMessage(false), 4));
+    if (g_aprgEventMask < 0) { g_aprgEventMask = 0; }
+    if (g_aprgTestPotionRunToken > 0) {
+        g_aprgEventBank = BankLoad("SlayTheStarCraftEvents", player);
+        g_aprgEventSection = "Run" + IntToString(g_aprgTestPotionRunToken);
+    }
+    return true;
+}
+
 void APRG_TickEventMerchantRaid(int player, fixed now) {
     int owner;
     int i;
@@ -27066,6 +27221,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     APRG_TickDominationAnyPicker(now);
     APRG_TickEngineOfDestructionLoki(player, now);
     APRG_TickEventMerchantRaid(player, now);
+    APRG_TickEventNova(player, now);
 
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_HELLION_RUN_BY) != 0) { APRG_TickHellionRunBy(player, now); }
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_DIAMONDBACK_WANDERERS) != 0) { APRG_TickDiamondbackWanderers(player, now); }
@@ -27705,6 +27861,8 @@ void APRogue_Init() {
     TriggerAddEventChatMessage(g_aprgAberrationDebugTrigger, c_playerAny, "?SlayAberrationDebug", false);
     g_aprgConfigTrigger = TriggerCreate("APRG_Config_Func");
     TriggerAddEventChatMessage(g_aprgConfigTrigger, c_playerAny, "?APRogue", false);
+    TriggerAddEventChatMessage(TriggerCreate("APRG_EventConfig_Func"),
+        c_playerAny, "?SlayEvent", false);
     g_aprgCrewUnlockInputTrigger = TriggerCreate("APRG_CrewUnlockInput_Func");
     TriggerAddEventChatMessage(g_aprgCrewUnlockInputTrigger, c_playerAny, "?SlayCrewUnlockInput", false);
     g_aprgCrewSessionTrigger = TriggerCreate("APRG_CrewSession_Func");
