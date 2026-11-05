@@ -1,0 +1,21 @@
+name: Events Dev6 source and Galaxy smoke tests
+on:
+  push:
+    branches:
+      - develop/v1.2.3.1-odin-missions
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Compile all Python source
+        run: python -m compileall -q Payload Tools
+      - name: Validate release source without SC2
+        run: python Payload/verify_release.py --source-only
+      - name: Regression test recent patches
+        run: python -m unittest Tools.test_v1231_dev3_deaths_thrashers_blink Tools.test_v1231_dev4_settings_mutations_mercs Tools.test_v1231_dev5_kerrigan_vortex Tools.test_v1231_dev6_events_framework
