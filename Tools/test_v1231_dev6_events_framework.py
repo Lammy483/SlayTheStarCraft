@@ -94,6 +94,7 @@ class EventsDev6(unittest.TestCase):
             def _logic_owned_item_counts(ctx):
                 return {}
             KERRIGAN_UNLOCK = "Kerrigan"
+            SPEAR_UNLOCK = "Spear of Adun"
             @staticmethod
             def _progression_owned(ctx, name):
                 return False
@@ -151,6 +152,7 @@ class EventsDev6(unittest.TestCase):
                                                race=SimpleNamespace(name="zerg"), quantity=1)
         class FakeSlay:
             KERRIGAN_UNLOCK = "Kerrigan"
+            SPEAR_UNLOCK = "Spear of Adun"
             @staticmethod
             def _progression_owned(ctx, name): return False
             @staticmethod
