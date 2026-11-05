@@ -104,7 +104,7 @@ EVENTS: dict[str, dict[str, Any]] = {
 # Only expose encounters with fully implemented outcomes in ordinary runs.
 # The initial development encounter can display all ten for inspection, but
 # unfinished options are visibly disabled rather than silently doing nothing.
-REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis", "nova", "colonists", "zagara", "organism")
+REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis", "nova", "colonists", "zagara", "organism", "solarite")
 IMPLEMENTED_OPTIONS: dict[str, tuple[int, ...]] = {
     "merchant": (0, 1, 2, 3, 4),
     "nova": (0, 1),
@@ -114,7 +114,7 @@ IMPLEMENTED_OPTIONS: dict[str, tuple[int, ...]] = {
     "mechanical": (1,),
     "colonists": (0, 1),
     "crystalis": (0, 1),
-    "solarite": (2,),
+    "solarite": (0, 1, 2),
     "vortex": (0, 1),
 }
 
@@ -173,9 +173,11 @@ def eligible_regular(ctx: Any) -> tuple[str, ...]:
     enough_zerg = len(_owned_zerg_units(ctx)) >= 4
     slay = _slay()
     kerrigan = slay._progression_owned(ctx, slay.KERRIGAN_UNLOCK)
+    spear = slay._progression_owned(ctx, slay.SPEAR_UNLOCK)
     return tuple(x for x in REGULAR_ENABLED
                  if (x != "abathur" or enough_zerg)
-                 and (x != "crystalis" or kerrigan))
+                 and (x != "crystalis" or kerrigan)
+                 and (x != "solarite" or spear))
 
 def pending(ctx: Any) -> dict[str, Any] | None:
     slay = _slay()
@@ -276,6 +278,8 @@ def display(ctx: Any) -> dict[str, Any] | None:
             can = can and slay._progression_owned(ctx, slay.KERRIGAN_UNLOCK)
             if i == 0:
                 can = can and slay._one_kerrigan_level_item(slay._item_table()) is not None
+        elif event_id == "solarite":
+            can = can and slay._progression_owned(ctx, slay.SPEAR_UNLOCK)
         elif event_id == "nova":
             item = "Ghost" if i == 0 else "Spectre"
             can = can and item in slay._item_table()
@@ -297,6 +301,11 @@ BRAKK_ALLY = 128
 ORGANISM_TEST = 256
 ORGANISM_ALLY = 512
 ORGANISM_ENEMY = 1024
+SOLARITE_TRIAL = 2048
+SOLARITE_ENERGY_GAIN = 4096
+SOLARITE_ENERGY_LOSS = 8192
+SOLARITE_COOLDOWN_GAIN = 16384
+SOLARITE_COOLDOWN_LOSS = 32768
 
 def native_bank_values(ctx: Any) -> dict[str, int]:
     """Read per-run event receipts from SC2 banks, never alter the bank files."""
@@ -387,6 +396,22 @@ def native_values(ctx: Any, mission_id: int) -> tuple[int, int, int]:
                 mask |= ORGANISM_ALLY
             elif int(bank.get("OrganismStartedAt", 0)) > 0:
                 mask |= ORGANISM_ENEMY
+    solarite_target = int(s.get("event_solarite_target", 0))
+    solarite_checkpoint = int(s.get("event_solarite_checkpoint", -1))
+    if solarite_checkpoint >= 0 and solarite_target == int(mission_id):
+        mask |= SOLARITE_TRIAL
+        return mask, int(s.get("event_solarite_resource", 0)), solarite_checkpoint
+    if solarite_checkpoint >= 0 and solarite_target > 0 and layer >= solarite_checkpoint:
+        bank = native_bank_values(ctx)
+        started_key = "SolariteStartedAt" + str(solarite_checkpoint)
+        success_key = "SolariteSuccess" + str(solarite_checkpoint)
+        if int(bank.get(started_key, 0)) > 0 and slay.victory_count(ctx) > solarite_checkpoint:
+            resource = int(s.get("event_solarite_resource", 0))
+            success = int(bank.get(success_key, 0)) == 1
+            if resource == 1:
+                mask |= SOLARITE_ENERGY_GAIN if success else SOLARITE_ENERGY_LOSS
+            elif resource == 2:
+                mask |= SOLARITE_COOLDOWN_GAIN if success else SOLARITE_COOLDOWN_LOSS
     return mask, 0, 0
 
 def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
@@ -433,6 +458,16 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
             message = f'Raided merchant vessel; gained {slay.POTION_CATALOG[pid]["name"]}. Mercenaries attack next mission.'
         else:
             message = "Left the merchant vessel."
+    elif event_id == "solarite" and index in (0, 1):
+        if not slay._progression_owned(ctx, slay.SPEAR_UNLOCK):
+            return False, "Spear of Adun must be unlocked.", False
+        s["event_solarite_resource"] = index + 1
+        s["event_solarite_checkpoint"] = int(key)
+        s["event_solarite_pending"] = True
+        s["event_solarite_target"] = 0
+        message = ("Solarite conversion accepted. Accumulate 5000 " +
+                   ("minerals" if index == 0 else "vespene gas") +
+                   " next mission. All of that resource will be spent on success.")
     elif event_id == "organism" and index == 0:
         s["event_organism_checkpoint"] = int(key)
         s["event_organism_pending"] = True
@@ -505,6 +540,10 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         s["event_organism_checkpoint"] = -1
         s["event_organism_pending"] = False
         s["event_organism_target"] = 0
+        s["event_solarite_resource"] = 0
+        s["event_solarite_checkpoint"] = -1
+        s["event_solarite_pending"] = False
+        s["event_solarite_target"] = 0
         s["boon_purchases"] = {}
         s["permanent_boons"] = []
         s["permanent_blessings"] = []
