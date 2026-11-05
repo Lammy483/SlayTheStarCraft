@@ -1261,6 +1261,10 @@ DEFAULT_STATE: dict[str, Any] = {
     "event_organism_checkpoint": -1,
     "event_organism_pending": False,
     "event_organism_target": 0,
+    "event_solarite_resource": 0,
+    "event_solarite_checkpoint": -1,
+    "event_solarite_pending": False,
+    "event_solarite_target": 0,
     "event_merchant_raid_pending": False,
     "event_merchant_raid_target": 0,
 
@@ -2604,6 +2608,17 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
         state["event_organism_checkpoint"] = -1
         state["event_organism_target"] = 0
     state["event_organism_pending"] = bool(value.get("event_organism_pending", False))
+    try:
+        state["event_solarite_resource"] = int(value.get("event_solarite_resource", 0))
+        if state["event_solarite_resource"] not in (1, 2):
+            state["event_solarite_resource"] = 0
+        state["event_solarite_checkpoint"] = max(-1, min(1000, int(value.get("event_solarite_checkpoint", -1))))
+        state["event_solarite_target"] = max(0, int(value.get("event_solarite_target", 0)))
+    except (TypeError, ValueError):
+        state["event_solarite_resource"] = 0
+        state["event_solarite_checkpoint"] = -1
+        state["event_solarite_target"] = 0
+    state["event_solarite_pending"] = bool(value.get("event_solarite_pending", False))
 
     cycle_purchases: dict[str, int] = {}
 
@@ -6004,6 +6019,9 @@ def commit_mission(ctx: Any, mission_id: int) -> bool:
     if events_enabled(ctx) and s.get("event_organism_pending", False):
         s["event_organism_target"] = mission_id
         s["event_organism_pending"] = False
+    if events_enabled(ctx) and s.get("event_solarite_pending", False):
+        s["event_solarite_target"] = mission_id
+        s["event_solarite_pending"] = False
     _persist_state(ctx)
 
     _consume_auto_victory_for_mission(ctx, mission_id)
