@@ -1,4 +1,4 @@
-name: Events Dev11 portable test build
+name: Events Dev12 portable test build
 
 on:
   push:
@@ -34,10 +34,10 @@ jobs:
         shell: pwsh
         run: .\Tools\build_launcher.ps1
 
-      - name: Assemble Dev11 event test folder
+      - name: Assemble Dev12 event test folder
         shell: pwsh
         run: |
-          $stage = Join-Path $env:RUNNER_TEMP 'Slay the StarCraft Events Dev11'
+          $stage = Join-Path $env:RUNNER_TEMP 'Slay the StarCraft Events Dev12'
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item -Recurse -Force .\Payload (Join-Path $stage 'Payload')
           Copy-Item -Recurse -Force .\Tools (Join-Path $stage 'Tools')
@@ -46,19 +46,19 @@ jobs:
             throw 'The launcher build did not produce SlayTheStarCraft.exe'
           }
           Copy-Item -Force .\SlayTheStarCraft.exe (Join-Path $stage 'SlayTheStarCraft.exe')
-          foreach ($file in @('VERSION.txt','launcher_manifest.json','README.txt','README.md','CHANGELOG.md','CONTRIBUTING.md','EVENTS_DEV11_TESTING.md')) {
+          foreach ($file in @('VERSION.txt','launcher_manifest.json','README.txt','README.md','CHANGELOG.md','CONTRIBUTING.md','EVENTS_DEV11_TESTING.md','EVENTS_DEV12_TESTING.md')) {
             if (Test-Path $file) { Copy-Item -Force $file (Join-Path $stage $file) }
           }
           Get-ChildItem -Path $stage -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
           Get-ChildItem -Path $stage -Recurse -File -Include '*.pyc','*.pyo' | Remove-Item -Force -ErrorAction SilentlyContinue
           'integration_branch=develop/v1.2.3.1-odin-missions' | Set-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
-          "build_type=events-dev11-untested" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
+          "build_type=events-dev12-untested" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
           "commit=$env:GITHUB_SHA" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
 
-      - name: Upload playable Events Dev11 test build
+      - name: Upload playable Events Dev12 test build
         uses: actions/upload-artifact@v4
         with:
-          name: slay-the-starcraft-events-dev11-test-windows
-          path: ${{ runner.temp }}/Slay the StarCraft Events Dev11/
+          name: slay-the-starcraft-events-dev12-test-windows
+          path: ${{ runner.temp }}/Slay the StarCraft Events Dev12/
           if-no-files-found: error
           retention-days: 14
