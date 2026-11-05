@@ -60,6 +60,16 @@ class EventsDev8(unittest.TestCase):
             "permanent_mutations": ["debuff"],
             "potion_inventory": [{"id": "potion1", "serial": 1}],
             "event_crystalis_checkpoint": 0,
+            "shop_stock": ["Marine", "Raven", "Upgrade"],
+            "shop_cycle": 2,
+            "shop_stock_logic_version": 114,
+            "shop_sale_items": ["Raven"],
+            "shop_reroll_nonce": 7,
+            "shop_rerolls_this_cycle": 2,
+            "shop_potions_bought": ["potionA"],
+            "shop_cycle_purchase_victory_count": 2,
+            "shop_frozen_item": "Marine",
+            "shop_expansion": 2,
         }
         ctx = SimpleNamespace(slay_config={"campaign_length": 12}, state=state, saves=0)
         with patch.object(ev, "_slay", return_value=StubSlay):
@@ -76,7 +86,41 @@ class EventsDev8(unittest.TestCase):
         self.assertEqual(state["boon_purchases"], {})
         self.assertEqual(state["event_crystalis_checkpoint"], -1)
         self.assertEqual(state["event_resolutions"]["0"]["id"], "vortex")
+        # Vortex removes inventory but must NOT trigger a new shop roll.
+        self.assertEqual(state["shop_stock"], ["Marine", "Raven", "Upgrade"])
+        self.assertEqual(state["shop_cycle"], 2)
+        self.assertEqual(state["shop_stock_logic_version"], 114)
+        self.assertEqual(state["shop_sale_items"], ["Raven"])
+        self.assertEqual(state["shop_reroll_nonce"], 7)
+        self.assertEqual(state["shop_rerolls_this_cycle"], 2)
+        self.assertEqual(state["shop_potions_bought"], ["potionA"])
+        self.assertEqual(state["shop_cycle_purchase_victory_count"], 2)
+        self.assertEqual(state["shop_frozen_item"], "Marine")
+        self.assertEqual(state["shop_expansion"], 0)
         self.assertEqual(ctx.saves, 1)
+
+    def test_shop_refreshes_prices_but_not_stock_after_event(self):
+        runtime = (PAYLOAD / "slay_the_starcraft.py").read_text(encoding="utf-8")
+        installer = (PAYLOAD / "install_slay.py").read_text(encoding="utf-8")
+        gui = (PAYLOAD / "slay_command_ui.py").read_text(encoding="utf-8")
+        events = (PAYLOAD / "slay_events.py").read_text(encoding="utf-8")
+        # The shop is keyed to mission victories, not event resolution.
+        stock = ast.parse(runtime)
+        shop = next(x for x in stock.body if isinstance(x, ast.FunctionDef) and x.name == "shop_stock")
+        self.assertIn('cycle = victory_count(ctx)', ast.get_source_segment(runtime, shop))
+        resolve = next(x for x in ast.parse(events).body if isinstance(x, ast.FunctionDef) and x.name == "apply_choice")
+        resolution_code = ast.get_source_segment(events, resolve)
+        self.assertNotIn('_roll_shop_stock(', resolution_code)
+        self.assertNotIn('shop_stock(ctx)', resolution_code)
+        self.assertNotIn('shop_reroll_nonce"] =', resolution_code)
+        # Existing stock is preserved, but price changes and AP item grants
+        # invalidate the cache and prompt the live bot to read fresh items.
+        self.assertIn('tuple(state.get("event_price_penalties", ()))', installer)
+        self.assertIn('tuple(sorted(state.get("event_awarded_items", {}).items()))', installer)
+        self.assertIn("invalidate(0.05)", gui)
+        self.assertIn("_request_live_item_refresh(ctx)", ast.get_source_segment(runtime,
+            next(x for x in stock.body if isinstance(x, ast.FunctionDef)
+                 and x.name == "event_apply_choice")))
 
     def test_crystalis_grants_ap_levels_never_boons(self):
         ev = load_events()
