@@ -13308,7 +13308,7 @@ def _mutation_tooltip_name_markup(ctx: Any, mission_id: int, effect_id: str) -> 
 
     if severity < 3:
 
-        return f"[b]{name}[/b]
+        return f"[b]{name}[/b]"
 
     colors = {
 
