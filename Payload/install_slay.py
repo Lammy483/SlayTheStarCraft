@@ -2512,6 +2512,11 @@ def patch_gui(text: str) -> str:
             tuple(state.get("shop_sale_items", ())),
             tuple(sorted(state.get("shop_cycle_purchases", {}).items())),
             tuple(sorted(state.get("purchases", {}).items())),
+            # Event choices refresh cached prices and eligibility. They never
+            # change the persisted rolled shop offers or sale assignments.
+            tuple(state.get("event_price_penalties", ())),
+            tuple(sorted(state.get("event_awarded_items", {}).items())),
+            tuple(sorted(state.get("event_forfeited_ap_counts", {}).items())),
             tuple(state.get("permanent_blessings", ())),
             tuple(state.get("permanent_boons", ())),
             tuple(sorted(state.get("duplicate_replacements", {}).items())),
