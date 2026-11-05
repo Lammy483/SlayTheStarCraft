@@ -1650,6 +1650,18 @@ def patch_client(text: str) -> str:
         text = text[:match.start()] + replacement + text[match.end():]
 
 
+    # Optional native event packet. Keep the original 25 APRogue arguments
+    # unchanged so old normal-run behavior remains bit-for-bit compatible.
+    event_send = (
+        '            event_mask, event_unit, event_count = '
+        'slay.event_native_values_for_mission(self.ctx, self.mission_id)\\n'
+        '            await self.chat_send(f"?SlayEvent {event_mask} {event_unit} {event_count}")\\n'
+    )
+    if "event_native_values_for_mission(self.ctx, self.mission_id)" not in text:
+        current_launch = '            await self.chat_send(f"' + current_send + '")\\n'
+        if text.count(current_launch) != 1:
+            raise RuntimeError("Cannot identify unique APRogue mission launch for native event handshake")
+        text = text.replace(current_launch, current_launch + event_send, 1)
 
     return text
 
