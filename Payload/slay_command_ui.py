@@ -1485,6 +1485,14 @@ def _slay_open_event_popup(manager):
                 if not ok:
                     notice.text = message
                     return
+                # Refresh available prices, owned counts, and eligibility
+                # without advancing the shop cycle or rerolling offers.
+                # The event is not a victory and must never restock the shop.
+                invalidate = getattr(manager, '_slay_invalidate_shop_cache', None)
+                if callable(invalidate):
+                    invalidate(0.05)
+                else:
+                    manager.slay_shop_cache = None
                 # Multiple merchant purchases intentionally leave event open.
                 # Recreate the popup so sold-out offers and credits refresh.
                 close_and_refresh()
