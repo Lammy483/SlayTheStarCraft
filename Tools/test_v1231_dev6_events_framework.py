@@ -33,6 +33,13 @@ class EventsDev6(unittest.TestCase):
         self.assertEqual(ev.checkpoints(2), (0, 1))
         self.assertEqual(len(ev.EVENTS), 10)
         self.assertEqual(ev.deterministic_event(12345, 3), "merchant")
+        from unittest.mock import patch
+        with patch.object(ev, "REGULAR_ENABLED", ("merchant", "nova", "organism")):
+            self.assertIn(ev.deterministic_event(12345, 3, ("merchant",)), ("nova", "organism"))
+            self.assertEqual(ev.deterministic_event(12345, 3, ("merchant", "nova")), "organism")
+            # Only when all available events were used may an event repeat.
+            self.assertIn(ev.deterministic_event(12345, 3, ("merchant", "nova", "organism")),
+                          ("merchant", "nova", "organism"))
     def test_options_cannot_silently_apply_unimplemented_effects(self):
         ev = load_events()
         for event_id in ev.REGULAR_ENABLED:
@@ -99,6 +106,19 @@ class EventsDev6(unittest.TestCase):
             self.assertEqual(ev.pending(ctx), None, "Initial event must not trigger twice")
             FakeSlay.completed = 3
             self.assertEqual(ev.pending(ctx)["checkpoint"], 3)
+            # With Merchant as the only currently playable encounter, repeating is allowed.
+            self.assertEqual(ev.pending(ctx)["id"], "merchant")
+            credits_before_raid = FakeSlay.credits(ctx)
+            spent_before_raid = ctx.state["spent"]
+            ok, message, finished = ev.apply_choice(ctx, 3)
+            self.assertTrue(ok and finished)
+            self.assertIn("Mercenaries attack next mission", message)
+            self.assertNotIn("credits", message)
+            self.assertEqual(FakeSlay.credits(ctx), credits_before_raid)
+            self.assertEqual(ctx.state["spent"], spent_before_raid)
+            self.assertEqual(ctx.state.get("event_credit_bonus", 0), 0)
+            self.assertTrue(ctx.state["event_merchant_raid_pending"])
+            self.assertEqual(len(ev._slay().potion_inventory(ctx)), 2)
             self.assertGreater(ctx.persisted, 0)
     def test_standard_only_and_full_installation(self):
         launcher = read("slay_launcher.py")
