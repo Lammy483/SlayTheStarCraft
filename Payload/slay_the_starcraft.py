@@ -1253,6 +1253,7 @@ DEFAULT_STATE: dict[str, Any] = {
     "event_crystalis_reroll_nonce": 0,
     "event_nova_side": "",
     "event_nova_checkpoint": -1,
+    "event_colonists_checkpoint": -1,
     "event_merchant_raid_pending": False,
     "event_merchant_raid_target": 0,
 
@@ -2576,6 +2577,10 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
         state["event_nova_checkpoint"] = max(-1, min(1000, int(value.get("event_nova_checkpoint", -1))))
     except (TypeError, ValueError):
         state["event_nova_checkpoint"] = -1
+    try:
+        state["event_colonists_checkpoint"] = max(-1, min(1000, int(value.get("event_colonists_checkpoint", -1))))
+    except (TypeError, ValueError):
+        state["event_colonists_checkpoint"] = -1
 
     cycle_purchases: dict[str, int] = {}
 
@@ -7254,7 +7259,12 @@ def credits(ctx: Any) -> int:
 
     test_bonus = int(state(ctx).get("test_credit_bonus", 0)) if state_ready(ctx) else 0
 
-    raw_balance = earned + test_bonus + int(state(ctx).get("event_credit_bonus", 0)) - int(state(ctx).get("spent", 0))
+    colony_bonus = 0
+    if events_enabled(ctx):
+        from . import slay_events
+        colony_bonus = slay_events.colony_earned_credits(ctx)
+    raw_balance = (earned + test_bonus + int(state(ctx).get("event_credit_bonus", 0))
+                   + colony_bonus - int(state(ctx).get("spent", 0)))
     # Developer /credits deductions may intentionally put any mode into debt.
     balance = raw_balance if crew_mode(ctx) or test_bonus < 0 else max(0, raw_balance)
 
