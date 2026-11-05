@@ -27145,14 +27145,18 @@ unit APRG_EventEnemyHero(string firstType, string fallbackType, int player) {
     unit anchor;
     unitgroup created;
     unit hero;
+    point spawnPoint;
     string nativeType;
     anchor = APRG_RandomPathableHostileBaseAnchor(player);
     if (anchor == null) { return null; }
     nativeType = firstType;
     if (!CatalogEntryIsValid(c_gameCatalogUnit, nativeType)) { nativeType = fallbackType; }
     if (!CatalogEntryIsValid(c_gameCatalogUnit, nativeType)) { return null; }
+    // Avoid creating a mobile hero inside the hostile building itself.
+    spawnPoint = APRG_FindHostileGroundPointNear(player, UnitGetPosition(anchor), 3.0, 10.0);
+    if (spawnPoint == null) { return null; }
     created = UnitCreate(1, nativeType, c_unitCreateIgnorePlacement,
-                         UnitGetOwner(anchor), UnitGetPosition(anchor), libNtve_gf_RandomAngle());
+                         UnitGetOwner(anchor), spawnPoint, libNtve_gf_RandomAngle());
     hero = UnitGroupUnitFromEnd(created, 1);
     if (hero == null) { return null; }
     APRG_DisableGeneratedHeroRevive(hero);
@@ -27332,7 +27336,6 @@ void APRG_TickEventZagara(int player, fixed now) {
     unitgroup created;
     point spawnPoint;
     string zagaraType;
-    string brakkType;
     int waveIndex;
     fixed life;
     fixed maxLife;
@@ -27354,7 +27357,16 @@ void APRG_TickEventZagara(int player, fixed now) {
             CatalogEntryIsValid(c_gameCatalogUnit, "Baneling")) {
             spawnPoint = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
             if (spawnPoint != null) {
+                // Spawn five distinct groups near home rather than a
+                // single 100-unit pile that blocks movement and targeting.
                 for (waveIndex = 0; waveIndex < 5; waveIndex += 1) {
+                    spawnPoint = APRG_PlayerSafeSpawnPoint(player,
+                        PointWithOffsetPolar(UnitGetPosition(home),
+                            RandomFixed(3.0, 9.0), libNtve_gf_RandomAngle()));
+                    if (spawnPoint == null) {
+                        spawnPoint = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
+                    }
+                    if (spawnPoint == null) { continue; }
                     created = APRG_CreatePlayerUnitsSafe(20, "Baneling", player, spawnPoint, libNtve_gf_RandomAngle());
                     if (created != null) {
                         UnitGroupIssueOrder(created, OrderTargetingPoint(
@@ -27373,8 +27385,10 @@ void APRG_TickEventZagara(int player, fixed now) {
         if (CatalogEntryIsValid(c_gameCatalogUnit, zagaraType)) {
             anchor = APRG_RandomPathableHostileBaseAnchor(player);
             if (anchor != null) {
+                spawnPoint = APRG_FindHostileGroundPointNear(player, UnitGetPosition(anchor), 3.0, 10.0);
+                if (spawnPoint == null) { return; }
                 created = UnitCreate(1, zagaraType, c_unitCreateIgnorePlacement,
-                                     UnitGetOwner(anchor), UnitGetPosition(anchor), 0.0);
+                                     UnitGetOwner(anchor), spawnPoint, 0.0);
                 g_aprgEventEnemyZagara = UnitGroupUnitFromEnd(created, 1);
                 if (g_aprgEventEnemyZagara != null) {
                     maxLife = UnitGetPropertyFixed(g_aprgEventEnemyZagara, c_unitPropLifeMax, c_unitPropCurrent);
