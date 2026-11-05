@@ -125,6 +125,8 @@ def checkpoints(total_missions: int) -> tuple[int, ...]:
                        for index in range(1, math.ceil(count / 3) + 1)}))
 
 def deterministic_event(seed: int, checkpoint: int, used: tuple[str, ...] = ()) -> str:
+    # Do not repeat an event until every eligible event has already appeared.
+    # If the pool is exhausted, allow repetition rather than blocking progression.
     pool = [event_id for event_id in REGULAR_ENABLED if event_id not in used]
     if not pool:
         pool = list(REGULAR_ENABLED)
@@ -164,8 +166,9 @@ def pending(ctx: Any) -> dict[str, Any] | None:
                 event_id = "__test_select__"
             else:
                 seed = int(ctx.slay_config.get("run_seed", 0))
-                used = tuple(str(x) for k, x in s.get("event_assignments", {}).items()
-                             if k != "0" and x in REGULAR_ENABLED)
+                # Include the opening test event: it counts toward the no-repeat rule.
+                used = tuple(str(x) for x in s.get("event_assignments", {}).values()
+                             if x in REGULAR_ENABLED)
                 event_id = deterministic_event(seed, checkpoint, used)
             s.setdefault("event_assignments", {})[key] = event_id
             slay._persist_state(ctx)
@@ -278,10 +281,9 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
             serial = max([int(s.get("potion_serial", 0))] + [int(x.get("serial", 0)) for x in slots]) + 1
             s["potion_serial"] = serial
             s["potion_inventory"] = slots + [{"id": pid, "serial": serial}]
-            bonus = rng.randint(50, 200)
-            s["event_credit_bonus"] = int(s.get("event_credit_bonus", 0)) + bonus
+            # Raiding awards only the free potion; the mercenary retaliation remains.
             s["event_merchant_raid_pending"] = True
-            message = f'Raided merchant vessel; gained {slay.POTION_CATALOG[pid]["name"]} and {bonus} credits. Mercenaries attack next mission.'
+            message = f'Raided merchant vessel; gained {slay.POTION_CATALOG[pid]["name"]}. Mercenaries attack next mission.'
         else:
             message = "Left the merchant vessel."
     else:
