@@ -1247,6 +1247,8 @@ DEFAULT_STATE: dict[str, Any] = {
     "event_merchant_potions": {},
     "event_credit_bonus": 0,
     "event_price_penalties": [],
+    "event_forfeited_ap_counts": {},
+    "event_awarded_items": {},
     "event_merchant_raid_pending": False,
     "event_merchant_raid_target": 0,
 
@@ -2532,6 +2534,22 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
         raw = value.get(key, {})
         if isinstance(raw, Mapping):
             state[key] = {str(k)[:40]: copy.deepcopy(v) for k, v in raw.items() if len(str(k)) <= 40}
+    # Keep event item grants/losses across restarts; receipt-backed forfeits
+    # are applied to the AP item stream, not removed from the AP server.
+    for key in ("event_forfeited_ap_counts", "event_awarded_items"):
+        original = value.get(key, {})
+        if isinstance(original, Mapping):
+            checked = {}
+            for item_name, quantity in original.items():
+                if not isinstance(item_name, str) or len(item_name) > 200:
+                    continue
+                try:
+                    amount = min(1000, max(0, int(quantity)))
+                except (TypeError, ValueError):
+                    continue
+                if amount:
+                    checked[item_name] = amount
+            state[key] = checked
     raw_penalties = value.get("event_price_penalties", [])
     valid_penalties = {"zerg_upgrade_50", "zerg_upgrade_20", "terran_unlock_50", "kerrigan_upgrade_20", "spear_upgrade_20"}
     if isinstance(raw_penalties, list):
@@ -7286,6 +7304,13 @@ def _actual_item_counts(ctx: Any) -> Counter[str]:
             name = str(replacement)
         if name is not None:
             counts[name] += 1
+    if enabled(ctx) and state_ready(ctx):
+        s = state(ctx)
+        for name, amount in s.get("event_forfeited_ap_counts", {}).items():
+            counts[name] = max(0, int(counts.get(name, 0)) - max(0, int(amount)))
+        for name, amount in s.get("event_awarded_items", {}).items():
+            if name in table:
+                counts[name] += max(0, int(amount))
     return counts
 
 
@@ -7358,12 +7383,14 @@ def _logic_owned_item_counts(ctx: Any) -> Counter[str]:
 
     counts = _raw_logic_owned_item_counts(ctx)
 
+    for name, amount in state(ctx).get("event_forfeited_ap_counts", {}).items():
+        counts[name] = max(0, int(counts.get(name, 0)) - max(0, int(amount)))
     for name, count in state(ctx).get("purchases", {}).items():
-
         if int(count) > 0 and name in table:
-
             counts[str(name)] += _effective_shop_copies(str(name), int(count))
-
+    for name, amount in state(ctx).get("event_awarded_items", {}).items():
+        if name in table:
+            counts[name] += max(0, int(amount))
     return counts
 
 
@@ -12677,6 +12704,24 @@ def augment_network_items(ctx: Any, items: list[NetworkItem], item_list: Mapping
 
             items[i]=NetworkItem(data.code,item.location,item.player,int(data.classification))
 
+    # Abathur's event can sacrifice receipt-backed unit unlocks. Removing
+    # their items here (before shop/event injections) affects SC2 itself,
+    # not merely the Slay inventory/eligibility UI.
+    forfeited = state(ctx).get("event_forfeited_ap_counts", {})
+    remaining_forfeit = {}
+    for item_name, quantity in forfeited.items():
+        data = item_list.get(item_name)
+        if data is not None and getattr(data, "code", None) is not None:
+            remaining_forfeit[int(data.code)] = max(0, int(quantity))
+    if remaining_forfeit:
+        filtered = []
+        for item in items:
+            code = int(item.item)
+            if int(getattr(item, "location", 0)) != 0 and remaining_forfeit.get(code, 0):
+                remaining_forfeit[code] -= 1
+                continue
+            filtered.append(item)
+        items[:] = filtered
     by_code=Counter(item.item for item in items)
 
 
@@ -12736,6 +12781,18 @@ def augment_network_items(ctx: Any, items: list[NetworkItem], item_list: Mapping
         inject=effective_bought if cap is None else max(0,min(effective_bought,cap-by_code[data.code]))
 
         for _ in range(inject): items.append(NetworkItem(data.code,0,0,int(data.classification))); by_code[data.code]+=1
+
+    # Event upgrade rewards are real synthetic AP items in the mission stream,
+    # replay-safe via the run's saved event_awarded_items ledger.
+    for item_name, amount in state(ctx).get("event_awarded_items", {}).items():
+        data = item_list.get(item_name)
+        if data is None or getattr(data, "code", None) is None:
+            continue
+        cap = _max_owned_copies(data)
+        inject = max(0, int(amount)) if cap is None else max(0, min(int(amount), cap - by_code[data.code]))
+        for _ in range(inject):
+            items.append(NetworkItem(data.code, 0, 0, int(data.classification)))
+            by_code[data.code] += 1
 
 
 
