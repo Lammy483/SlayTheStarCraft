@@ -369,7 +369,10 @@ bool g_aprgEventZagaraDeadLocal = false;
 bool g_aprgEventAllyBrakkSpawned = false;
 bool g_aprgEventZagaraBurrowOrdered = false;
 fixed g_aprgEventAllyBanelingNext = 600.0;
+point g_aprgEventHomeGroundPoint = null;
 unit g_aprgEventTestBrutalisk = null;
+unit g_aprgEventBonusBrutalisk = null;
+fixed g_aprgEventOrganismNextPatrol = 0.0;
 bool g_aprgEventTestBrutaliskSpawned = false;
 bool g_aprgEventAnyBrutaliskSpawned = false;
 bool g_aprgEventTestReported = false;
@@ -22250,7 +22253,10 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgEventAllyBrakkSpawned = false;
     g_aprgEventZagaraBurrowOrdered = false;
     g_aprgEventAllyBanelingNext = 600.0;
+    g_aprgEventHomeGroundPoint = null;
     g_aprgEventTestBrutalisk = null;
+    g_aprgEventBonusBrutalisk = null;
+    g_aprgEventOrganismNextPatrol = 0.0;
     g_aprgEventTestBrutaliskSpawned = false;
     g_aprgEventAnyBrutaliskSpawned = false;
     g_aprgEventTestReported = false;
@@ -22739,7 +22745,7 @@ bool APRG_NewBoonDamage_Func(bool testConds, bool runActions) {
         }
         if (APRG_HasExtension5(APRG_EXT5_BOON_PSIONIC_LORDS) &&
             UnitTypeTestAttribute(sourceType, c_unitAttributePsionic) &&
-            RandomInt(1, 100) == 1 && !UnitTestState(victim, c_unitStateInvulnerable) &&
+            RandomInt(1, 100) <= 3 && !UnitTestState(victim, c_unitStateInvulnerable) &&
             !UnitTypeTestAttribute(victimType, c_unitAttributeStructure)) {
             UnitSetOwner(victim, player, true);
             convertedGroup = UnitGroupEmpty();
@@ -27141,55 +27147,145 @@ void APRG_EventActorFallen(int player, string key, string message) {
     UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat, StringToText(message));
 }
 
+// Enemy event actors spawn on real walkable ground, in enemy territory
+// and connected to the player's home. Never fall back to a building center.
+point APRG_EventHostileGroundPoint(int player, unit anchor) {
+    int attempt;
+    point candidate;
+    point homeGround;
+    if (anchor == null || !UnitIsAlive(anchor)) { return null; }
+    // Town hall footprint coordinates often have no ground pathing. Compare
+    // against reachable GROUND at the player's base instead, otherwise every
+    // hostile anchor can fail a perfectly legitimate connection test.
+    if (g_aprgEventHomeGroundPoint == null || !PointPathingPassable(g_aprgEventHomeGroundPoint)) {
+        g_aprgEventHomeGroundPoint = APRG_KerriganSafeHomePoint(player);
+    }
+    homeGround = g_aprgEventHomeGroundPoint;
+    if (homeGround == null) { return null; }
+    for (attempt = 0; attempt < 28; attempt += 1) {
+        candidate = PointWithOffsetPolar(UnitGetPosition(anchor),
+            RandomFixed(4.0, 16.0), libNtve_gf_RandomAngle());
+        if (candidate == null || !RegionContainsPoint(RegionPlayableMap(), candidate) ||
+            !PointPathingPassable(candidate) ||
+            DistanceBetweenPoints(candidate, homeGround) < 12.0 ||
+            !PointPathingIsConnected(candidate, homeGround) ||
+            !APRG_LabRatEnemySpawnAllowed(candidate, player) ||
+            APRG_PointNearRakShirDuel(candidate, 24.0) ||
+            APRG_PointNearResourceField(candidate, 5.0)) { continue; }
+        return candidate;
+    }
+    return null;
+}
+
+// The generic hostile-base selector is deliberately stricter and checks
+// structure-center pathing. For event heroes/bosses we choose from actual
+// enemy structures and validate the walkable spawn point instead.
+unit APRG_EventHostileAnchor(int player) {
+    unitgroup bases;
+    unit candidate;
+    int i;
+    int tries;
+    int total;
+    bases = APRG_EnemyStructures(player);
+    total = UnitGroupCount(bases, c_unitCountAlive);
+    // Some campaign phases begin with mobile enemy camps but no buildings.
+    // Use a ground-pathable mobile hostile anchor instead of silently
+    // disabling all enemy-side event spawns on those maps.
+    if (total <= 0) {
+        bases = APRG_EnemyMobileUnits(player);
+        total = UnitGroupCount(bases, c_unitCountAlive);
+    }
+    if (total <= 0) { return null; }
+    tries = MinI(8, total);
+    for (i = 0; i < tries; i += 1) {
+        candidate = UnitGroupUnitFromEnd(bases, RandomInt(1, total));
+        if (candidate != null && UnitIsAlive(candidate) &&
+            APRG_EventHostileGroundPoint(player, candidate) != null) { return candidate; }
+    }
+    // Deterministic sweep guards against the random choices missing the
+    // one connected enemy camp on asymmetric campaign missions.
+    for (i = MinI(total, 24); i > 0; i -= 1) {
+        candidate = UnitGroupUnitFromEnd(bases, i);
+        if (candidate != null && UnitIsAlive(candidate) &&
+            APRG_EventHostileGroundPoint(player, candidate) != null) { return candidate; }
+    }
+    return null;
+}
+
+point APRG_EventHostilePatrolPoint(int player) {
+    unit anchor;
+    anchor = APRG_EventHostileAnchor(player);
+    if (anchor == null) { return null; }
+    return APRG_EventHostileGroundPoint(player, anchor);
+}
+
+unit APRG_EventAlliedHero(string preferred, string fallback, string alternate, int player) {
+    string unitType;
+    point spawnPoint;
+    unitgroup created;
+    unit hero;
+    int attempt;
+    spawnPoint = APRG_KerriganSafeHomePoint(player);
+    if (spawnPoint == null) { return null; }
+    for (attempt = 0; attempt < 3; attempt += 1) {
+        unitType = preferred;
+        if (attempt == 1) { unitType = fallback; }
+        if (attempt == 2) { unitType = alternate; }
+        if (!APRG_PlayerSpawnCandidateHealthy(player, unitType, false)) { continue; }
+        created = UnitCreate(1, unitType, c_unitCreateIgnorePlacement, player,
+                             spawnPoint, libNtve_gf_RandomAngle());
+        hero = UnitGroupUnitFromEnd(created, 1);
+        if (hero != null && UnitIsAlive(hero) && UnitGetOwner(hero) == player &&
+            UnitGetPropertyFixed(hero, c_unitPropLifeMax, c_unitPropCurrent) > 3.0) {
+            APRG_DisableGeneratedHeroRevive(hero);
+            return hero;
+        }
+        if (hero != null) { UnitRemove(hero); }
+    }
+    return null;
+}
+
 unit APRG_EventEnemyHero(string firstType, string fallbackType, int player) {
     unit anchor;
     unitgroup created;
     unit hero;
     point spawnPoint;
-    string nativeType;
-    anchor = APRG_RandomPathableHostileBaseAnchor(player);
+    string enemyType;
+    int owner;
+    anchor = APRG_EventHostileAnchor(player);
     if (anchor == null) { return null; }
-    nativeType = firstType;
-    if (!CatalogEntryIsValid(c_gameCatalogUnit, nativeType)) { nativeType = fallbackType; }
-    if (!CatalogEntryIsValid(c_gameCatalogUnit, nativeType)) { return null; }
-    // Avoid creating a mobile hero inside the hostile building itself.
-    spawnPoint = APRG_FindHostileGroundPointNear(player, UnitGetPosition(anchor), 3.0, 10.0);
+    owner = UnitGetOwner(anchor);
+    enemyType = firstType;
+    if (!APRG_PlayerSpawnCandidateHealthy(owner, enemyType, false)) { enemyType = fallbackType; }
+    if (!APRG_PlayerSpawnCandidateHealthy(owner, enemyType, false)) { return null; }
+    spawnPoint = APRG_EventHostileGroundPoint(player, anchor);
     if (spawnPoint == null) { return null; }
-    created = UnitCreate(1, nativeType, c_unitCreateIgnorePlacement,
-                         UnitGetOwner(anchor), spawnPoint, libNtve_gf_RandomAngle());
+    created = UnitCreate(1, enemyType, c_unitCreateIgnorePlacement,
+                         owner, spawnPoint, libNtve_gf_RandomAngle());
     hero = UnitGroupUnitFromEnd(created, 1);
-    if (hero == null) { return null; }
+    if (hero == null || !UnitIsAlive(hero) ||
+        UnitGetPropertyFixed(hero, c_unitPropLifeMax, c_unitPropCurrent) <= 3.0) {
+        if (hero != null) { UnitRemove(hero); }
+        return null;
+    }
     APRG_DisableGeneratedHeroRevive(hero);
+    APRG_RegisterMutationEnemyGroup(created);
     APRG_RegisterAlwaysVisibleUnit(hero, player);
     return hero;
 }
 
 void APRG_TickEventNova(int player, fixed now) {
-    unit home;
-    unit anchor;
-    point where;
-    unitgroup created;
+    point patrolPoint;
     fixed health;
     fixed maximum;
     if (g_aprgEventMask == 0 || !APRG_PlayerMacroBaseReady(player)) { return; }
-    home = APRG_FindPlayerHomeStructure(player);
-    if ((g_aprgEventMask & APRG_EVENT_NOVA_ALLY) != 0) {
-        if (!g_aprgEventNovaSpawned && !APRG_EventActorDead("NovaDead")
-            && home != null && CatalogEntryIsValid(c_gameCatalogUnit, "Nova")) {
-            where = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
-            if (where != null) {
-                created = APRG_CreatePlayerUnitsSafe(1, "Nova", player, where, 0.0);
-                g_aprgEventNovaAlly = UnitGroupUnitFromEnd(created, 1);
-                if (g_aprgEventNovaAlly != null) {
-                    APRG_DisableGeneratedHeroRevive(g_aprgEventNovaAlly);
-                    g_aprgEventNovaSpawned = true;
-                }
-            }
-        }
-        if (g_aprgEventNovaSpawned && (g_aprgEventNovaAlly == null ||
-            !UnitIsAlive(g_aprgEventNovaAlly))) {
-            APRG_EventActorFallen(player, "NovaDead", "Nova has fallen");
-            g_aprgEventNovaSpawned = false;
+    if ((g_aprgEventMask & APRG_EVENT_NOVA_ALLY) != 0 &&
+        !g_aprgEventNovaSpawned && !APRG_EventActorDead("NovaDead")) {
+        g_aprgEventNovaAlly = APRG_EventAlliedHero("Nova", "NovaCovertOps", "NovaHero", player);
+        if (g_aprgEventNovaAlly != null) {
+            g_aprgEventNovaSpawned = true;
+            UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+                             StringToText("Nova has joined your forces"));
         }
     }
     if ((g_aprgEventMask & APRG_EVENT_TOSH_ENEMY) != 0) {
@@ -27197,46 +27293,74 @@ void APRG_TickEventNova(int player, fixed now) {
             g_aprgEventToshEnemy = APRG_EventEnemyHero("Tosh", "ToshHero", player);
             g_aprgEventToshSpawned = g_aprgEventToshEnemy != null;
         }
-        if (g_aprgEventToshSpawned && (g_aprgEventToshEnemy == null ||
-            !UnitIsAlive(g_aprgEventToshEnemy))) {
-            APRG_EventActorFallen(player, "ToshDead", "Tosh has fallen");
-            g_aprgEventToshSpawned = false;
-        }
     }
     if ((g_aprgEventMask & APRG_EVENT_NOVA_ENEMY) != 0) {
         if (!g_aprgEventNovaEnemySpawned && !APRG_EventActorDead("NovaDead")) {
             g_aprgEventNovaEnemy = APRG_EventEnemyHero("Nova", "NovaCovertOps", player);
             g_aprgEventNovaEnemySpawned = g_aprgEventNovaEnemy != null;
         }
-        if (g_aprgEventNovaEnemySpawned && (g_aprgEventNovaEnemy == null ||
-            !UnitIsAlive(g_aprgEventNovaEnemy))) {
-            APRG_EventActorFallen(player, "NovaDead", "Nova has fallen");
-            g_aprgEventNovaEnemySpawned = false;
-        }
     }
+    // Missing/temporarily removed units are NOT deaths: native Vortex can
+    // hide a live hero. Only the UnitDied event marks permanent actor death.
     if (now < g_aprgEventHeroNextPatrol) { return; }
-    g_aprgEventHeroNextPatrol = now + 12.0;
-    anchor = APRG_RandomPathableHostileBaseAnchor(player);
-    if (anchor == null) { return; }
-    // Patrol among enemy structures, never blindly charge the player's CC.
+    g_aprgEventHeroNextPatrol = now + 20.0;
+    patrolPoint = APRG_EventHostilePatrolPoint(player);
+    if (patrolPoint == null) { return; }
     if (g_aprgEventToshEnemy != null && UnitIsAlive(g_aprgEventToshEnemy)) {
         health = UnitGetPropertyFixed(g_aprgEventToshEnemy, c_unitPropLife, c_unitPropCurrent);
         maximum = UnitGetPropertyFixed(g_aprgEventToshEnemy, c_unitPropLifeMax, c_unitPropCurrent);
         if (maximum > 0.0 && health < maximum * 0.75) {
-            UnitIssueOrder(g_aprgEventToshEnemy,
-                OrderTargetingPoint(AbilityCommand("move", 0), UnitGetPosition(anchor)), c_orderQueueReplace);
+            APRG_OrderStandardMove(g_aprgEventToshEnemy, patrolPoint);
         }
-        else { APRG_OrderAttackMove(g_aprgEventToshEnemy, UnitGetPosition(anchor)); }
+        else { APRG_OrderAttackMove(g_aprgEventToshEnemy, patrolPoint); }
     }
     if (g_aprgEventNovaEnemy != null && UnitIsAlive(g_aprgEventNovaEnemy)) {
         health = UnitGetPropertyFixed(g_aprgEventNovaEnemy, c_unitPropLife, c_unitPropCurrent);
         maximum = UnitGetPropertyFixed(g_aprgEventNovaEnemy, c_unitPropLifeMax, c_unitPropCurrent);
         if (maximum > 0.0 && health < maximum * 0.75) {
-            UnitIssueOrder(g_aprgEventNovaEnemy,
-                OrderTargetingPoint(AbilityCommand("move", 0), UnitGetPosition(anchor)), c_orderQueueReplace);
+            APRG_OrderStandardMove(g_aprgEventNovaEnemy, patrolPoint);
         }
-        else { APRG_OrderAttackMove(g_aprgEventNovaEnemy, UnitGetPosition(anchor)); }
+        else { APRG_OrderAttackMove(g_aprgEventNovaEnemy, patrolPoint); }
     }
+}
+
+// The native death trigger is the sole authority for permanently losing
+// event heroes. A Mothership Vortex temporarily removes/hides units but does
+// not constitute a UnitDied event; a mere missing or hidden unit must not
+// lock an event hero out of future missions.
+bool APRG_EventUnitDied_Func(bool testConds, bool runActions) {
+    unit fallen;
+    int player;
+    if (!runActions || g_aprgEventMask == 0) { return true; }
+    fallen = EventUnit();
+    player = APRG_GetPrimaryPlayer();
+    if (fallen == null) { return true; }
+    if (fallen == g_aprgEventNovaAlly || fallen == g_aprgEventNovaEnemy) {
+        APRG_EventActorFallen(player, "NovaDead", "Nova has fallen");
+    }
+    if (fallen == g_aprgEventToshEnemy) {
+        APRG_EventActorFallen(player, "ToshDead", "Tosh has fallen");
+    }
+    if (fallen == g_aprgEventAllyBrakk) {
+        APRG_EventActorFallen(player, "BrakkAllyDead", "Brakk has fallen");
+    }
+    if (fallen == g_aprgEventEnemyZagara) {
+        g_aprgEventZagaraDeadLocal = true;
+        APRG_EventActorFallen(player, "ZagaraDead", "Zagara is slain");
+    }
+    if (fallen == g_aprgEventQuestBrakk) {
+        APRG_EventActorFallen(player, "BrakkDead", "Brakk is slain");
+    }
+    if (fallen == g_aprgEventTestBrutalisk && !g_aprgEventTestReported) {
+        g_aprgEventTestReported = true;
+        if (g_aprgEventBank != null && g_aprgEventSection != "") {
+            BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, "OrganismOutcome", 1);
+            BankSave(g_aprgEventBank);
+        }
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+            StringToText("Abathur Quest Complete"));
+    }
+    return true;
 }
 
 // Delivered once just after the stable APRogue parameter packet.
@@ -27344,15 +27468,12 @@ void APRG_TickEventZagara(int player, fixed now) {
         APRG_EVENT_BRAKK_ALLY)) == 0 || !APRG_PlayerMacroBaseReady(player)) { return; }
     // The Brakk quest is the normal Brakk's Pack mutation, but its boss death
     // also permanently unlocks Zagara's allied ten-minute Baneling waves.
-    if ((g_aprgEventMask & APRG_EVENT_ZAGARA_BRAKK_QUEST) != 0 &&
-        g_aprgEventQuestBrakk != null && !UnitIsAlive(g_aprgEventQuestBrakk)) {
-        APRG_EventActorFallen(player, "BrakkDead", "Brakk is slain");
-        g_aprgEventQuestBrakk = null;
-    }
+    // Brakk quest completion is recorded by APRG_EventUnitDied_Func,
+    // not by absence polling (Vortex must not count as a kill).
     if ((g_aprgEventMask & APRG_EVENT_ZAGARA_BANELING_ALLY) != 0 &&
         APRG_EventActorDead("BrakkDead") && now >= g_aprgEventAllyBanelingNext) {
         home = APRG_FindPlayerHomeStructure(player);
-        anchor = APRG_RandomPathableHostileBaseAnchor(player);
+        anchor = APRG_EventHostileAnchor(player);
         if (home != null && anchor != null &&
             CatalogEntryIsValid(c_gameCatalogUnit, "Baneling")) {
             spawnPoint = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
@@ -27383,9 +27504,9 @@ void APRG_TickEventZagara(int player, fixed now) {
         zagaraType = "ZaGara";
         if (!CatalogEntryIsValid(c_gameCatalogUnit, zagaraType)) { zagaraType = "Zagara"; }
         if (CatalogEntryIsValid(c_gameCatalogUnit, zagaraType)) {
-            anchor = APRG_RandomPathableHostileBaseAnchor(player);
+            anchor = APRG_EventHostileAnchor(player);
             if (anchor != null) {
-                spawnPoint = APRG_FindHostileGroundPointNear(player, UnitGetPosition(anchor), 3.0, 10.0);
+                spawnPoint = APRG_EventHostileGroundPoint(player, anchor);
                 if (spawnPoint == null) { return; }
                 created = UnitCreate(1, zagaraType, c_unitCreateIgnorePlacement,
                                      UnitGetOwner(anchor), spawnPoint, 0.0);
@@ -27402,12 +27523,6 @@ void APRG_TickEventZagara(int player, fixed now) {
                 }
             }
         }
-    }
-    if (g_aprgEventZagaraEnemySpawned && (g_aprgEventEnemyZagara == null ||
-        !UnitIsAlive(g_aprgEventEnemyZagara))) {
-        g_aprgEventZagaraDeadLocal = true;
-        APRG_EventActorFallen(player, "ZagaraDead", "Zagara is slain");
-        return;
     }
     if (g_aprgEventEnemyZagara != null && UnitIsAlive(g_aprgEventEnemyZagara)) {
         life = UnitGetPropertyFixed(g_aprgEventEnemyZagara, c_unitPropLife, c_unitPropCurrent);
@@ -27426,90 +27541,109 @@ void APRG_TickEventZagara(int player, fixed now) {
 }
 
 void APRG_TickEventAllyBrakk(int player) {
-    unit home;
-    point spawnPoint;
-    string brakkType;
-    unitgroup created;
     if ((g_aprgEventMask & APRG_EVENT_BRAKK_ALLY) == 0 ||
-        APRG_EventActorDead("ZagaraDead") || !APRG_PlayerMacroBaseReady(player) ||
-        g_aprgEventAllyBrakkSpawned) { return; }
-    home = APRG_FindPlayerHomeStructure(player);
-    if (home == null) { return; }
-    brakkType = APRG_BrakkType();
-    if (brakkType == "") { return; }
-    spawnPoint = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
-    if (spawnPoint == null) { return; }
-    created = APRG_CreatePlayerUnitsSafe(1, brakkType, player, spawnPoint, 0.0);
-    g_aprgEventAllyBrakk = UnitGroupUnitFromEnd(created, 1);
+        APRG_EventActorDead("ZagaraDead") || APRG_EventActorDead("BrakkAllyDead") ||
+        !APRG_PlayerMacroBaseReady(player) || g_aprgEventAllyBrakkSpawned) { return; }
+    g_aprgEventAllyBrakk = APRG_EventAlliedHero("Brakk", "PrimalBrakk", "BrakkHero", player);
     if (g_aprgEventAllyBrakk != null) {
-        APRG_DisableGeneratedHeroRevive(g_aprgEventAllyBrakk);
         g_aprgEventAllyBrakkSpawned = true;
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+                         StringToText("Brakk has joined your forces"));
     }
 }
 
 // Field test is a one-mission boss challenge. The specific spawned unit is
 // tracked by its handle so unrelated campaign Brutanlisks cannot satisfy it.
+// Try native Brutalisk variants, never an unrelated player production unit.
+unit APRG_EventCreateBrutalisk(int owner, point where) {
+    string unitType;
+    unitgroup created;
+    unit beast;
+    int attempt;
+    if (where == null) { return null; }
+    for (attempt = 0; attempt < 3; attempt += 1) {
+        unitType = "Brutalisk";
+        if (attempt == 1) { unitType = "AP_Brutalisk"; }
+        if (attempt == 2) { unitType = "BrutaliskHero"; }
+        if (!APRG_PlayerSpawnCandidateHealthy(owner, unitType, false)) { continue; }
+        created = UnitCreate(1, unitType, c_unitCreateIgnorePlacement,
+                             owner, where, libNtve_gf_RandomAngle());
+        beast = UnitGroupUnitFromEnd(created, 1);
+        if (beast != null && UnitIsAlive(beast) && UnitGetOwner(beast) == owner &&
+            UnitGetPropertyFixed(beast, c_unitPropLifeMax, c_unitPropCurrent) > 10.0) {
+            return beast;
+        }
+        if (beast != null) { UnitRemove(beast); }
+    }
+    return null;
+}
+
 void APRG_TickEventOrganism(int player, fixed now) {
     unit anchor;
     unit home;
-    unitgroup created;
     point pointToSpawn;
+    point patrolPoint;
     int owner;
     if ((g_aprgEventMask & (APRG_EVENT_ORGANISM_TEST |
         APRG_EVENT_ORGANISM_ALLY | APRG_EVENT_ORGANISM_ENEMY)) == 0 ||
-        !APRG_PlayerMacroBaseReady(player) ||
-        !CatalogEntryIsValid(c_gameCatalogUnit, "Brutalisk")) { return; }
+        !APRG_PlayerMacroBaseReady(player)) { return; }
     if ((g_aprgEventMask & APRG_EVENT_ORGANISM_TEST) != 0) {
         if (!g_aprgEventTestBrutaliskSpawned) {
-            anchor = APRG_RandomPathableHostileBaseAnchor(player);
+            anchor = APRG_EventHostileAnchor(player);
             if (anchor == null) { return; }
             owner = UnitGetOwner(anchor);
-            pointToSpawn = APRG_FindHostileGroundPointNear(player, UnitGetPosition(anchor), 5.0, 12.0);
-            if (pointToSpawn == null) { pointToSpawn = UnitGetPosition(anchor); }
-            created = UnitCreate(1, "Brutalisk", c_unitCreateIgnorePlacement,
-                                 owner, pointToSpawn, libNtve_gf_RandomAngle());
-            g_aprgEventTestBrutalisk = UnitGroupUnitFromEnd(created, 1);
+            pointToSpawn = APRG_EventHostileGroundPoint(player, anchor);
+            if (pointToSpawn == null) { return; }
+            g_aprgEventTestBrutalisk = APRG_EventCreateBrutalisk(owner, pointToSpawn);
             if (g_aprgEventTestBrutalisk == null) { return; }
             APRG_DisableGeneratedHeroRevive(g_aprgEventTestBrutalisk);
             APRG_RegisterAlwaysVisibleUnit(g_aprgEventTestBrutalisk, player);
             g_aprgEventTestBrutaliskSpawned = true;
+            UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+                StringToText("Abathur's Brutalisk field test has begun"));
             if (g_aprgEventBank != null && g_aprgEventSection != "") {
                 BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, "OrganismStartedAt", g_aprgMissionLayer);
                 BankSave(g_aprgEventBank);
             }
+            g_aprgEventOrganismNextPatrol = now;
         }
-        if (g_aprgEventTestBrutaliskSpawned && !g_aprgEventTestReported &&
-            (g_aprgEventTestBrutalisk == null || !UnitIsAlive(g_aprgEventTestBrutalisk))) {
-            g_aprgEventTestReported = true;
-            if (g_aprgEventBank != null && g_aprgEventSection != "") {
-                BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, "OrganismOutcome", 1);
-                BankSave(g_aprgEventBank);
+    }
+    else if (!g_aprgEventAnyBrutaliskSpawned) {
+        if ((g_aprgEventMask & APRG_EVENT_ORGANISM_ALLY) != 0) {
+            home = APRG_FindPlayerHomeStructure(player);
+            if (home == null) { return; }
+            pointToSpawn = APRG_KerriganSafeHomePoint(player);
+            if (pointToSpawn == null) { return; }
+            g_aprgEventBonusBrutalisk = APRG_EventCreateBrutalisk(player, pointToSpawn);
+            if (g_aprgEventBonusBrutalisk != null) {
+                g_aprgEventAnyBrutaliskSpawned = true;
             }
-            UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
-                StringToText("Abathur Quest Complete"));
         }
-        return;
+        else if ((g_aprgEventMask & APRG_EVENT_ORGANISM_ENEMY) != 0) {
+            anchor = APRG_EventHostileAnchor(player);
+            if (anchor == null) { return; }
+            pointToSpawn = APRG_EventHostileGroundPoint(player, anchor);
+            if (pointToSpawn == null) { return; }
+            g_aprgEventBonusBrutalisk = APRG_EventCreateBrutalisk(UnitGetOwner(anchor), pointToSpawn);
+            if (g_aprgEventBonusBrutalisk != null) {
+                APRG_RegisterAlwaysVisibleUnit(g_aprgEventBonusBrutalisk, player);
+                g_aprgEventAnyBrutaliskSpawned = true;
+                g_aprgEventOrganismNextPatrol = now;
+            }
+        }
     }
-    if (g_aprgEventAnyBrutaliskSpawned) { return; }
-    if ((g_aprgEventMask & APRG_EVENT_ORGANISM_ALLY) != 0) {
-        home = APRG_FindPlayerHomeStructure(player);
-        if (home == null) { return; }
-        pointToSpawn = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
-        if (pointToSpawn == null) { return; }
-        created = APRG_CreatePlayerUnitsSafe(1, "Brutalisk", player, pointToSpawn, 0.0);
-        if (UnitGroupCount(created, c_unitCountAlive) <= 0) { return; }
-        g_aprgEventAnyBrutaliskSpawned = true;
+    // Patrol among several enemy base locations without charging the player
+    // for merely entering a mission. The boss remains visible on the map.
+    if (now < g_aprgEventOrganismNextPatrol) { return; }
+    g_aprgEventOrganismNextPatrol = now + 25.0;
+    patrolPoint = APRG_EventHostilePatrolPoint(player);
+    if (patrolPoint == null) { return; }
+    if (g_aprgEventTestBrutalisk != null && UnitIsAlive(g_aprgEventTestBrutalisk)) {
+        APRG_OrderAttackMove(g_aprgEventTestBrutalisk, patrolPoint);
     }
-    else if ((g_aprgEventMask & APRG_EVENT_ORGANISM_ENEMY) != 0) {
-        anchor = APRG_RandomPathableHostileBaseAnchor(player);
-        if (anchor == null) { return; }
-        pointToSpawn = UnitGetPosition(anchor);
-        owner = UnitGetOwner(anchor);
-        created = UnitCreate(1, "Brutalisk", c_unitCreateIgnorePlacement,
-                             owner, pointToSpawn, libNtve_gf_RandomAngle());
-        if (UnitGroupCount(created, c_unitCountAlive) <= 0) { return; }
-        APRG_AddHostileRaiders(created, pointToSpawn, player);
-        g_aprgEventAnyBrutaliskSpawned = true;
+    if ((g_aprgEventMask & APRG_EVENT_ORGANISM_ENEMY) != 0 &&
+        g_aprgEventBonusBrutalisk != null && UnitIsAlive(g_aprgEventBonusBrutalisk)) {
+        APRG_OrderAttackMove(g_aprgEventBonusBrutalisk, patrolPoint);
     }
 }
 
@@ -27734,10 +27868,22 @@ void APRG_TickEventMechanical(int player, fixed now) {
     if (g_aprgEventMechMode == 1 && !g_aprgEventMechSpawned) {
         home = APRG_FindPlayerHomeStructure(player);
         if (home == null || g_aprgEventBank == null || g_aprgEventSection == "") { return; }
-        where = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
+        where = APRG_KerriganSafeHomePoint(player);
         if (where == null) { return; }
-        created = APRG_CreatePlayerUnitsSafe(g_aprgEventMechCount, mechUnitType, player, where, 0.0);
+        created = UnitCreate(g_aprgEventMechCount, mechUnitType,
+                             c_unitCreateIgnorePlacement, player, where, 0.0);
         if (created == null || UnitGroupCount(created, c_unitCountAlive) <= 0) { return; }
+        u = UnitGroupUnitFromEnd(created, 1);
+        if (u == null || UnitGetOwner(u) != player ||
+            UnitGetPropertyFixed(u, c_unitPropLifeMax, c_unitPropCurrent) <= 3.0) {
+            for (i = UnitGroupCount(created, c_unitCountAll); i > 0; i -= 1) {
+                u = UnitGroupUnitFromEnd(created, i);
+                if (u != null) { UnitRemove(u); }
+            }
+            return;
+        }
+        UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+            StringToText("Rory Swann's field test has begun"));
         g_aprgEventMechTestUnits = created;
         g_aprgEventMechSpawned = true;
         key = "MechStartedAt" + IntToString(g_aprgEventMechCheckpoint);
@@ -27756,10 +27902,10 @@ void APRG_TickEventMechanical(int player, fixed now) {
     }
     if (g_aprgEventMechMode == 3) {
         if (!g_aprgEventMechSpawned) {
-            anchor = APRG_RandomPathableHostileBaseAnchor(player);
+            anchor = APRG_EventHostileAnchor(player);
             if (anchor == null) { return; }
             owner = UnitGetOwner(anchor);
-            where = APRG_FindHostileGroundPointNear(player, UnitGetPosition(anchor), 3.0, 10.0);
+            where = APRG_EventHostileGroundPoint(player, anchor);
             if (where == null) { return; }
             created = UnitCreate(g_aprgEventMechCount, mechUnitType, c_unitCreateIgnorePlacement,
                                  owner, where, libNtve_gf_RandomAngle());
@@ -27775,14 +27921,14 @@ void APRG_TickEventMechanical(int player, fixed now) {
         }
         if (now >= g_aprgEventMechNextPatrol) {
             g_aprgEventMechNextPatrol = now + 45.0;
-            // Hostile Swann units should attack the player's base, not patrol
-            // toward another enemy structure on their own side of the map.
-            home = APRG_FindPlayerHomeStructure(player);
-            if (home == null) { return; }
+            // Swann's hostile field-test units roam enemy territory, with
+            // every patrol destination ground-connected to the player's base.
+            where = APRG_EventHostilePatrolPoint(player);
+            if (where == null) { return; }
             for (i = UnitGroupCount(g_aprgEventMechEnemyPatrol, c_unitCountAlive); i > 0; i -= 1) {
                 u = UnitGroupUnitFromEnd(g_aprgEventMechEnemyPatrol, i);
                 if (u != null && UnitIsAlive(u)) {
-                    APRG_OrderAttackMove(u, UnitGetPosition(home));
+                    APRG_OrderAttackMove(u, where);
                 }
             }
         }
@@ -28488,6 +28634,7 @@ void APRogue_Init() {
     TriggerAddEventChatMessage(TriggerCreate("APRG_EventMechConfig_Func"),
         c_playerAny, "?SlayMech", false);
     TriggerAddEventUnitDied(TriggerCreate("APRG_EventMechKill_Func"), null);
+    TriggerAddEventUnitDied(TriggerCreate("APRG_EventUnitDied_Func"), null);
     g_aprgCrewUnlockInputTrigger = TriggerCreate("APRG_CrewUnlockInput_Func");
     TriggerAddEventChatMessage(g_aprgCrewUnlockInputTrigger, c_playerAny, "?SlayCrewUnlockInput", false);
     g_aprgCrewSessionTrigger = TriggerCreate("APRG_CrewSession_Func");
