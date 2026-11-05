@@ -1,4 +1,4 @@
-name: Events Dev13 portable test build
+name: Events Dev14 hotfix portable test build
 
 on:
   push:
@@ -28,16 +28,16 @@ jobs:
         run: |
           python -m compileall -q Payload Tools
           python .\Payload\verify_release.py --source-only
-          python -m unittest Tools.test_v1231_dev3_deaths_thrashers_blink Tools.test_v1231_dev4_settings_mutations_mercs Tools.test_v1231_dev5_kerrigan_vortex Tools.test_v1231_dev6_events_framework Tools.test_v1231_dev8_events Tools.test_v1231_dev11_mechanical_events
+          python -m unittest Tools.test_v1231_dev3_deaths_thrashers_blink Tools.test_v1231_dev4_settings_mutations_mercs Tools.test_v1231_dev5_kerrigan_vortex Tools.test_v1231_dev6_events_framework Tools.test_v1231_dev8_events Tools.test_v1231_dev11_mechanical_events Tools.test_v1231_dev14_galaxy_and_assets
 
       - name: Build portable Windows launcher
         shell: pwsh
         run: .\Tools\build_launcher.ps1
 
-      - name: Assemble Dev13 event test folder
+      - name: Assemble Dev14 event test folder
         shell: pwsh
         run: |
-          $stage = Join-Path $env:RUNNER_TEMP 'Slay the StarCraft Events Dev13'
+          $stage = Join-Path $env:RUNNER_TEMP 'Slay the StarCraft Events Dev14'
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item -Recurse -Force .\Payload (Join-Path $stage 'Payload')
           Copy-Item -Recurse -Force .\Tools (Join-Path $stage 'Tools')
@@ -46,19 +46,19 @@ jobs:
             throw 'The launcher build did not produce SlayTheStarCraft.exe'
           }
           Copy-Item -Force .\SlayTheStarCraft.exe (Join-Path $stage 'SlayTheStarCraft.exe')
-          foreach ($file in @('VERSION.txt','launcher_manifest.json','README.txt','README.md','CHANGELOG.md','CONTRIBUTING.md','EVENTS_DEV11_TESTING.md','EVENTS_DEV12_TESTING.md','EVENTS_DEV13_TESTING.md')) {
+          foreach ($file in @('VERSION.txt','launcher_manifest.json','README.txt','README.md','CHANGELOG.md','CONTRIBUTING.md','EVENTS_DEV11_TESTING.md','EVENTS_DEV12_TESTING.md','EVENTS_DEV13_TESTING.md','EVENTS_DEV14_TESTING.md')) {
             if (Test-Path $file) { Copy-Item -Force $file (Join-Path $stage $file) }
           }
           Get-ChildItem -Path $stage -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
           Get-ChildItem -Path $stage -Recurse -File -Include '*.pyc','*.pyo' | Remove-Item -Force -ErrorAction SilentlyContinue
           'integration_branch=develop/v1.2.3.1-odin-missions' | Set-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
-          "build_type=events-dev13-untested" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
+          "build_type=events-dev14-untested" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
           "commit=$env:GITHUB_SHA" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
 
-      - name: Upload playable Events Dev13 test build
+      - name: Upload playable Events Dev14 hotfix test build
         uses: actions/upload-artifact@v4
         with:
-          name: slay-the-starcraft-events-dev13-test-windows
-          path: ${{ runner.temp }}/Slay the StarCraft Events Dev13/
+          name: slay-the-starcraft-events-dev14-hotfix-windows
+          path: ${{ runner.temp }}/Slay the StarCraft Events Dev14/
           if-no-files-found: error
           retention-days: 14
