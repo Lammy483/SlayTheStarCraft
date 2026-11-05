@@ -1241,6 +1241,14 @@ DEFAULT_STATE: dict[str, Any] = {
     "crew_roster": None,
 
     "purchases": {},
+    "event_assignments": {},
+    "event_resolutions": {},
+    "event_merchant_purchases": {},
+    "event_merchant_potions": {},
+    "event_credit_bonus": 0,
+    "event_price_penalties": [],
+    "event_merchant_raid_pending": False,
+    "event_merchant_raid_target": 0,
 
     # Display-only inventory safety net for transient AP reconnect states.
     "inventory_received_snapshot": [],
@@ -2519,6 +2527,21 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
             except (TypeError, ValueError):
                 continue
     state["inventory_received_snapshot"] = inventory_snapshot
+    # Event consequences and choices are durable, independently of AP receipts.
+    for key in ("event_assignments", "event_resolutions", "event_merchant_purchases", "event_merchant_potions"):
+        raw = value.get(key, {})
+        if isinstance(raw, Mapping):
+            state[key] = {str(k)[:40]: copy.deepcopy(v) for k, v in raw.items() if len(str(k)) <= 40}
+    raw_penalties = value.get("event_price_penalties", [])
+    valid_penalties = {"zerg_upgrade_50", "zerg_upgrade_20", "terran_unlock_50", "kerrigan_upgrade_20", "spear_upgrade_20"}
+    if isinstance(raw_penalties, list):
+        state["event_price_penalties"] = list(dict.fromkeys(str(x) for x in raw_penalties if str(x) in valid_penalties))
+    for key in ("event_credit_bonus", "event_merchant_raid_target"):
+        try:
+            state[key] = max(-1000000000, min(1000000000, int(value.get(key, 0))))
+        except (TypeError, ValueError):
+            state[key] = 0
+    state["event_merchant_raid_pending"] = bool(value.get("event_merchant_raid_pending", False))
 
     cycle_purchases: dict[str, int] = {}
 
@@ -3478,6 +3501,8 @@ def mission_flags_for_mission(ctx: Any, mission_id: int) -> int:
 
     if (flags & MISSION_FLAG_SWARMS_OF_UNIT) != 0:
         flags |= swarm_unit_index(ctx, int(mission_id)) << 24
+    if events_enabled(ctx) and int(state(ctx).get("event_merchant_raid_target", 0)) == int(mission_id):
+        flags |= 268435456  # Event merchant raid (mission flag bit 28).
     return flags
 
 
@@ -5075,11 +5100,68 @@ def current_frontier(ctx: Any) -> list[int]:
 
     sync_commit_from_checks(ctx)
 
-    return _raw_frontier(ctx)
+    return [] if event_pending(ctx) is not None else _raw_frontier(ctx)
 
 
 
 
+
+
+# Standard-mode event logic is isolated from the native AP mission graph.
+def events_enabled(ctx: Any) -> bool:
+    return (enabled(ctx) and not crew_mode(ctx)
+            and str(getattr(ctx, "slay_config", {}).get("game_mode", "adventure")) == "adventure"
+            and bool(getattr(ctx, "slay_config", {}).get("events", False)))
+
+def event_pending(ctx: Any) -> dict[str, Any] | None:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return None
+    from . import slay_events
+    return slay_events.pending(ctx)
+
+def event_display(ctx: Any) -> dict[str, Any] | None:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return None
+    from . import slay_events
+    return slay_events.display(ctx)
+
+def event_select_test(ctx: Any, event_id: str) -> tuple[bool, str]:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return False, "Events are not enabled in this run."
+    from . import slay_events
+    return slay_events.select_test(ctx, event_id)
+
+def event_apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return False, "Events are not enabled in this run.", False
+    from . import slay_events
+    return slay_events.apply_choice(ctx, int(index))
+
+def event_checkpoints(ctx: Any) -> tuple[int, ...]:
+    if not events_enabled(ctx):
+        return ()
+    from . import slay_events
+    return slay_events.checkpoints(int(ctx.slay_config.get("campaign_length", 12)))
+
+def _event_adjust_shop_price(ctx: Any | None, item_name: str, price: int) -> int:
+    if ctx is None or not events_enabled(ctx) or not state_ready(ctx):
+        return int(price)
+    data = _item_table().get(item_name)
+    type_name = str(getattr(getattr(data, "type", None), "display_name", "")).casefold()
+    race = _item_race_key(item_name, data)
+    multiplier = 1.0
+    for penalty in state(ctx).get("event_price_penalties", []):
+        if penalty == "zerg_upgrade_50" and race == "zerg" and "upgrade" in type_name:
+            multiplier *= 1.5
+        elif penalty == "zerg_upgrade_20" and race == "zerg" and "upgrade" in type_name:
+            multiplier *= 1.2
+        elif penalty == "terran_unlock_50" and race == "terran" and _is_unit_or_morph_unlock_type(type_name):
+            multiplier *= 1.5
+        elif penalty == "kerrigan_upgrade_20" and (_is_kerrigan_item(item_name, data) or item_name == KERRIGAN_UNLOCK):
+            multiplier *= 1.2
+        elif penalty == "spear_upgrade_20" and (_is_spear_item(item_name, data) or item_name == SPEAR_UNLOCK):
+            multiplier *= 1.2
+    return int(math.ceil(price * multiplier))
 
 def _reachable_from(ctx: Any, starts: Iterable[int]) -> set[int]:
 
@@ -5818,9 +5900,10 @@ def commit_mission(ctx: Any, mission_id: int) -> bool:
     path = list(s.get("chosen", []))
 
     path.append(mission_id)
-
     s["chosen"] = path
-
+    if events_enabled(ctx) and s.get("event_merchant_raid_pending", False):
+        s["event_merchant_raid_target"] = mission_id
+        s["event_merchant_raid_pending"] = False
     _persist_state(ctx)
 
     _consume_auto_victory_for_mission(ctx, mission_id)
@@ -7112,7 +7195,7 @@ def credits(ctx: Any) -> int:
 
     test_bonus = int(state(ctx).get("test_credit_bonus", 0)) if state_ready(ctx) else 0
 
-    raw_balance = earned + test_bonus - int(state(ctx).get("spent", 0))
+    raw_balance = earned + test_bonus + int(state(ctx).get("event_credit_bonus", 0)) - int(state(ctx).get("spent", 0))
     # Developer /credits deductions may intentionally put any mode into debt.
     balance = raw_balance if crew_mode(ctx) or test_bonus < 0 else max(0, raw_balance)
 
@@ -10533,9 +10616,9 @@ def price_for_item(
 
             capped_price = max(1, int(base) - 400)
 
-            return max(half_price, capped_price)
+            return _event_adjust_shop_price(ctx, item_name, max(half_price, capped_price))
 
-    return int(base)
+    return _event_adjust_shop_price(ctx, item_name, int(base))
 
 
 
