@@ -60,9 +60,9 @@ EVENTS: dict[str, dict[str, Any]] = {
     },
     "mechanical": {
         "name": "[Mechanical Ground Terran Unit] Field Test",
-        "description": "Rory Swann wants to test [Mechanical Ground Terran Unit] in the field. He offers you some schematics and upgrades if you complete the task.",
+        "description": "Rory Swann wants to test [Mechanical Ground Terran Unit]s in the field. He offers you some schematics and upgrades if you complete the task.",
         "options": [
-            "Agree: Start next mission with [amount] [Mechanical Ground Terran Unit]. If they get a total of 50 kills then you succeed, unlocking that unit and giving that unit a permanent +20% hp, speed, and damage. If you fail, Rory Swann will give [Mechanical Ground Terran Unit] to the enemy team for all remaining missions with those same bonuses.",
+            "Agree: Start next mission with [amount] [Mechanical Ground Terran Unit]s. If they get a total of 50 kills then you succeed, unlocking that unit and giving that unit a permanent +20% hp, speed, and damage. If you fail, Rory Swann will give [Mechanical Ground Terran Unit] to the enemy team for all remaining missions with those same bonuses.",
             "Refuse: unlocking terran units costs 50% additional credits for the rest of the campaign",
         ],
     },
