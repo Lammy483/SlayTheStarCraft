@@ -125,56 +125,76 @@ try {
     Write-Host "Upgrading Slay $($marker.slay_version) -> $newVersion" -ForegroundColor Cyan
     Write-Host "Existing installation: $targetRoot"
     Write-Host "New build: $sourceRoot"
-    Write-Host "Keeping Runtime, Runs, saved preferences and restored PNG artwork."
+    Write-Host "Keeping Runtime, Runs, user preferences and extracted SC2 artwork; replacing complete program folders."
 
     $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $backupRoot = Join-Path $oldRuntime ("UpdateBackups\" + $stamp)
-    $toCopy = New-Object System.Collections.Generic.List[string]
+    New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+
+    # Replace the COMPLETE source folders, including files we did not modify.
+    # This avoids stale scripts from a previous build silently surviving.
+    # The old folders are kept in Runtime/UpdateBackups for manual recovery.
     foreach ($folderName in @("Payload", "Tools")) {
-        $sourceFolder = Join-Path $sourceRoot $folderName
-        foreach ($file in (Get-ChildItem -LiteralPath $sourceFolder -Recurse -File)) {
-            # Keep the user's existing assets when a build ships only JSON mappings.
-            $toCopy.Add($file.FullName)
+        $oldFolder = Join-Path $targetRoot $folderName
+        $newFolder = Join-Path $sourceRoot $folderName
+        if (-not (Test-Path -LiteralPath $newFolder -PathType Container)) {
+            throw "The new ZIP is missing the $folderName folder."
         }
-    }
-    foreach ($name in @("SlayTheStarCraft.exe", "launcher_manifest.json", "VERSION.txt", "README.md",
-                         "README.txt", "CHANGELOG.md", "INTEGRATION_BUILD.txt")) {
-        $candidate = Join-Path $sourceRoot $name
-        if (Test-Path -LiteralPath $candidate -PathType Leaf) { $toCopy.Add($candidate) }
-    }
-    foreach ($sourceFile in $toCopy) {
-        $relative = $sourceFile.Substring($sourceRoot.Length + 1)
-        $destination = Join-Path $targetRoot $relative
-        $parent = Split-Path -Parent $destination
-        if (-not (Test-Path -LiteralPath $parent)) {
-            New-Item -ItemType Directory -Path $parent -Force | Out-Null
+        if (Test-Path -LiteralPath $oldFolder) {
+            Move-Item -LiteralPath $oldFolder -Destination (Join-Path $backupRoot $folderName)
         }
-        if (Test-Path -LiteralPath $destination -PathType Leaf) {
-            $backupFile = Join-Path $backupRoot $relative
-            $backupParent = Split-Path -Parent $backupFile
-            if (-not (Test-Path -LiteralPath $backupParent)) {
-                New-Item -ItemType Directory -Path $backupParent -Force | Out-Null
-            }
-            Copy-Item -LiteralPath $destination -Destination $backupFile -Force
-        }
-        Copy-Item -LiteralPath $sourceFile -Destination $destination -Force
+        Copy-Item -LiteralPath $newFolder -Destination $oldFolder -Recurse -Force
     }
-    # Import only NEW default config files; do not overwrite local preferences.
-    $sourceConfig = Join-Path $sourceRoot "Config"
-    if (Test-Path -LiteralPath $sourceConfig -PathType Container) {
-        foreach ($file in (Get-ChildItem -LiteralPath $sourceConfig -Recurse -File)) {
-            $relative = $file.FullName.Substring($sourceRoot.Length + 1)
-            $destination = Join-Path $targetRoot $relative
-            if (-not (Test-Path -LiteralPath $destination)) {
+
+    # These copyrighted SC2 texture/audio assets are extracted locally, not
+    # included in GitHub source builds. Restore ONLY those art files from the
+    # previous installation; do not copy any old Python/Galaxy/catalog code.
+    $oldArt = Join-Path $backupRoot "Payload\slay_assets"
+    $newArt = Join-Path $targetRoot "Payload\slay_assets"
+    if (Test-Path -LiteralPath $oldArt -PathType Container) {
+        $assetExtensions = @('.png', '.jpg', '.jpeg', '.dds', '.tga', '.webp', '.wav', '.ogg', '.mp3')
+        foreach ($file in (Get-ChildItem -LiteralPath $oldArt -Recurse -File)) {
+            if (-not ($assetExtensions -contains $file.Extension.ToLowerInvariant())) { continue }
+            $relativeArt = $file.FullName.Substring($oldArt.Length + 1)
+            $destination = Join-Path $newArt $relativeArt
+            if (-not (Test-Path -LiteralPath $destination -PathType Leaf)) {
                 $parent = Split-Path -Parent $destination
                 if (-not (Test-Path -LiteralPath $parent)) {
-                    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+                    New-Item -ItemType Directory -Force -Path $parent | Out-Null
                 }
                 Copy-Item -LiteralPath $file.FullName -Destination $destination
             }
         }
     }
-    Write-Host "Copied $($toCopy.Count) updated program files. Reinstalling Slay patches locally..."
+
+    # Overwrite EVERY shipped top-level file, including release notes and
+    # manifests, rather than maintaining an error-prone allowlist.
+    $rootFiles = @(Get-ChildItem -LiteralPath $sourceRoot -File)
+    foreach ($file in $rootFiles) {
+        $destination = Join-Path $targetRoot $file.Name
+        if (Test-Path -LiteralPath $destination -PathType Leaf) {
+            Copy-Item -LiteralPath $destination -Destination (Join-Path $backupRoot $file.Name) -Force
+        }
+        Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+    }
+
+    # Replace packaged Config defaults too, preserving only user-created
+    # preferences and the installed SC2/Archipelago location. These are not
+    # downloaded code and must never be reset by an update.
+    $sourceConfig = Join-Path $sourceRoot "Config"
+    if (Test-Path -LiteralPath $sourceConfig -PathType Container) {
+        foreach ($file in (Get-ChildItem -LiteralPath $sourceConfig -Recurse -File)) {
+            $relative = $file.FullName.Substring($sourceConfig.Length + 1)
+            if (@('slay_preferences.ini', 'slay_install.json') -contains $relative) { continue }
+            $destination = Join-Path (Join-Path $targetRoot "Config") $relative
+            $parent = Split-Path -Parent $destination
+            if (-not (Test-Path -LiteralPath $parent)) {
+                New-Item -ItemType Directory -Force -Path $parent | Out-Null
+            }
+            Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+        }
+    }
+    Write-Host "Replaced complete Payload/Tools directories and $($rootFiles.Count) root files. Reinstalling Slay locally..."
 
     # This does NOT run bootstrap_slay_runtime.ps1 and downloads no new runtime.
     $priorEnv = @{
@@ -216,7 +236,7 @@ try {
     $marker | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $markerPath -Encoding UTF8
 
     Write-Host ""
-    Write-Host "Update complete. Launch your EXISTING Dev14-folder SlayTheStarCraft.exe." -ForegroundColor Green
+    Write-Host "Update complete. Launch SlayTheStarCraft.exe from your EXISTING installation folder." -ForegroundColor Green
     Write-Host "No Download Data needed. Runtime, runs, configs and artwork were kept."
     Write-Host "Backup of overwritten program files: $backupRoot"
 }
