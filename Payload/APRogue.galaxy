@@ -325,6 +325,9 @@ const int APRG_EVENT_ZAGARA_BRAKK_QUEST = 16;
 const int APRG_EVENT_ZAGARA_BANELING_ALLY = 32;
 const int APRG_EVENT_ZAGARA_ENEMY = 64;
 const int APRG_EVENT_BRAKK_ALLY = 128;
+const int APRG_EVENT_ORGANISM_TEST = 256;
+const int APRG_EVENT_ORGANISM_ALLY = 512;
+const int APRG_EVENT_ORGANISM_ENEMY = 1024;
 int g_aprgEventMask = 0;
 int g_aprgEventUnit = 0;
 int g_aprgEventCount = 0;
@@ -349,6 +352,10 @@ bool g_aprgEventZagaraDeadLocal = false;
 bool g_aprgEventAllyBrakkSpawned = false;
 bool g_aprgEventZagaraBurrowOrdered = false;
 fixed g_aprgEventAllyBanelingNext = 600.0;
+unit g_aprgEventTestBrutalisk = null;
+bool g_aprgEventTestBrutaliskSpawned = false;
+bool g_aprgEventAnyBrutaliskSpawned = false;
+bool g_aprgEventTestReported = false;
 
 int g_aprgMaskA = 0;
 int g_aprgMaskB = 0;
@@ -22209,6 +22216,10 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgEventAllyBrakkSpawned = false;
     g_aprgEventZagaraBurrowOrdered = false;
     g_aprgEventAllyBanelingNext = 600.0;
+    g_aprgEventTestBrutalisk = null;
+    g_aprgEventTestBrutaliskSpawned = false;
+    g_aprgEventAnyBrutaliskSpawned = false;
+    g_aprgEventTestReported = false;
     g_aprgCovertToshSpawned = false;
     g_aprgCovertToshRetreating = false;
     g_aprgCovertToshLastTick = -1.0;
@@ -27386,6 +27397,72 @@ void APRG_TickEventAllyBrakk(int player) {
     }
 }
 
+// Field test is a one-mission boss challenge. The specific spawned unit is
+// tracked by its handle so unrelated campaign Brutanlisks cannot satisfy it.
+void APRG_TickEventOrganism(int player, fixed now) {
+    unit anchor;
+    unit home;
+    unitgroup created;
+    point pointToSpawn;
+    int owner;
+    if ((g_aprgEventMask & (APRG_EVENT_ORGANISM_TEST |
+        APRG_EVENT_ORGANISM_ALLY | APRG_EVENT_ORGANISM_ENEMY)) == 0 ||
+        !APRG_PlayerMacroBaseReady(player) ||
+        !CatalogEntryIsValid(c_gameCatalogUnit, "Brutalisk")) { return; }
+    if ((g_aprgEventMask & APRG_EVENT_ORGANISM_TEST) != 0) {
+        if (!g_aprgEventTestBrutaliskSpawned) {
+            anchor = APRG_RandomPathableHostileBaseAnchor(player);
+            if (anchor == null) { return; }
+            owner = UnitGetOwner(anchor);
+            pointToSpawn = APRG_FindHostileGroundPointNear(player, UnitGetPosition(anchor), 5.0, 12.0);
+            if (pointToSpawn == null) { pointToSpawn = UnitGetPosition(anchor); }
+            created = UnitCreate(1, "Brutalisk", c_unitCreateIgnorePlacement,
+                                 owner, pointToSpawn, libNtve_gf_RandomAngle());
+            g_aprgEventTestBrutalisk = UnitGroupUnitFromEnd(created, 1);
+            if (g_aprgEventTestBrutalisk == null) { return; }
+            APRG_DisableGeneratedHeroRevive(g_aprgEventTestBrutalisk);
+            APRG_RegisterAlwaysVisibleUnit(g_aprgEventTestBrutalisk, player);
+            g_aprgEventTestBrutaliskSpawned = true;
+            if (g_aprgEventBank != null && g_aprgEventSection != "") {
+                BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, "OrganismStartedAt", g_aprgMissionLayer);
+                BankSave(g_aprgEventBank);
+            }
+        }
+        if (g_aprgEventTestBrutaliskSpawned && !g_aprgEventTestReported &&
+            (g_aprgEventTestBrutalisk == null || !UnitIsAlive(g_aprgEventTestBrutalisk))) {
+            g_aprgEventTestReported = true;
+            if (g_aprgEventBank != null && g_aprgEventSection != "") {
+                BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, "OrganismOutcome", 1);
+                BankSave(g_aprgEventBank);
+            }
+            UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
+                StringToText("Abathur Quest Complete"));
+        }
+        return;
+    }
+    if (g_aprgEventAnyBrutaliskSpawned) { return; }
+    if ((g_aprgEventMask & APRG_EVENT_ORGANISM_ALLY) != 0) {
+        home = APRG_FindPlayerHomeStructure(player);
+        if (home == null) { return; }
+        pointToSpawn = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
+        if (pointToSpawn == null) { return; }
+        created = APRG_CreatePlayerUnitsSafe(1, "Brutalisk", player, pointToSpawn, 0.0);
+        if (UnitGroupCount(created, c_unitCountAlive) <= 0) { return; }
+        g_aprgEventAnyBrutaliskSpawned = true;
+    }
+    else if ((g_aprgEventMask & APRG_EVENT_ORGANISM_ENEMY) != 0) {
+        anchor = APRG_RandomPathableHostileBaseAnchor(player);
+        if (anchor == null) { return; }
+        pointToSpawn = UnitGetPosition(anchor);
+        owner = UnitGetOwner(anchor);
+        created = UnitCreate(1, "Brutalisk", c_unitCreateIgnorePlacement,
+                             owner, pointToSpawn, libNtve_gf_RandomAngle());
+        if (UnitGroupCount(created, c_unitCountAlive) <= 0) { return; }
+        APRG_AddHostileRaiders(created, pointToSpawn, player);
+        g_aprgEventAnyBrutaliskSpawned = true;
+    }
+}
+
 void APRG_TickEventMerchantRaid(int player, fixed now) {
     int owner;
     int i;
@@ -27438,6 +27515,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     APRG_TickEventColony(player, now);
     APRG_TickEventZagara(player, now);
     APRG_TickEventAllyBrakk(player);
+    APRG_TickEventOrganism(player, now);
 
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_HELLION_RUN_BY) != 0) { APRG_TickHellionRunBy(player, now); }
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_DIAMONDBACK_WANDERERS) != 0) { APRG_TickDiamondbackWanderers(player, now); }
