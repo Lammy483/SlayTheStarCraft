@@ -104,10 +104,11 @@ EVENTS: dict[str, dict[str, Any]] = {
 # Only expose encounters with fully implemented outcomes in ordinary runs.
 # The initial development encounter can display all ten for inspection, but
 # unfinished options are visibly disabled rather than silently doing nothing.
-REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis", "nova", "colonists")
+REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis", "nova", "colonists", "zagara")
 IMPLEMENTED_OPTIONS: dict[str, tuple[int, ...]] = {
     "merchant": (0, 1, 2, 3, 4),
     "nova": (0, 1),
+    "zagara": (0, 1),
     "abathur": (0, 1),
     "organism": (1,),
     "mechanical": (1,),
@@ -289,6 +290,10 @@ NOVA_ALLY = 1
 TOSH_ENEMY = 2
 NOVA_ENEMY = 4
 COLONY_HUT = 8
+ZAGARA_BRAKK_QUEST = 16
+ZAGARA_ALLIED_BANELINGS = 32
+ZAGARA_ENEMY = 64
+BRAKK_ALLY = 128
 
 def native_bank_values(ctx: Any) -> dict[str, int]:
     """Read per-run event receipts from SC2 banks, never alter the bank files."""
@@ -361,6 +366,14 @@ def native_values(ctx: Any, mission_id: int) -> tuple[int, int, int]:
             mask |= NOVA_ENEMY
     if layer >= int(s.get("event_colonists_checkpoint", 10000)):
         mask |= COLONY_HUT
+    if layer >= int(s.get("event_zagara_checkpoint", 10000)):
+        side = str(s.get("event_zagara_side", ""))
+        if side == "zagara":
+            mask |= ZAGARA_ALLIED_BANELINGS
+            if int(s.get("event_zagara_quest_target", 0)) == int(mission_id):
+                mask |= ZAGARA_BRAKK_QUEST
+        elif side == "brakk":
+            mask |= ZAGARA_ENEMY | BRAKK_ALLY
     return mask, 0, 0
 
 def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
@@ -407,6 +420,16 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
             message = f'Raided merchant vessel; gained {slay.POTION_CATALOG[pid]["name"]}. Mercenaries attack next mission.'
         else:
             message = "Left the merchant vessel."
+    elif event_id == "zagara":
+        side = "zagara" if index == 0 else "brakk"
+        s["event_zagara_side"] = side
+        s["event_zagara_checkpoint"] = int(key)
+        s["event_zagara_quest_pending"] = side == "zagara"
+        s["event_zagara_quest_target"] = 0
+        message = ("Zagara will send 100 allied Banelings every ten minutes after "
+                   "you slay Brakk's Pack next mission." if index == 0 else
+                   "Brakk joins until enemy Zagara is slain; Zagara sends hostile "
+                   "Banelings every ten minutes while alive.")
     elif event_id == "colonists" and index == 0:
         s["event_colonists_checkpoint"] = int(key)
         message = ("Dr Hansen's colony hut will appear at your base. "
@@ -456,6 +479,9 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         s["event_crystalis_checkpoint"] = -1
         s["event_nova_side"] = ""
         s["event_colonists_checkpoint"] = -1
+        s["event_zagara_side"] = ""
+        s["event_zagara_quest_pending"] = False
+        s["event_zagara_quest_target"] = 0
         s["boon_purchases"] = {}
         s["permanent_boons"] = []
         s["permanent_blessings"] = []
