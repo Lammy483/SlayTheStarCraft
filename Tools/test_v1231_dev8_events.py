@@ -101,7 +101,7 @@ class EventsDev8(unittest.TestCase):
         source = (PAYLOAD / "slay_the_starcraft.py").read_text(encoding="utf-8")
         self.assertIn('merged["_event_crystalis_mutation"] = names[-1]', source)
         self.assertIn('"event_crystalis_reroll_nonce"', source)
-        self.assertIn('x == forced or _mutation_allowed_for_mission', source)
+        self.assertIn('x in forced or _mutation_allowed_for_mission', source)
         # Constrains event injection to mutators; not mutation severity or credit reward.
         tree = ast.parse(source)
         merged = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
