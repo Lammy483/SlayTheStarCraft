@@ -1665,6 +1665,21 @@ def patch_client(text: str) -> str:
         if text.count(current_launch) != 1:
             raise RuntimeError("Cannot identify unique APRogue mission launch for native event handshake")
         text = text.replace(current_launch, current_launch + event_send, 1)
+    elif "event_mechanical_values_for_mission(self.ctx, self.mission_id)" not in text:
+        # Users upgrading an existing Dev10 install already have ?SlayEvent
+        # injected. Add only the new optional packet; never double-insert
+        # or rewrite the stable APRogue parameter positions.
+        prior_event_line = (
+            '            await self.chat_send(f"?SlayEvent {event_mask} {event_unit} {event_count}")\n'
+        )
+        mechanical_lines = (
+            '            mech_unit, mech_qty, mech_mode, mech_checkpoint = '
+            'slay.event_mechanical_values_for_mission(self.ctx, self.mission_id)\n'
+            '            await self.chat_send(f"?SlayMech {mech_unit} {mech_qty} {mech_mode} {mech_checkpoint}")\n'
+        )
+        if text.count(prior_event_line) != 1:
+            raise RuntimeError("Cannot upgrade a preexisting Slay event packet for the mechanical field test")
+        text = text.replace(prior_event_line, prior_event_line + mechanical_lines, 1)
 
     return text
 
