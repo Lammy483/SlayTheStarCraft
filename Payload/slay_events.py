@@ -102,14 +102,14 @@ EVENTS: dict[str, dict[str, Any]] = {
 # Only expose encounters with fully implemented outcomes in ordinary runs.
 # The initial development encounter can display all ten for inspection, but
 # unfinished options are visibly disabled rather than silently doing nothing.
-REGULAR_ENABLED = ("merchant", "abathur", "vortex")
+REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis")
 IMPLEMENTED_OPTIONS: dict[str, tuple[int, ...]] = {
     "merchant": (0, 1, 2, 3, 4),
     "abathur": (0, 1),
     "organism": (1,),
     "mechanical": (1,),
     "colonists": (1,),
-    "crystalis": (1,),
+    "crystalis": (0, 1),
     "solarite": (2,),
     "vortex": (0, 1),
 }
@@ -167,7 +167,11 @@ def eligible_regular(ctx: Any) -> tuple[str, ...]:
     # Check eligibility at event assignment, then persist the selected event
     # so reconnecting cannot reroll it based on inventory or purchases.
     enough_zerg = len(_owned_zerg_units(ctx)) >= 4
-    return tuple(x for x in REGULAR_ENABLED if x != "abathur" or enough_zerg)
+    slay = _slay()
+    kerrigan = slay._progression_owned(ctx, slay.KERRIGAN_UNLOCK)
+    return tuple(x for x in REGULAR_ENABLED
+                 if (x != "abathur" or enough_zerg)
+                 and (x != "crystalis" or kerrigan))
 
 def pending(ctx: Any) -> dict[str, Any] | None:
     slay = _slay()
@@ -264,6 +268,10 @@ def display(ctx: Any) -> dict[str, Any] | None:
             can = can and len(slay.potion_inventory(ctx)) < slay.POTION_CAPACITY
         elif event_id == "abathur" and i == 0:
             can = can and len(_owned_zerg_units(ctx)) >= 4
+        elif event_id == "crystalis":
+            can = can and slay._progression_owned(ctx, slay.KERRIGAN_UNLOCK)
+            if i == 0:
+                can = can and slay._one_kerrigan_level_item(slay._item_table()) is not None
         shown.append({"text": label, "enabled": can, "implemented": implemented})
     return dict(p, name=data["name"], description=data["description"], options=shown)
 
@@ -311,6 +319,16 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
             message = f'Raided merchant vessel; gained {slay.POTION_CATALOG[pid]["name"]}. Mercenaries attack next mission.'
         else:
             message = "Left the merchant vessel."
+    elif event_id == "crystalis" and index == 0:
+        level_item = slay._one_kerrigan_level_item(slay._item_table())
+        if not slay._progression_owned(ctx, slay.KERRIGAN_UNLOCK) or not level_item:
+            return False, "Kerrigan and her Archipelago level item must be unlocked.", False
+        awards = dict(s.get("event_awarded_items", {}))
+        awards[level_item] = int(awards.get(level_item, 0)) + 70
+        s["event_awarded_items"] = awards
+        s["event_crystalis_checkpoint"] = int(key)
+        message = (f"Kerrigan received 70 Archipelago levels ({level_item}). "
+                   "All remaining missions gain Brakk's Pack or Dehaka's Pack without increased credit rewards.")
     elif event_id == "vortex" and index == 0:
         # Preserve the AP server's append-only receipt history while locally
         # suppressing all previously received AP items for mission startup.
@@ -326,6 +344,7 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         s["spent"] = 0
         s["purchases"] = {}
         s["event_awarded_items"] = {}
+        s["event_crystalis_checkpoint"] = -1
         s["boon_purchases"] = {}
         s["permanent_boons"] = []
         s["permanent_blessings"] = []
