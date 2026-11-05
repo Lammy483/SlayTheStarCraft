@@ -104,13 +104,13 @@ EVENTS: dict[str, dict[str, Any]] = {
 # Only expose encounters with fully implemented outcomes in ordinary runs.
 # The initial development encounter can display all ten for inspection, but
 # unfinished options are visibly disabled rather than silently doing nothing.
-REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis", "nova", "colonists", "zagara")
+REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis", "nova", "colonists", "zagara", "organism")
 IMPLEMENTED_OPTIONS: dict[str, tuple[int, ...]] = {
     "merchant": (0, 1, 2, 3, 4),
     "nova": (0, 1),
     "zagara": (0, 1),
     "abathur": (0, 1),
-    "organism": (1,),
+    "organism": (0, 1),
     "mechanical": (1,),
     "colonists": (0, 1),
     "crystalis": (0, 1),
@@ -294,6 +294,9 @@ ZAGARA_BRAKK_QUEST = 16
 ZAGARA_ALLIED_BANELINGS = 32
 ZAGARA_ENEMY = 64
 BRAKK_ALLY = 128
+ORGANISM_TEST = 256
+ORGANISM_ALLY = 512
+ORGANISM_ENEMY = 1024
 
 def native_bank_values(ctx: Any) -> dict[str, int]:
     """Read per-run event receipts from SC2 banks, never alter the bank files."""
@@ -374,6 +377,16 @@ def native_values(ctx: Any, mission_id: int) -> tuple[int, int, int]:
                 mask |= ZAGARA_BRAKK_QUEST
         elif side == "brakk":
             mask |= ZAGARA_ENEMY | BRAKK_ALLY
+    if layer >= int(s.get("event_organism_checkpoint", 10000)):
+        target = int(s.get("event_organism_target", 0))
+        if target == int(mission_id):
+            mask |= ORGANISM_TEST
+        elif target > 0 and slay.victory_count(ctx) > int(s.get("event_organism_checkpoint", 10000)):
+            bank = native_bank_values(ctx)
+            if int(bank.get("OrganismOutcome", 0)) == 1:
+                mask |= ORGANISM_ALLY
+            elif int(bank.get("OrganismStartedAt", 0)) > 0:
+                mask |= ORGANISM_ENEMY
     return mask, 0, 0
 
 def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
@@ -420,6 +433,13 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
             message = f'Raided merchant vessel; gained {slay.POTION_CATALOG[pid]["name"]}. Mercenaries attack next mission.'
         else:
             message = "Left the merchant vessel."
+    elif event_id == "organism" and index == 0:
+        s["event_organism_checkpoint"] = int(key)
+        s["event_organism_pending"] = True
+        s["event_organism_target"] = 0
+        message = ("A hostile Brutalisk will spawn near enemy structures next mission. "
+                   "Kill it to gain an allied Brutalisk every future mission; "
+                   "otherwise the enemy gains one every future mission.")
     elif event_id == "zagara":
         side = "zagara" if index == 0 else "brakk"
         s["event_zagara_side"] = side
@@ -482,6 +502,9 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         s["event_zagara_side"] = ""
         s["event_zagara_quest_pending"] = False
         s["event_zagara_quest_target"] = 0
+        s["event_organism_checkpoint"] = -1
+        s["event_organism_pending"] = False
+        s["event_organism_target"] = 0
         s["boon_purchases"] = {}
         s["permanent_boons"] = []
         s["permanent_blessings"] = []
