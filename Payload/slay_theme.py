@@ -25,8 +25,13 @@ from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
+from slay_asset_recovery import THEME_BANNER, import_art, recover_from_siblings
 
 ASSETS = Path(__file__).with_name("slay_assets")
+_PORTABLE_ROOT_TEXT = os.environ.get("SLAY_PORTABLE_ROOT", "").strip()
+_PORTABLE_ROOT = Path(_PORTABLE_ROOT_TEXT) if _PORTABLE_ROOT_TEXT else ASSETS.parent.parent
+if _PORTABLE_ROOT_TEXT and not (ASSETS / THEME_BANNER).is_file():
+    recover_from_siblings(_PORTABLE_ROOT, (ASSETS, _PORTABLE_ROOT / "Payload" / "slay_assets"))
 BLUE = (0.28, 0.76, 1, 1)
 _SOUNDS = {}
 _LAST_SOUND = 0.0
@@ -184,6 +189,49 @@ def directory_picker(path_label) -> None:
     popup.open()
 
 
+def artwork_picker() -> None:
+    """Let users reuse their own previous installation's local SC2 UI art."""
+    content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(12))
+    path_input = TextInput(text=str(_PORTABLE_ROOT.parent), multiline=False,
+                           size_hint_y=None, height=dp(40))
+    chooser = FileChooserListView(path=path_input.text, dirselect=True)
+    chooser.bind(path=lambda _widget, value: setattr(path_input, "text", value))
+    message = Label(text="Select the folder of your previous Slay the StarCraft installation.\\n"
+                         "That folder must still contain the original UI PNGs.",
+                    size_hint_y=None, height=dp(64), halign="left")
+    message.bind(size=lambda widget, value: setattr(widget, "text_size", value))
+    buttons = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(10))
+    browse = Button(text="Go to Path")
+    restore = Button(text="Import Artwork")
+    close = Button(text="Close")
+    for control in (browse, restore, close):
+        button(control)
+        buttons.add_widget(control)
+    for control in (path_input, chooser, message, buttons):
+        content.add_widget(control)
+    popup = Popup(title="Restore UI Artwork From Older Slay Install", content=content,
+                  size_hint=(0.82, 0.83))
+
+    def browse_path(*_args):
+        if Path(path_input.text).is_dir():
+            chooser.path = path_input.text
+        else:
+            message.text = "That folder does not exist."
+
+    def restore_path(*_args):
+        try:
+            count = import_art(Path(path_input.text),
+                               (ASSETS, _PORTABLE_ROOT / "Payload" / "slay_assets"))
+            message.text = f"Restored {count} PNGs. Restart Slay to reload all artwork."
+        except (OSError, ValueError) as error:
+            message.text = str(error)
+
+    browse.bind(on_release=browse_path)
+    restore.bind(on_release=restore_path)
+    close.bind(on_release=lambda *_args: popup.dismiss())
+    popup.open()
+
+
 def panel(widget, image=None, color=(0.025, 0.055, 0.10, 0.98), border=True):
     source = ASSETS / image if image else None
     with widget.canvas.before:
@@ -276,7 +324,10 @@ def _style_setup(manager, container) -> None:
     root.spacing = dp(16)
 
     hero = BoxLayout(orientation="vertical", padding=[dp(30), dp(16)], size_hint_y=None, height=dp(118))
-    panel(hero, "ui_screen_mainmenurebrandlow.png", color=(0.62, 0.73, 0.88, 1))
+    # If the extracted texture is missing, use a dark header instead of pale blue.
+    banner_available = (ASSETS / THEME_BANNER).is_file()
+    panel(hero, THEME_BANNER, color=(0.62, 0.73, 0.88, 1) if banner_available
+          else (0.06, 0.12, 0.20, 1))
     title.text = "[b]SLAY THE STARCRAFT[/b]  [size=16]v1.2.3[/size]"
     title.halign = "left"
     title.bind(size=lambda w, v: setattr(w, "text_size", v))
@@ -359,6 +410,10 @@ def _style_setup(manager, container) -> None:
 
     credits_button.bind(on_release=show_contributors)
     guide.add_widget(credits_button)
+    artwork_button = Button(text="Restore UI Artwork", size_hint_y=None, height=dp(40))
+    button(artwork_button)
+    artwork_button.bind(on_release=lambda *_args: artwork_picker())
+    guide.add_widget(artwork_button)
     # Keep the guide heading in sync with the existing Game Mode selector.
     # Never rename the selector's internal mode values: saves use those keys.
     mode_selector = next((w for w in form.walk() if getattr(w, "slay_mode_selector", False)), None)
