@@ -18,4 +18,4 @@ jobs:
       - name: Validate release source without SC2
         run: python Payload/verify_release.py --source-only
       - name: Regression test recent patches
-        run: python -m unittest Tools.test_v1231_dev3_deaths_thrashers_blink Tools.test_v1231_dev4_settings_mutations_mercs Tools.test_v1231_dev5_kerrigan_vortex Tools.test_v1231_dev6_events_framework
+        run: python -m unittest Tools.test_v1231_dev3_deaths_thrashers_blink Tools.test_v1231_dev4_settings_mutations_mercs Tools.test_v1231_dev5_kerrigan_vortex Tools.test_v1231_dev6_events_framework Tools.test_v1231_dev8_events
