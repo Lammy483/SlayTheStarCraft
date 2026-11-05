@@ -404,6 +404,7 @@ def generate_run(
     game_mode: str = "adventure",
     selected_races: tuple[str, ...] = DEFAULT_RACES,
     excluded_missions: tuple[str, ...] = ("Lab Rat",),
+    events: bool = False,
 
 ) -> tuple[Path, dict[str, Any]]:
 
@@ -502,6 +503,8 @@ def generate_run(
     ]
     command.extend(["--races", *selected_races])
     command.extend(["--excluded-missions-json", json.dumps(list(excluded_missions))])
+    if events and game_mode == "adventure":
+        command.append("--events")
     if start_with_spear:
         command.append("--start-with-spear")
     if start_with_kerrigan:
@@ -1305,6 +1308,9 @@ def install_launcher_tab(manager: Any) -> None:
             instructions.text = "[b]Standard Mode[/b]\n\n" + standard_description + "\n\n" + instruction_footer
         start_spear_button.disabled = mode == "crew"
         start_kerrigan_button.disabled = mode == "crew"
+        events_checkbox.disabled = mode != "adventure"
+        if mode != "adventure":
+            events_checkbox.active = False
         if mode == "crew":
             start_spear_button.text = "No"
             start_kerrigan_button.text = "No"
@@ -1326,6 +1332,8 @@ def install_launcher_tab(manager: Any) -> None:
     add_field(3, "Extra Shop Slots", extra_shop_slots_button)
     add_field(3, "Start with Spear of Adun", start_spear_button)
     add_field(3, "Start with Kerrigan", start_kerrigan_button)
+    events_checkbox = CheckBox(active=False, size_hint_x=None, width=dp(42))
+    add_field(3, "Events (BETA)", events_checkbox)
 
     # Mission chooser uses the exact Archipelago pool rules, including build
     # eligibility, supported campaigns and grouping all race variants together.
@@ -1632,6 +1640,7 @@ def install_launcher_tab(manager: Any) -> None:
         start_spear_button.slay_value = "no"
         start_kerrigan_button.text = "No"
         start_kerrigan_button.slay_value = "no"
+        events_checkbox.active = False
         victory_multiplier_input.text = f"{DEFAULT_VICTORY_CREDIT_REWARD_MULTIPLIER:.2f}"
 
         item_credit_input.text = str(DEFAULT_ITEM_CREDIT_REWARD)
@@ -1768,6 +1777,7 @@ def install_launcher_tab(manager: Any) -> None:
                     selected_races=selected_races,
                     excluded_missions=tuple(name for name, checkbox in mission_checks.items() if not checkbox.active),
                     game_mode=str(getattr(mode_button, "slay_value", "adventure")),
+                    events=events_checkbox.active,
 
                 )
 
