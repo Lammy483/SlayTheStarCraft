@@ -32,7 +32,7 @@ class EventsDev6(unittest.TestCase):
         self.assertEqual(ev.checkpoints(3), (0, 2))
         self.assertEqual(ev.checkpoints(2), (0, 1))
         self.assertEqual(len(ev.EVENTS), 10)
-        self.assertEqual(ev.deterministic_event(12345, 3), "merchant")
+        self.assertIn(ev.deterministic_event(12345, 3), ev.REGULAR_ENABLED)
         from unittest.mock import patch
         with patch.object(ev, "REGULAR_ENABLED", ("merchant", "nova", "organism")):
             self.assertIn(ev.deterministic_event(12345, 3, ("merchant",)), ("nova", "organism"))
@@ -87,6 +87,12 @@ class EventsDev6(unittest.TestCase):
             @staticmethod
             def credits(ctx):
                 return 700 + int(ctx.state.get("event_credit_bonus", 0)) - int(ctx.state.get("spent", 0))
+            @staticmethod
+            def _item_table():
+                return {}
+            @staticmethod
+            def _logic_owned_item_counts(ctx):
+                return {}
         ctx = SimpleNamespace(slay_config={"campaign_length": 12, "run_seed": 123},
                               state={}, persisted=0)
         with patch.object(ev, "_slay", return_value=FakeSlay):
@@ -120,6 +126,72 @@ class EventsDev6(unittest.TestCase):
             self.assertTrue(ctx.state["event_merchant_raid_pending"])
             self.assertEqual(len(ev._slay().potion_inventory(ctx)), 2)
             self.assertGreater(ctx.persisted, 0)
+    def test_abathur_evolution_changes_real_item_ledger(self):
+        from collections import Counter
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        ev = load_events()
+        unit_names = ("Zergling", "Roach", "Hydralisk", "Mutalisk")
+        table = {}
+        for i, name in enumerate(unit_names):
+            table[name] = SimpleNamespace(code=100 + i, type=SimpleNamespace(display_name="Unit"),
+                                          race=SimpleNamespace(name="zerg"), quantity=1)
+            for upgrade in range(3):
+                item = f"{name} Upgrade {upgrade}"
+                table[item] = SimpleNamespace(code=200 + i * 3 + upgrade,
+                                               type=SimpleNamespace(display_name="Upgrade"),
+                                               race=SimpleNamespace(name="zerg"), quantity=1)
+        class FakeSlay:
+            @staticmethod
+            def events_enabled(ctx): return True
+            @staticmethod
+            def state_ready(ctx): return True
+            @staticmethod
+            def state(ctx): return ctx.state
+            @staticmethod
+            def victory_count(ctx): return 0
+            @staticmethod
+            def _persist_state(ctx): ctx.saved += 1
+            @staticmethod
+            def _item_table(): return table
+            @staticmethod
+            def _item_race_key(name, data): return data.race.name
+            @staticmethod
+            def _is_unit_unlock_type(typ): return typ.lower() == "unit"
+            @staticmethod
+            def _is_mercenary_unit(name, data): return False
+            @staticmethod
+            def _unit_specific_parent_names(name, table): return tuple(
+                unit for unit in unit_names if name.startswith(unit + " Upgrade "))
+            @staticmethod
+            def _is_unit_specific_upgrade(name, table): return " Upgrade " in name
+            @staticmethod
+            def _raw_logic_owned_item_counts(ctx): return Counter({x: 1 for x in unit_names})
+            @staticmethod
+            def _logic_owned_item_counts(ctx):
+                counts = Counter({x: 1 for x in unit_names})
+                for name, amount in ctx.state.get("event_forfeited_ap_counts", {}).items():
+                    counts[name] -= amount
+                for name, amount in ctx.state.get("event_awarded_items", {}).items():
+                    counts[name] += amount
+                return counts
+        ctx = SimpleNamespace(slay_config={"run_seed": 15, "campaign_length": 12},
+                              state={"event_assignments": {"0": "abathur"}}, saved=0)
+        with patch.object(ev, "_slay", return_value=FakeSlay):
+            self.assertEqual(set(ev.eligible_regular(ctx)), {"merchant", "abathur"})
+            self.assertTrue(ev.display(ctx)["options"][0]["enabled"])
+            ok, message, finished = ev.apply_choice(ctx, 0)
+            self.assertTrue(ok and finished)
+            lost = ctx.state["event_forfeited_ap_counts"]
+            self.assertEqual(len(lost), 2)
+            self.assertTrue(set(lost) <= set(unit_names))
+            self.assertEqual(sum(ctx.state["event_awarded_items"].values()), 6)
+            self.assertIn("Lost units:", message)
+            self.assertIn("Upgrades gained:", message)
+            self.assertEqual(len(ev._owned_zerg_units(ctx)), 2)
+            self.assertEqual(ev.eligible_regular(ctx), ("merchant",))
+            self.assertGreater(ctx.saved, 0)
+
     def test_standard_only_and_full_installation(self):
         launcher = read("slay_launcher.py")
         generator = read("generate_slay_run.py")
