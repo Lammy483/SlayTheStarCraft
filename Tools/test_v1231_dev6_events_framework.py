@@ -41,6 +41,65 @@ class EventsDev6(unittest.TestCase):
                              len(ev.EVENTS[event_id]["options"]))
         self.assertNotIn("vortex", ev.REGULAR_ENABLED)
         self.assertNotIn("zagara", ev.REGULAR_ENABLED)
+    def test_opening_event_merchant_purchases_and_completion(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        ev = load_events()
+        class FakeSlay:
+            POTION_PREFIX = "slay_potion::"
+            POTION_VARIANT_PREFIX = "slay_potion::19::"
+            POTION_CAPACITY = 2
+            POTION_RANDOM_UNITS = (1, 2, 3)
+            POTION_CATALOG = {
+                "slay_potion::1": {"name": "Mineral Reserves", "severity": 1},
+                "slay_potion::2": {"name": "Gas Reserves", "severity": 1},
+                "slay_potion::3": {"name": "Odin in a Bottle", "severity": 2},
+            }
+            completed = 0
+            @staticmethod
+            def events_enabled(ctx):
+                return True
+            @staticmethod
+            def state_ready(ctx):
+                return True
+            @staticmethod
+            def state(ctx):
+                return ctx.state
+            @staticmethod
+            def victory_count(ctx):
+                return FakeSlay.completed
+            @staticmethod
+            def _persist_state(ctx):
+                ctx.persisted += 1
+            @staticmethod
+            def _potion_unlock_eligible(ctx, name):
+                return True
+            @staticmethod
+            def potion_inventory(ctx):
+                return list(ctx.state.get("potion_inventory", []))
+            @staticmethod
+            def credits(ctx):
+                return 700 + int(ctx.state.get("event_credit_bonus", 0)) - int(ctx.state.get("spent", 0))
+        ctx = SimpleNamespace(slay_config={"campaign_length": 12, "run_seed": 123},
+                              state={}, persisted=0)
+        with patch.object(ev, "_slay", return_value=FakeSlay):
+            self.assertEqual(ev.pending(ctx)["id"], "__test_select__")
+            self.assertTrue(ev.select_test(ctx, "merchant")[0])
+            self.assertEqual(ev.pending(ctx)["id"], "merchant")
+            view = ev.display(ctx)
+            self.assertEqual(len(view["options"]), 5)
+            self.assertTrue(all(o["enabled"] for o in view["options"]))
+            bought = ev.apply_choice(ctx, 0)
+            self.assertTrue(bought[0])
+            self.assertFalse(bought[2])
+            self.assertFalse(ev.display(ctx)["options"][0]["enabled"])
+            self.assertFalse(ev.apply_choice(ctx, 0)[0], "Cannot buy same merchant offer twice")
+            done = ev.apply_choice(ctx, 4)
+            self.assertTrue(done[0] and done[2])
+            self.assertEqual(ev.pending(ctx), None, "Initial event must not trigger twice")
+            FakeSlay.completed = 3
+            self.assertEqual(ev.pending(ctx)["checkpoint"], 3)
+            self.assertGreater(ctx.persisted, 0)
     def test_standard_only_and_full_installation(self):
         launcher = read("slay_launcher.py")
         generator = read("generate_slay_run.py")
