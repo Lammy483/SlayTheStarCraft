@@ -1251,6 +1251,8 @@ DEFAULT_STATE: dict[str, Any] = {
     "event_awarded_items": {},
     "event_crystalis_checkpoint": -1,
     "event_crystalis_reroll_nonce": 0,
+    "event_nova_side": "",
+    "event_nova_checkpoint": -1,
     "event_merchant_raid_pending": False,
     "event_merchant_raid_target": 0,
 
@@ -2568,6 +2570,12 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
     except (TypeError, ValueError):
         state["event_crystalis_checkpoint"] = -1
         state["event_crystalis_reroll_nonce"] = 0
+    nova_side = str(value.get("event_nova_side", ""))
+    state["event_nova_side"] = nova_side if nova_side in ("nova", "tosh") else ""
+    try:
+        state["event_nova_checkpoint"] = max(-1, min(1000, int(value.get("event_nova_checkpoint", -1))))
+    except (TypeError, ValueError):
+        state["event_nova_checkpoint"] = -1
 
     cycle_purchases: dict[str, int] = {}
 
@@ -5183,6 +5191,12 @@ def event_checkpoints(ctx: Any) -> tuple[int, ...]:
         return ()
     from . import slay_events
     return slay_events.checkpoints(int(ctx.slay_config.get("campaign_length", 12)))
+
+def event_native_values_for_mission(ctx: Any, mission_id: int) -> tuple[int, int, int]:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return 0, 0, 0
+    from . import slay_events
+    return slay_events.native_values(ctx, int(mission_id))
 
 def _event_adjust_shop_price(ctx: Any | None, item_name: str, price: int) -> int:
     if ctx is None or not events_enabled(ctx) or not state_ready(ctx):
