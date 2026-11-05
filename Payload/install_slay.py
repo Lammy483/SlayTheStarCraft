@@ -4618,6 +4618,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
 
     bundled_runtime = source / "slay_the_starcraft.py"
+    bundled_events = source / "slay_events.py"
 
     bundled_launcher = source / "slay_launcher.py"
 
@@ -4657,6 +4658,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
         (trigger_doc_header, "ArchipelagoTriggers DocumentHeader"),
 
         (bundled_runtime, "runtime module"),
+        (bundled_events, "event catalog and engine"),
 
         (bundled_launcher, "portable launcher module"),
 
@@ -4867,6 +4869,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
     validate_galaxy(galaxy_new, apr_text)
 
     validate_python(bundled_runtime.read_text(encoding="utf-8"), "slay_the_starcraft.py")
+    validate_python(bundled_events.read_text(encoding="utf-8"), "slay_events.py")
 
     validate_python(bundled_launcher.read_text(encoding="utf-8"), "slay_launcher.py")
 
@@ -5022,6 +5025,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
         aprogue_data_target.write_text(aprogue_data_text, encoding="ascii")
 
         shutil.copy2(bundled_runtime, runtime_target)
+        shutil.copy2(bundled_events, runtime_target.parent / "slay_events.py")
         # Crew Challenge's independent ledger and workbook-derived whitelist.
         for crew_file in ('crew_auto.py', 'crew_bank_receipts.py', 'crew_batch.py', 'crew_bridge.py', 'crew_catalog.py', 'crew_challenge.py', 'crew_field_build.py', 'crew_live_bot.py', 'crew_native_train.py', 'crew_queue_budget.py', 'crew_runtime.py', 'crew_sc2_adapter.py', 'crew_tags.py', 'crew_rules.json', 'crew_effects.json'):
             shutil.copy2(source / crew_file, runtime_target.parent / crew_file)
