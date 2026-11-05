@@ -720,7 +720,8 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         # purchase availability, cycle, and reroll nonce completely unchanged.
         # The forfeited Shop Expansion affects future rolls only; already
         # displayed stock is not replaced or cut down mid-cycle.
-        s["shop_cycle_purchases"] = {}
+        # Keep shop_cycle_purchases: clearing it would restock sold item
+        # offers even though the visible stock and current shop cycle persist.
         s["shop_expansion"] = 0
         s["risky_investment_charges"] = 0
         s["saving_grace_charges"] = 0
