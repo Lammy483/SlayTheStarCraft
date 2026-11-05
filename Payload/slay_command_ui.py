@@ -1365,6 +1365,7 @@ def build_chart(manager):
         for index, layer in enumerate(layers):
             if layer in floor_labels:floor_labels[layer].pos=(dp(8),dp(95+index*205))
         manager.draw_slay_edges()
+        _slay_draw_event_lines(manager, chart, rows)
     manager.campaign_scroll_panel.bind(size=layout)
     # Unbind the previous chart's resize callback when it is replaced.
     old=getattr(manager,'slay_chart_resize',None)
@@ -1378,6 +1379,144 @@ def build_chart(manager):
             if isinstance(w,Button):button(w)
 
 
+
+
+def _slay_draw_event_lines(manager, chart, rows):
+    """Horizontal encounter barriers, independent of native mission IDs."""
+    from worlds.sc2 import slay_the_starcraft as slay
+    prior = getattr(manager, 'slay_event_line_group', None)
+    if prior is not None:
+        try:
+            chart.canvas.after.remove(prior)
+        except Exception:
+            pass
+    group = InstructionGroup()
+    if not slay.events_enabled(manager.ctx):
+        manager.slay_event_line_group = None
+        return
+    completed = slay.victory_count(manager.ctx)
+    pending = slay.event_pending(manager.ctx)
+    for checkpoint in slay.event_checkpoints(manager.ctx):
+        if checkpoint == 0:
+            first = rows.get(0, [])
+            if not first:
+                continue
+            y = min(b.y for b in first) - dp(34)
+        else:
+            before, after = rows.get(checkpoint - 1, []), rows.get(checkpoint, [])
+            if not before or not after:
+                continue
+            y = (max(b.top for b in before) + min(b.y for b in after)) / 2
+        if y < 0:
+            y = dp(12)
+        if pending is not None and pending["checkpoint"] == checkpoint:
+            color = (.28, .88, 1, .95)
+        elif checkpoint <= completed:
+            color = (.27, .78, .47, .72)
+        else:
+            color = (.55, .60, .65, .52)
+        group.add(Color(*color))
+        group.add(Line(points=[dp(16), y, chart.width - dp(16), y], width=dp(3.5)))
+        # A short centered segment makes the barrier recognizable at low zoom.
+        group.add(Line(points=[chart.width / 2 - dp(90), y,
+                               chart.width / 2 + dp(90), y], width=dp(6)))
+    chart.canvas.after.add(group)
+    manager.slay_event_line_group = group
+
+def _slay_open_event_popup(manager):
+    from worlds.sc2 import slay_the_starcraft as slay
+    if getattr(manager, 'launching', False) or not slay.events_enabled(manager.ctx):
+        return
+    info = slay.event_display(manager.ctx)
+    existing = getattr(manager, 'slay_event_popup', None)
+    if info is None or existing is not None:
+        return
+    outer = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(16))
+    subtitle = Label(text=info['description'], font_size=dp(16),
+                     size_hint_y=None, halign='left', valign='middle')
+    subtitle.bind(width=lambda w, width: setattr(w, 'text_size', (max(dp(100), width), None)))
+    subtitle.bind(texture_size=lambda w, v: setattr(w, 'height', max(dp(66), v[1] + dp(16))))
+    outer.add_widget(subtitle)
+    scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
+    options = GridLayout(cols=1, spacing=dp(10), padding=[dp(4)] * 4, size_hint_y=None)
+    options.bind(minimum_height=options.setter('height'))
+    scroll.add_widget(options)
+    outer.add_widget(scroll)
+    notice = Label(text='', font_size=dp(14), size_hint_y=None, height=dp(38),
+                   color=(1, .75, .36, 1), halign='left')
+    notice.bind(size=lambda widget, size: setattr(widget, 'text_size', size))
+    outer.add_widget(notice)
+    buttons = BoxLayout(size_hint_y=None, height=dp(43), spacing=dp(8))
+    dialog = Popup(title='EVENT: ' + info['name'], content=outer,
+                   size_hint=(.84, .86), auto_dismiss=False)
+    manager.slay_event_popup = dialog
+
+    def close_and_refresh(_dt=0):
+        if manager.slay_event_popup is dialog:
+            manager.slay_event_popup = None
+        dialog.dismiss()
+        if slay.event_pending(manager.ctx) is None:
+            Clock.schedule_once(lambda dt: manager.build_mission_table(dt), .05)
+        else:
+            Clock.schedule_once(lambda dt: _slay_open_event_popup(manager), .10)
+
+    for index, choice in enumerate(info['options']):
+        label_text = choice['text']
+        enabled = bool(choice['enabled'])
+        item = Button(text=label_text, disabled=not enabled,
+                      size_hint_y=None, height=dp(110 if len(label_text)>140 else
+                                                   88 if len(label_text)>75 else 55),
+                      halign='left', valign='middle', font_size=dp(15),
+                      background_normal='', background_down='',
+                      background_color=(.11, .20, .27, 1) if enabled else (.11, .13, .16, 1))
+        item.bind(size=lambda w, size: setattr(w, 'text_size', (max(dp(80), size[0]-dp(24)), size[1]-dp(8))))
+        if info['id'] == '__test_select__':
+            def pick_event(_button, index=index):
+                event_id = info['selector_ids'][index]
+                ok, message = slay.event_select_test(manager.ctx, event_id)
+                if ok:
+                    close_and_refresh()
+                else:
+                    notice.text = message
+            item.bind(on_release=pick_event)
+        else:
+            def pick_option(_button, index=index):
+                ok, message, complete = slay.event_apply_choice(manager.ctx, index)
+                if not ok:
+                    notice.text = message
+                    return
+                # Multiple merchant purchases intentionally leave event open.
+                # Recreate the popup so sold-out offers and credits refresh.
+                close_and_refresh()
+            item.bind(on_release=pick_option)
+        options.add_widget(item)
+    if info['id'] != '__test_select__' and info['checkpoint'] == 0:
+        back = Button(text='Choose a different test event', size_hint_x=1)
+        def back_to_selector(_button):
+            ok, message = slay.event_select_test(manager.ctx, '__test_select__')
+            if ok:
+                close_and_refresh()
+            else:
+                notice.text = message
+        back.bind(on_release=back_to_selector)
+        buttons.add_widget(back)
+    if buttons.children:
+        outer.add_widget(buttons)
+    if any(not o.get('implemented', True) for o in info['options']):
+        notice.text = 'Unimplemented choices are disabled in this development build.'
+    dialog.open()
+
+def _slay_event_tick(manager, _dt):
+    from worlds.sc2 import slay_the_starcraft as slay
+    if not slay.events_enabled(manager.ctx):
+        return
+    if getattr(manager, 'slay_chart', None) is not None:
+        chart = manager.slay_chart
+        rows = getattr(chart, 'rows', {})
+        if rows:
+            _slay_draw_event_lines(manager, chart, rows)
+    if not getattr(manager, 'launching', False) and slay.event_pending(manager.ctx) is not None:
+        _slay_open_event_popup(manager)
 
 def resolve_route_positions(nodes,width,preferred=None,node_widths=None):
     """Keep original branch positions; separate widened labels without overlaps."""
@@ -1504,6 +1643,9 @@ def install(module):
                 manager._slay_command_ui_legacy_panel=manager.campaign_panel
             try:
                 build_chart(manager)
+                if slay.events_enabled(manager.ctx) and not getattr(manager, 'slay_event_timer', None):
+                    manager.slay_event_timer = Clock.schedule_interval(lambda dt: _slay_event_tick(manager, dt), 0.8)
+                    Clock.schedule_once(lambda dt: _slay_event_tick(manager, dt), 0)
             except Exception:
                 manager._slay_command_ui_disabled=True
                 _command_ui_log('Command UI disabled after build_chart exception:\n'+traceback.format_exc())
