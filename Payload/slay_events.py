@@ -102,7 +102,7 @@ EVENTS: dict[str, dict[str, Any]] = {
 # Only expose encounters with fully implemented outcomes in ordinary runs.
 # The initial development encounter can display all ten for inspection, but
 # unfinished options are visibly disabled rather than silently doing nothing.
-REGULAR_ENABLED = ("merchant", "abathur")
+REGULAR_ENABLED = ("merchant", "abathur", "vortex")
 IMPLEMENTED_OPTIONS: dict[str, tuple[int, ...]] = {
     "merchant": (0, 1, 2, 3, 4),
     "abathur": (0, 1),
@@ -111,7 +111,7 @@ IMPLEMENTED_OPTIONS: dict[str, tuple[int, ...]] = {
     "colonists": (1,),
     "crystalis": (1,),
     "solarite": (2,),
-    "vortex": (1,),
+    "vortex": (0, 1),
 }
 
 def checkpoints(total_missions: int) -> tuple[int, ...]:
@@ -311,6 +311,40 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
             message = f'Raided merchant vessel; gained {slay.POTION_CATALOG[pid]["name"]}. Mercenaries attack next mission.'
         else:
             message = "Left the merchant vessel."
+    elif event_id == "vortex" and index == 0:
+        # Preserve the AP server's append-only receipt history while locally
+        # suppressing all previously received AP items for mission startup.
+        # New rewards after the event are usable as normal.
+        raw = slay._raw_logic_owned_item_counts(ctx)
+        s["event_forfeited_ap_counts"] = {
+            name: int(count) for name, count in raw.items() if int(count) > 0
+        }
+        # Refund *the existing total-spent tracker*, not the current shop
+        # catalog's recalculated prices. Setting spent to zero performs the
+        # refund exactly once through the ordinary credits() formula.
+        refund = max(0, int(s.get("spent", 0)))
+        s["spent"] = 0
+        s["purchases"] = {}
+        s["event_awarded_items"] = {}
+        s["boon_purchases"] = {}
+        s["permanent_boons"] = []
+        s["permanent_blessings"] = []
+        s["permanent_mutations"] = []
+        s["potion_inventory"] = []
+        s["shop_potions_bought"] = []
+        s["shop_cycle_purchases"] = {}
+        s["shop_cycle_purchase_victory_count"] = -1
+        s["shop_frozen_item"] = ""
+        s["shop_stock"] = []
+        s["shop_cycle"] = -1
+        s["shop_reroll_nonce"] = int(s.get("shop_reroll_nonce", 0)) + 1
+        s["shop_expansion"] = 0
+        s["risky_investment_charges"] = 0
+        s["saving_grace_charges"] = 0
+        s["saving_grace_pending"] = []
+        s["golden_goose_bonus_per_mission"] = 0
+        s["golden_goose_credit_offset"] = 0
+        message = f"Unstable Vortex erased your owned items and effects. Refunded {refund} spent credits."
     elif event_id == "abathur" and index == 0:
         units = _owned_zerg_units(ctx)
         if len(units) < 4:
