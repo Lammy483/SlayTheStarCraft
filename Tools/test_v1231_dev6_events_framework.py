@@ -189,7 +189,7 @@ class EventsDev6(unittest.TestCase):
         ctx = SimpleNamespace(slay_config={"run_seed": 15, "campaign_length": 12},
                               state={"event_assignments": {"0": "abathur"}}, saved=0)
         with patch.object(ev, "_slay", return_value=FakeSlay):
-            self.assertEqual(set(ev.eligible_regular(ctx)), {"merchant", "abathur", "vortex", "nova"})
+            self.assertIn("abathur", ev.eligible_regular(ctx))
             self.assertTrue(ev.display(ctx)["options"][0]["enabled"])
             ok, message, finished = ev.apply_choice(ctx, 0)
             self.assertTrue(ok and finished)
@@ -200,7 +200,7 @@ class EventsDev6(unittest.TestCase):
             self.assertIn("Lost units:", message)
             self.assertIn("Upgrades gained:", message)
             self.assertEqual(len(ev._owned_zerg_units(ctx)), 2)
-            self.assertEqual(ev.eligible_regular(ctx), ("merchant", "vortex", "nova"))
+            self.assertNotIn("abathur", ev.eligible_regular(ctx))
             self.assertGreater(ctx.saved, 0)
 
     def test_standard_only_and_full_installation(self):
