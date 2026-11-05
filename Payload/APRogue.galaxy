@@ -27571,16 +27571,16 @@ string APRG_EventMechUnitType(int index) {
     return "";
 }
 bool APRG_EventMechMatches(unit u) {
-    string native;
+    string mechUnitType;
     string actual;
     if (u == null || !UnitIsAlive(u) || g_aprgEventMechUnitIndex <= 0) { return false; }
-    native = APRG_EventMechUnitType(g_aprgEventMechUnitIndex);
-    if (native == "") { return false; }
+    mechUnitType = APRG_EventMechUnitType(g_aprgEventMechUnitIndex);
+    if (mechUnitType == "") { return false; }
     actual = UnitGetType(u);
-    if (actual == native || actual == "AP_" + native) { return true; }
-    if (native == "SiegeTank" && (actual == "SiegeTankSieged" ||
+    if (actual == mechUnitType || actual == "AP_" + mechUnitType) { return true; }
+    if (mechUnitType == "SiegeTank" && (actual == "SiegeTankSieged" ||
         actual == "AP_SiegeTankSieged")) { return true; }
-    if (native == "WidowMine" && (actual == "WidowMineBurrowed" ||
+    if (mechUnitType == "WidowMine" && (actual == "WidowMineBurrowed" ||
         actual == "AP_WidowMineBurrowed")) { return true; }
     return false;
 }
@@ -27626,7 +27626,7 @@ void APRG_EventMechBoostWeaponTree(string rootEffect, int owner) {
     key = "APRG_EventMechTree_" + IntToString(owner) + "_" + rootEffect;
     if (DataTableGetBool(true, key)) { return; }
     APRG_EventMechBoostDamageEffect(rootEffect, owner);
-    // Search native effect wrappers two levels deep, with bounded work.
+    // Search mechUnitType effect wrappers two levels deep, with bounded work.
     for (i = 0; i < 22; i += 1) {
         child = APRG_AdamantiumChildEffect(rootEffect, owner, i);
         if (child == "" || child == rootEffect) { continue; }
@@ -27726,17 +27726,17 @@ void APRG_TickEventMechanical(int player, fixed now) {
     unitgroup created;
     unitgroup candidates;
     point where;
-    string native;
+    string mechUnitType;
     string key;
     if (g_aprgEventMechMode == 0 || !APRG_PlayerMacroBaseReady(player)) { return; }
-    native = APRG_EventMechUnitType(g_aprgEventMechUnitIndex);
-    if (!CatalogEntryIsValid(c_gameCatalogUnit, native)) { return; }
+    mechUnitType = APRG_EventMechUnitType(g_aprgEventMechUnitIndex);
+    if (!CatalogEntryIsValid(c_gameCatalogUnit, mechUnitType)) { return; }
     if (g_aprgEventMechMode == 1 && !g_aprgEventMechSpawned) {
         home = APRG_FindPlayerHomeStructure(player);
         if (home == null || g_aprgEventBank == null || g_aprgEventSection == "") { return; }
         where = APRG_PlayerSafeSpawnPoint(player, UnitGetPosition(home));
         if (where == null) { return; }
-        created = APRG_CreatePlayerUnitsSafe(g_aprgEventMechCount, native, player, where, 0.0);
+        created = APRG_CreatePlayerUnitsSafe(g_aprgEventMechCount, mechUnitType, player, where, 0.0);
         if (created == null || UnitGroupCount(created, c_unitCountAlive) <= 0) { return; }
         g_aprgEventMechTestUnits = created;
         g_aprgEventMechSpawned = true;
@@ -27761,7 +27761,7 @@ void APRG_TickEventMechanical(int player, fixed now) {
             owner = UnitGetOwner(anchor);
             where = APRG_FindHostileGroundPointNear(player, UnitGetPosition(anchor), 3.0, 10.0);
             if (where == null) { return; }
-            created = UnitCreate(g_aprgEventMechCount, native, c_unitCreateIgnorePlacement,
+            created = UnitCreate(g_aprgEventMechCount, mechUnitType, c_unitCreateIgnorePlacement,
                                  owner, where, libNtve_gf_RandomAngle());
             if (created == null || UnitGroupCount(created, c_unitCountAlive) <= 0) { return; }
             g_aprgEventMechEnemyPatrol = created;
