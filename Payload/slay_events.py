@@ -102,9 +102,10 @@ EVENTS: dict[str, dict[str, Any]] = {
 # Only expose encounters with fully implemented outcomes in ordinary runs.
 # The initial development encounter can display all ten for inspection, but
 # unfinished options are visibly disabled rather than silently doing nothing.
-REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis")
+REGULAR_ENABLED = ("merchant", "abathur", "vortex", "crystalis", "nova")
 IMPLEMENTED_OPTIONS: dict[str, tuple[int, ...]] = {
     "merchant": (0, 1, 2, 3, 4),
+    "nova": (0, 1),
     "abathur": (0, 1),
     "organism": (1,),
     "mechanical": (1,),
@@ -272,8 +273,35 @@ def display(ctx: Any) -> dict[str, Any] | None:
             can = can and slay._progression_owned(ctx, slay.KERRIGAN_UNLOCK)
             if i == 0:
                 can = can and slay._one_kerrigan_level_item(slay._item_table()) is not None
+        elif event_id == "nova":
+            item = "Ghost" if i == 0 else "Spectre"
+            can = can and item in slay._item_table()
+            if i == 0:
+                can = can and slay.credits(ctx) >= 200
         shown.append({"text": label, "enabled": can, "implemented": implemented})
     return dict(p, name=data["name"], description=data["description"], options=shown)
+
+# Event-native bits are transported separately from APRogue's occupied
+# mutation/boon banks. This tuple has a stable wire format for Galaxy.
+NOVA_ALLY = 1
+TOSH_ENEMY = 2
+NOVA_ENEMY = 4
+
+def native_values(ctx: Any, mission_id: int) -> tuple[int, int, int]:
+    slay = _slay()
+    if not slay.events_enabled(ctx) or not slay.state_ready(ctx):
+        return 0, 0, 0
+    s = slay.state(ctx)
+    mission = slay.node(ctx, int(mission_id)) or {}
+    layer = int(mission.get("layer", -1))
+    mask = 0
+    if layer >= int(s.get("event_nova_checkpoint", 10000)):
+        side = str(s.get("event_nova_side", ""))
+        if side == "nova":
+            mask |= NOVA_ALLY | TOSH_ENEMY
+        elif side == "tosh":
+            mask |= NOVA_ENEMY
+    return mask, 0, 0
 
 def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
     slay = _slay()
@@ -319,6 +347,23 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
             message = f'Raided merchant vessel; gained {slay.POTION_CATALOG[pid]["name"]}. Mercenaries attack next mission.'
         else:
             message = "Left the merchant vessel."
+    elif event_id == "nova":
+        unit_name = "Ghost" if index == 0 else "Spectre"
+        item = slay._item_table().get(unit_name)
+        if item is None or getattr(item, "code", None) is None:
+            return False, f"Archipelago {unit_name} is not available in this item table.", False
+        if index == 0 and slay.credits(ctx) < 200:
+            return False, "Need 200 credits to hire Nova.", False
+        if index == 0:
+            s["spent"] = int(s.get("spent", 0)) + 200
+        awards = dict(s.get("event_awarded_items", {}))
+        awards[unit_name] = max(1, int(awards.get(unit_name, 0)))
+        s["event_awarded_items"] = awards
+        s["event_nova_side"] = "nova" if index == 0 else "tosh"
+        s["event_nova_checkpoint"] = int(key)
+        message = (f"Unlocked {unit_name} through an Archipelago item. " +
+                   ("Nova joins until killed; enemy Tosh patrols until slain." if index == 0
+                    else "Enemy Nova patrols until slain."))
     elif event_id == "crystalis" and index == 0:
         level_item = slay._one_kerrigan_level_item(slay._item_table())
         if not slay._progression_owned(ctx, slay.KERRIGAN_UNLOCK) or not level_item:
@@ -345,6 +390,7 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
         s["purchases"] = {}
         s["event_awarded_items"] = {}
         s["event_crystalis_checkpoint"] = -1
+        s["event_nova_side"] = ""
         s["boon_purchases"] = {}
         s["permanent_boons"] = []
         s["permanent_blessings"] = []
