@@ -1265,6 +1265,11 @@ DEFAULT_STATE: dict[str, Any] = {
     "event_solarite_checkpoint": -1,
     "event_solarite_pending": False,
     "event_solarite_target": 0,
+    "event_mechanical_offers": {},
+    "event_mechanical_checkpoint": -1,
+    "event_mechanical_target": 0,
+    "event_mechanical_pending": False,
+    "event_mechanical_rewarded": False,
     "event_merchant_raid_pending": False,
     "event_merchant_raid_target": 0,
 
@@ -2546,7 +2551,7 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
                 continue
     state["inventory_received_snapshot"] = inventory_snapshot
     # Event consequences and choices are durable, independently of AP receipts.
-    for key in ("event_assignments", "event_resolutions", "event_merchant_purchases", "event_merchant_potions"):
+    for key in ("event_assignments", "event_resolutions", "event_merchant_purchases", "event_merchant_potions", "event_mechanical_offers"):
         raw = value.get(key, {})
         if isinstance(raw, Mapping):
             state[key] = {str(k)[:40]: copy.deepcopy(v) for k, v in raw.items() if len(str(k)) <= 40}
@@ -2619,6 +2624,14 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
         state["event_solarite_checkpoint"] = -1
         state["event_solarite_target"] = 0
     state["event_solarite_pending"] = bool(value.get("event_solarite_pending", False))
+    try:
+        state["event_mechanical_checkpoint"] = max(-1, min(1000, int(value.get("event_mechanical_checkpoint", -1))))
+        state["event_mechanical_target"] = max(0, int(value.get("event_mechanical_target", 0)))
+    except (TypeError, ValueError):
+        state["event_mechanical_checkpoint"] = -1
+        state["event_mechanical_target"] = 0
+    state["event_mechanical_pending"] = bool(value.get("event_mechanical_pending", False))
+    state["event_mechanical_rewarded"] = bool(value.get("event_mechanical_rewarded", False))
 
     cycle_purchases: dict[str, int] = {}
 
@@ -5257,6 +5270,18 @@ def event_native_values_for_mission(ctx: Any, mission_id: int) -> tuple[int, int
     from . import slay_events
     return slay_events.native_values(ctx, int(mission_id))
 
+def event_mechanical_values_for_mission(ctx: Any, mission_id: int) -> tuple[int, int, int, int]:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return 0, 0, 0, 0
+    from . import slay_events
+    return slay_events.mechanical_values(ctx, int(mission_id))
+
+def sync_event_quest_rewards(ctx: Any) -> bool:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return False
+    from . import slay_events
+    return slay_events.sync_mechanical_quest(ctx)
+
 def _event_adjust_shop_price(ctx: Any | None, item_name: str, price: int) -> int:
     if ctx is None or not events_enabled(ctx) or not state_ready(ctx):
         return int(price)
@@ -6027,6 +6052,9 @@ def commit_mission(ctx: Any, mission_id: int) -> bool:
     if events_enabled(ctx) and s.get("event_solarite_pending", False):
         s["event_solarite_target"] = mission_id
         s["event_solarite_pending"] = False
+    if events_enabled(ctx) and s.get("event_mechanical_pending", False):
+        s["event_mechanical_target"] = mission_id
+        s["event_mechanical_pending"] = False
     _persist_state(ctx)
 
     _consume_auto_victory_for_mission(ctx, mission_id)
@@ -13680,6 +13708,7 @@ def ui_signature(ctx: Any) -> tuple[Any, ...]:
 
     sync_commit_from_checks(ctx)
 
+    sync_event_quest_rewards(ctx)
     sync_duplicate_item_replacements(ctx)
 
     s = state(ctx)
