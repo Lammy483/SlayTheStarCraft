@@ -320,6 +320,7 @@ bool g_aprgEventMerchantRaidDone = false;
 const int APRG_EVENT_NOVA_ALLY = 1;
 const int APRG_EVENT_TOSH_ENEMY = 2;
 const int APRG_EVENT_NOVA_ENEMY = 4;
+const int APRG_EVENT_COLONY_HUT = 8;
 int g_aprgEventMask = 0;
 int g_aprgEventUnit = 0;
 int g_aprgEventCount = 0;
@@ -332,6 +333,10 @@ bool g_aprgEventNovaSpawned = false;
 bool g_aprgEventToshSpawned = false;
 bool g_aprgEventNovaEnemySpawned = false;
 fixed g_aprgEventHeroNextPatrol = 0.0;
+unit g_aprgEventColonyHut = null;
+bool g_aprgEventColonySpawned = false;
+bool g_aprgEventColonyDestroyed = false;
+fixed g_aprgEventColonyNextInfestation = -1.0;
 
 int g_aprgMaskA = 0;
 int g_aprgMaskB = 0;
@@ -22180,6 +22185,10 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgEventToshSpawned = false;
     g_aprgEventNovaEnemySpawned = false;
     g_aprgEventHeroNextPatrol = 0.0;
+    g_aprgEventColonyHut = null;
+    g_aprgEventColonySpawned = false;
+    g_aprgEventColonyDestroyed = false;
+    g_aprgEventColonyNextInfestation = -1.0;
     g_aprgCovertToshSpawned = false;
     g_aprgCovertToshRetreating = false;
     g_aprgCovertToshLastTick = -1.0;
@@ -27173,6 +27182,80 @@ bool APRG_EventConfig_Func(bool testConds, bool runActions) {
     return true;
 }
 
+// Hansen's hut belongs to the player but cannot be directly targeted, so
+// infested units cannot turn around and focus it. It is *not* invulnerable:
+// area damage can destroy it and terminate all future colony benefits.
+void APRG_TickEventColony(int player, fixed now) {
+    unit home;
+    unitgroup created;
+    point where;
+    point spawnPoint;
+    string hutType;
+    string rangedType;
+    int owner;
+    int meleeCount;
+    int rangedCount;
+    if ((g_aprgEventMask & APRG_EVENT_COLONY_HUT) == 0 ||
+        g_aprgEventColonyDestroyed || APRG_EventActorDead("ColonyDead") ||
+        !APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0) { return; }
+    home = APRG_FindPlayerHomeStructure(player);
+    if (home == null) { return; }
+    if (!g_aprgEventColonySpawned) {
+        hutType = "";
+        if (CatalogEntryIsValid(c_gameCatalogUnit, "ColonistHut")) { hutType = "ColonistHut"; }
+        else if (CatalogEntryIsValid(c_gameCatalogUnit, "ColonistHouse")) { hutType = "ColonistHouse"; }
+        else if (CatalogEntryIsValid(c_gameCatalogUnit, "SupplyDepot")) { hutType = "SupplyDepot"; }
+        if (hutType == "") { return; }
+        where = APRG_PlayerBuildingSpawnPoint(player, UnitGetPosition(home), 7.0, 13.0);
+        if (where == null) { return; }
+        created = UnitCreate(1, hutType, c_unitCreateIgnorePlacement, player, where, 0.0);
+        g_aprgEventColonyHut = UnitGroupUnitFromEnd(created, 1);
+        if (g_aprgEventColonyHut == null) { return; }
+        UnitSetState(g_aprgEventColonyHut, c_unitStateTargetable, false);
+        g_aprgEventColonySpawned = true;
+        g_aprgEventColonyNextInfestation = g_aprgMacroReadyTime + 180.0;
+        if (g_aprgEventBank != null && !BankKeyExists(g_aprgEventBank, g_aprgEventSection, "ColonyStartedAt")) {
+            BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, "ColonyStartedAt", g_aprgMissionLayer);
+            BankSave(g_aprgEventBank);
+        }
+    }
+    if (g_aprgEventColonyHut == null || !UnitIsAlive(g_aprgEventColonyHut)) {
+        g_aprgEventColonyDestroyed = true;
+        APRG_EventActorFallen(player, "ColonyDead", "The colonists hut has been destroyed");
+        if (g_aprgEventBank != null) {
+            BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, "ColonyDeadAt", g_aprgMissionLayer);
+            BankSave(g_aprgEventBank);
+        }
+        return;
+    }
+    if (now < g_aprgEventColonyNextInfestation) { return; }
+    g_aprgEventColonyNextInfestation = now + 45.0;
+    spawnPoint = APRG_FindGroundPointNear(UnitGetPosition(g_aprgEventColonyHut), 3.0, 8.0);
+    if (spawnPoint == null) { return; }
+    owner = APRG_FindAnyHostileOwner(player, spawnPoint);
+    if (owner < 0) { return; }
+    meleeCount = RandomInt(0, 6);
+    rangedCount = RandomInt(0, 2);
+    if (meleeCount > 0 && CatalogEntryIsValid(c_gameCatalogUnit, "InfestedCivilian")) {
+        created = UnitCreate(meleeCount, "InfestedCivilian", c_unitCreateIgnorePlacement,
+                             owner, spawnPoint, libNtve_gf_RandomAngle());
+        APRG_AddHostileRaiders(created, spawnPoint, player);
+    }
+    rangedType = "";
+    if (CatalogEntryIsValid(c_gameCatalogUnit, "InfestedTerranCampaign")) { rangedType = "InfestedTerranCampaign"; }
+    else if (CatalogEntryIsValid(c_gameCatalogUnit, "InfestedTerran")) { rangedType = "InfestedTerran"; }
+    if (rangedCount > 0 && rangedType != "") {
+        created = UnitCreate(rangedCount, rangedType, c_unitCreateIgnorePlacement,
+                             owner, spawnPoint, libNtve_gf_RandomAngle());
+        APRG_AddHostileRaiders(created, spawnPoint, player);
+    }
+    if (RandomInt(1, 100) <= 10 && CatalogEntryIsValid(c_gameCatalogUnit, "Abomination")) {
+        created = UnitCreate(1, "Abomination", c_unitCreateIgnorePlacement,
+                             owner, spawnPoint, libNtve_gf_RandomAngle());
+        APRG_AddHostileRaiders(created, spawnPoint, player);
+    }
+}
+
 void APRG_TickEventMerchantRaid(int player, fixed now) {
     int owner;
     int i;
@@ -27222,6 +27305,7 @@ bool APRG_Tick_Func(bool testConds, bool runActions) {
     APRG_TickEngineOfDestructionLoki(player, now);
     APRG_TickEventMerchantRaid(player, now);
     APRG_TickEventNova(player, now);
+    APRG_TickEventColony(player, now);
 
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_HELLION_RUN_BY) != 0) { APRG_TickHellionRunBy(player, now); }
     if (APRG_PlayerMacroBaseReady(player) && (g_aprgMissionFlags & APRG_MISSION_FLAG_DIAMONDBACK_WANDERERS) != 0) { APRG_TickDiamondbackWanderers(player, now); }
