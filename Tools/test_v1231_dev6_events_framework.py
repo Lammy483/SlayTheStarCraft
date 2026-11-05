@@ -99,6 +99,10 @@ class EventsDev6(unittest.TestCase):
             self.assertEqual(ev.pending(ctx)["id"], "__test_select__")
             self.assertTrue(ev.select_test(ctx, "merchant")[0])
             self.assertEqual(ev.pending(ctx)["id"], "merchant")
+            # Users can back out of an opening test event and select again.
+            self.assertTrue(ev.select_test(ctx, "__test_select__")[0])
+            self.assertEqual(ev.pending(ctx)["id"], "__test_select__")
+            self.assertTrue(ev.select_test(ctx, "merchant")[0])
             view = ev.display(ctx)
             self.assertEqual(len(view["options"]), 5)
             self.assertTrue(all(o["enabled"] for o in view["options"]))
