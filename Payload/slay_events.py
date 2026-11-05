@@ -102,10 +102,10 @@ EVENTS: dict[str, dict[str, Any]] = {
 # Only expose encounters with fully implemented outcomes in ordinary runs.
 # The initial development encounter can display all ten for inspection, but
 # unfinished options are visibly disabled rather than silently doing nothing.
-REGULAR_ENABLED = ("merchant",)
+REGULAR_ENABLED = ("merchant", "abathur")
 IMPLEMENTED_OPTIONS: dict[str, tuple[int, ...]] = {
     "merchant": (0, 1, 2, 3, 4),
-    "abathur": (1,),
+    "abathur": (0, 1),
     "organism": (1,),
     "mechanical": (1,),
     "colonists": (1,),
@@ -124,12 +124,14 @@ def checkpoints(total_missions: int) -> tuple[int, ...]:
     return (0, *sorted({min(count - 1, 3 * index)
                        for index in range(1, math.ceil(count / 3) + 1)}))
 
-def deterministic_event(seed: int, checkpoint: int, used: tuple[str, ...] = ()) -> str:
+def deterministic_event(seed: int, checkpoint: int, used: tuple[str, ...] = (),
+                        available: tuple[str, ...] | None = None) -> str:
     # Do not repeat an event until every eligible event has already appeared.
     # If the pool is exhausted, allow repetition rather than blocking progression.
-    pool = [event_id for event_id in REGULAR_ENABLED if event_id not in used]
+    eligible = REGULAR_ENABLED if available is None else available
+    pool = [event_id for event_id in eligible if event_id not in used]
     if not pool:
-        pool = list(REGULAR_ENABLED)
+        pool = list(eligible)
     value = hashlib.sha256(f"{seed}:event:{checkpoint}".encode()).digest()
     return random.Random(int.from_bytes(value[:8], "big")).choice(pool)
 
@@ -147,6 +149,25 @@ def _slay():
     # and Archipelago item catalog are complete.
     from . import slay_the_starcraft
     return slay_the_starcraft
+
+def _owned_zerg_units(ctx: Any) -> list[str]:
+    slay = _slay()
+    table = slay._item_table()
+    counts = slay._logic_owned_item_counts(ctx)
+    return sorted(
+        name for name, count in counts.items()
+        if int(count) > 0 and name in table
+        and slay._item_race_key(name, table[name]) == "zerg"
+        and slay._is_unit_unlock_type(str(getattr(getattr(table[name], "type", None),
+                                                "display_name", "")))
+        and not slay._is_mercenary_unit(name, table[name])
+    )
+
+def eligible_regular(ctx: Any) -> tuple[str, ...]:
+    # Check eligibility at event assignment, then persist the selected event
+    # so reconnecting cannot reroll it based on inventory or purchases.
+    enough_zerg = len(_owned_zerg_units(ctx)) >= 4
+    return tuple(x for x in REGULAR_ENABLED if x != "abathur" or enough_zerg)
 
 def pending(ctx: Any) -> dict[str, Any] | None:
     slay = _slay()
@@ -169,7 +190,7 @@ def pending(ctx: Any) -> dict[str, Any] | None:
                 # Include the opening test event: it counts toward the no-repeat rule.
                 used = tuple(str(x) for x in s.get("event_assignments", {}).values()
                              if x in REGULAR_ENABLED)
-                event_id = deterministic_event(seed, checkpoint, used)
+                event_id = deterministic_event(seed, checkpoint, used, eligible_regular(ctx))
             s.setdefault("event_assignments", {})[key] = event_id
             slay._persist_state(ctx)
         return {"checkpoint": checkpoint, "key": key, "id": event_id}
@@ -239,6 +260,8 @@ def display(ctx: Any) -> dict[str, Any] | None:
                    and len(slay.potion_inventory(ctx)) < slay.POTION_CAPACITY)
         elif event_id == "merchant" and i == 3:
             can = can and len(slay.potion_inventory(ctx)) < slay.POTION_CAPACITY
+        elif event_id == "abathur" and i == 0:
+            can = can and len(_owned_zerg_units(ctx)) >= 4
         shown.append({"text": label, "enabled": can, "implemented": implemented})
     return dict(p, name=data["name"], description=data["description"], options=shown)
 
@@ -286,6 +309,47 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
             message = f'Raided merchant vessel; gained {slay.POTION_CATALOG[pid]["name"]}. Mercenaries attack next mission.'
         else:
             message = "Left the merchant vessel."
+    elif event_id == "abathur" and index == 0:
+        units = _owned_zerg_units(ctx)
+        if len(units) < 4:
+            return False, "Abathur requires at least four unlocked Zerg units.", False
+        seed = hashlib.sha256(f'{ctx.slay_config.get("run_seed", 0)}:abathur:{key}'.encode()).digest()
+        rng = random.Random(int.from_bytes(seed[:8], "big"))
+        rng.shuffle(units)
+        lost = sorted(units[:len(units) // 2])
+        survivors = sorted(set(units) - set(lost))
+        table = slay._item_table()
+        raw_counts = slay._raw_logic_owned_item_counts(ctx)
+        forfeited = dict(s.get("event_forfeited_ap_counts", {}))
+        purchases = dict(s.get("purchases", {}))
+        for name in lost:
+            # Undo shop ownership; remove the original AP receipts from
+            # mission launches without altering append-only server history.
+            purchases.pop(name, None)
+            forfeited[name] = max(int(forfeited.get(name, 0)), int(raw_counts.get(name, 0)))
+        s["purchases"] = purchases
+        s["event_forfeited_ap_counts"] = forfeited
+        awards = dict(s.get("event_awarded_items", {}))
+        current = slay._logic_owned_item_counts(ctx)
+        given: list[str] = []
+        for unit in survivors:
+            candidates = [
+                name for name, data in table.items()
+                if getattr(data, "code", None) is not None
+                and slay._item_race_key(name, data) == "zerg"
+                and unit in slay._unit_specific_parent_names(name, table)
+                and slay._is_unit_specific_upgrade(name, table)
+                and int(current.get(name, 0)) + int(awards.get(name, 0)) < (
+                    int(getattr(data, "quantity", 0)) if int(getattr(data, "quantity", 0)) > 0 else 1)
+            ]
+            rng.shuffle(candidates)
+            for name in candidates[:3]:
+                awards[name] = int(awards.get(name, 0)) + 1
+                given.append(name)
+        s["event_awarded_items"] = awards
+        message = ("Abathur's experiment completed. Lost units: " +
+                   ", ".join(lost) + ".\nUpgrades gained: " +
+                   (", ".join(given) if given else "none available") + ".")
     else:
         penalty = {
             ("abathur", 1): "zerg_upgrade_50",
