@@ -199,11 +199,11 @@ class EventsDev6(unittest.TestCase):
             self.assertEqual(len(lost), 2)
             self.assertTrue(set(lost) <= set(unit_names))
             self.assertEqual(sum(ctx.state["event_awarded_items"].values()), 6)
-            self.assertTrue(message.startswith("Units removed:\\n- "))
-            self.assertIn("Upgrades gained:\\n- ", message)
+            self.assertTrue(message.startswith("Units removed:\n- "))
+            self.assertIn("Upgrades gained:\n- ", message)
             self.assertNotIn("experiment completed", message.lower())
             for removed_unit in lost:
-                self.assertIn(f"- {removed_unit}\\n", message)
+                self.assertIn(f"- {removed_unit}\n", message)
             for granted_upgrade in ctx.state["event_awarded_items"]:
                 self.assertIn(f"- {granted_upgrade}", message)
             self.assertEqual(len(ev._owned_zerg_units(ctx)), 2)
