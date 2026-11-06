@@ -58,7 +58,7 @@ jobs:
             throw 'The launcher build did not produce SlayTheStarCraft.exe'
           }
           Copy-Item -Force .\SlayTheStarCraft.exe (Join-Path $stage 'SlayTheStarCraft.exe')
-          foreach ($file in @('VERSION.txt','launcher_manifest.json','README.txt','README.md','CHANGELOG.md','CONTRIBUTING.md','EVENTS_DEV11_TESTING.md','EVENTS_DEV12_TESTING.md','EVENTS_DEV13_TESTING.md','EVENTS_DEV14_TESTING.md','EVENTS_DEV15_TESTING.md','EVENTS_DEV16_TESTING.md')) {
+          foreach ($file in @('VERSION.txt','launcher_manifest.json','README.txt','README.md','CHANGELOG.md','CONTRIBUTING.md','EVENTS_DEV11_TESTING.md','EVENTS_DEV12_TESTING.md','EVENTS_DEV13_TESTING.md','EVENTS_DEV14_TESTING.md','EVENTS_DEV15_TESTING.md','EVENTS_DEV16_TESTING.md','EVENTS_DEV18_TESTING.md')) {
             if (Test-Path $file) { Copy-Item -Force $file (Join-Path $stage $file) }
           }
           Get-ChildItem -Path $stage -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
@@ -71,6 +71,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: slay-the-starcraft-events-dev18-full-windows
-          path: ${{ runner.temp }}/Slay the StarCraft Events Dev17/
+          path: ${{ runner.temp }}/Slay the StarCraft Events Dev18/
           if-no-files-found: error
           retention-days: 14
