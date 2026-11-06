@@ -1423,6 +1423,26 @@ def _slay_draw_event_lines(manager, chart, rows):
     chart.canvas.after.add(group)
     manager.slay_event_line_group = group
 
+def _slay_show_abathur_results(message):
+    """Display the actual AP item changes, and nothing beyond their names."""
+    outer = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(16))
+    scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
+    details = Label(text=message, font_size=dp(16), halign='left',
+                    valign='top', size_hint_y=None, markup=False)
+    details.bind(width=lambda widget, width: setattr(
+        widget, 'text_size', (max(dp(100), width - dp(12)), None)))
+    details.bind(texture_size=lambda widget, size: setattr(
+        widget, 'height', max(dp(80), size[1] + dp(12))))
+    scroll.add_widget(details)
+    outer.add_widget(scroll)
+    close = Button(text='Close', size_hint_y=None, height=dp(46))
+    outer.add_widget(close)
+    popup = Popup(title="Abathur's Evolution", content=outer,
+                  size_hint=(.74, .75), auto_dismiss=False)
+    close.bind(on_release=lambda _button: popup.dismiss())
+    popup.open()
+
+
 def _slay_open_event_popup(manager):
     from worlds.sc2 import slay_the_starcraft as slay
     if getattr(manager, 'launching', False) or not slay.events_enabled(manager.ctx):
@@ -1496,6 +1516,11 @@ def _slay_open_event_popup(manager):
                 # Multiple merchant purchases intentionally leave event open.
                 # Recreate the popup so sold-out offers and credits refresh.
                 close_and_refresh()
+                # Only Abathur's Evolution has a post-choice results popup:
+                # list actual lost units and item upgrades without extra prose.
+                if info['id'] == 'abathur' and index == 0:
+                    Clock.schedule_once(
+                        lambda _dt, result=message: _slay_show_abathur_results(result), .12)
             item.bind(on_release=pick_option)
         options.add_widget(item)
     if info['id'] != '__test_select__' and info['checkpoint'] == 0:
