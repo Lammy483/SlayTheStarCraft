@@ -1523,7 +1523,7 @@ def _slay_open_event_popup(manager):
                         lambda _dt, result=message: _slay_show_abathur_results(result), .12)
             item.bind(on_release=pick_option)
         options.add_widget(item)
-    if info['id'] != '__test_select__' and info['checkpoint'] == 0:
+    if info['id'] != '__test_select__':
         back = Button(text='Choose a different test event', size_hint_x=1)
         def back_to_selector(_button):
             ok, message = slay.event_select_test(manager.ctx, '__test_select__')

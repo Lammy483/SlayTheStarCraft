@@ -236,9 +236,11 @@ try {
     $marker | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $markerPath -Encoding UTF8
 
     Write-Host ""
-    Write-Host "Update complete. Launch SlayTheStarCraft.exe from your EXISTING installation folder." -ForegroundColor Green
-    Write-Host "No Download Data needed. Runtime, runs, configs and artwork were kept."
+    Write-Host "Update complete. Runtime, runs, configs and artwork were kept." -ForegroundColor Green
     Write-Host "Backup of overwritten program files: $backupRoot"
+    # A successful update launches the already installed portable executable.
+    Write-Host "Launching Slay the StarCraft..." -ForegroundColor Cyan
+    Start-Process -FilePath (Join-Path $targetRoot "SlayTheStarCraft.exe") -WorkingDirectory $targetRoot
 }
 finally {
     if ($temporaryExtraction -and (Test-Path -LiteralPath $temporaryExtraction)) {

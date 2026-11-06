@@ -262,9 +262,10 @@ def pending(ctx: Any) -> dict[str, Any] | None:
 def select_test(ctx: Any, event_id: str) -> tuple[bool, str]:
     slay = _slay()
     p = pending(ctx)
-    if p is None or p["checkpoint"] != 0 or (event_id not in EVENTS and event_id != "__test_select__"):
-        return False, "There is no opening test event to select."
-    slay.state(ctx).setdefault("event_assignments", {})["0"] = event_id
+    if p is None or (event_id not in EVENTS and event_id != "__test_select__"):
+        return False, "There is no pending event to select."
+    # Every development checkpoint can be manually assigned for testing.
+    slay.state(ctx).setdefault("event_assignments", {})[p["key"]] = event_id
     slay._persist_state(ctx)
     if event_id == "__test_select__":
         return True, "Choose a different event to test."
@@ -303,7 +304,7 @@ def display(ctx: Any) -> dict[str, Any] | None:
     key, event_id = p["key"], p["id"]
     if event_id == "__test_select__":
         return dict(p, name="Event Test Selection",
-                    description="Choose an event to test at the start of the run.",
+                    description="Choose an event to test at this checkpoint.",
                     options=[{"text": event["name"], "enabled": True, "implemented": True}
                              for event in EVENTS.values()],
                     selector_ids=list(EVENTS))
@@ -502,12 +503,12 @@ def mechanical_values(ctx: Any, mission_id: int) -> tuple[int, int, int, int]:
     if target == int(mission_id):
         return unit_code, quantity, 1, checkpoint
     mission = slay.node(ctx, int(mission_id)) or {}
-    if int(mission.get("layer", -1)) < checkpoint:
-        return 0, 0, 0, 0
-    bank = native_bank_values(ctx)
-    if (int(bank.get("MechStartedAt" + str(checkpoint), 0)) <= 0
+    # Mission at the checkpoint is the trial. The following layer determines
+    # pass or fail; StartedAt is unreliable at layer zero and with /victory.
+    if (int(mission.get("layer", -1)) <= checkpoint
             or slay.victory_count(ctx) <= checkpoint):
         return 0, 0, 0, 0
+    bank = native_bank_values(ctx)
     if int(bank.get("MechOutcome" + str(checkpoint), 0)) == 1:
         sync_mechanical_quest(ctx)
         return unit_code, quantity, 2, checkpoint
@@ -527,25 +528,31 @@ def native_values(ctx: Any, mission_id: int) -> tuple[int, int, int]:
             mask |= NOVA_ALLY | TOSH_ENEMY
         elif side == "tosh":
             mask |= NOVA_ENEMY
-    if layer >= int(s.get("event_colonists_checkpoint", 10000)):
+    # -1 is the unselected default, not an active campaign layer.
+    colony_checkpoint = int(s.get("event_colonists_checkpoint", -1))
+    if colony_checkpoint >= 0 and layer >= colony_checkpoint:
         mask |= COLONY_HUT
     if layer >= int(s.get("event_zagara_checkpoint", 10000)):
         side = str(s.get("event_zagara_side", ""))
         if side == "zagara":
-            mask |= ZAGARA_ALLIED_BANELINGS
             if int(s.get("event_zagara_quest_target", 0)) == int(mission_id):
                 mask |= ZAGARA_BRAKK_QUEST
+            elif layer > int(s.get("event_zagara_checkpoint", 10000)):
+                # /victory cannot replace actually killing the quest Brakk.
+                if int(native_bank_values(ctx).get("BrakkDead", 0)) == 1:
+                    mask |= ZAGARA_ALLIED_BANELINGS
         elif side == "brakk":
             mask |= ZAGARA_ENEMY | BRAKK_ALLY
     if layer >= int(s.get("event_organism_checkpoint", 10000)):
         target = int(s.get("event_organism_target", 0))
         if target == int(mission_id):
             mask |= ORGANISM_TEST
-        elif target > 0 and slay.victory_count(ctx) > int(s.get("event_organism_checkpoint", 10000)):
-            bank = native_bank_values(ctx)
-            if int(bank.get("OrganismOutcome", 0)) == 1:
+        elif (target > 0 and layer > int(s.get("event_organism_checkpoint", 10000))
+              and slay.victory_count(ctx) > int(s.get("event_organism_checkpoint", 10000))):
+            # A missing/zero StartedAt can mean /victory or the first layer.
+            if int(native_bank_values(ctx).get("OrganismOutcome", 0)) == 1:
                 mask |= ORGANISM_ALLY
-            elif int(bank.get("OrganismStartedAt", 0)) > 0:
+            else:
                 mask |= ORGANISM_ENEMY
     solarite_target = int(s.get("event_solarite_target", 0))
     solarite_checkpoint = int(s.get("event_solarite_checkpoint", -1))
@@ -554,9 +561,9 @@ def native_values(ctx: Any, mission_id: int) -> tuple[int, int, int]:
         return mask, int(s.get("event_solarite_resource", 0)), solarite_checkpoint
     if solarite_checkpoint >= 0 and solarite_target > 0 and layer >= solarite_checkpoint:
         bank = native_bank_values(ctx)
-        started_key = "SolariteStartedAt" + str(solarite_checkpoint)
         success_key = "SolariteSuccess" + str(solarite_checkpoint)
-        if int(bank.get(started_key, 0)) > 0 and slay.victory_count(ctx) > solarite_checkpoint:
+        # Advancing beyond the trial mission without a success receipt fails it.
+        if layer > solarite_checkpoint and slay.victory_count(ctx) > solarite_checkpoint:
             resource = int(s.get("event_solarite_resource", 0))
             success = int(bank.get(success_key, 0)) == 1
             if resource == 1:

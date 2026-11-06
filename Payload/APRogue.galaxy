@@ -3256,7 +3256,8 @@ void APRG_CongaSpawnFromBase(unit base, int player) {
     point spawnPoint;
     unitgroup spawned;
 
-    if (StringContains(race, "Protoss", c_stringAnywhere, c_stringNoCase)) {
+    // SC2 uses the abbreviated catalog race "Prot".
+    if (StringContains(race, "Prot", c_stringAnywhere, c_stringNoCase)) {
         spawnType = "Zealot";
     }
     else if (StringContains(race, "Zerg", c_stringAnywhere, c_stringNoCase)) {
@@ -27384,9 +27385,8 @@ bool APRG_EventConfig_Func(bool testConds, bool runActions) {
     return true;
 }
 
-// Hansen's hut belongs to the player but cannot be directly targeted, so
-// infested units cannot turn around and focus it. It is *not* invulnerable:
-// area damage can destroy it and terminate all future colony benefits.
+// Hansen's hut is neutral but attackable by the player. Hostile raiders
+// target player buildings instead; the hut itself is not invulnerable.
 void APRG_TickEventColony(int player, fixed now) {
     unit home;
     unitgroup created;
@@ -27410,10 +27410,10 @@ void APRG_TickEventColony(int player, fixed now) {
         if (hutType == "") { return; }
         where = APRG_PlayerBuildingSpawnPoint(player, UnitGetPosition(home), 7.0, 13.0);
         if (where == null) { return; }
-        created = UnitCreate(1, hutType, c_unitCreateIgnorePlacement, player, where, 0.0);
+        created = UnitCreate(1, hutType, c_unitCreateIgnorePlacement, 0, where, 0.0);
         g_aprgEventColonyHut = UnitGroupUnitFromEnd(created, 1);
         if (g_aprgEventColonyHut == null) { return; }
-        UnitSetState(g_aprgEventColonyHut, c_unitStateTargetable, false);
+        UnitSetState(g_aprgEventColonyHut, c_unitStateTargetable, true);
         g_aprgEventColonySpawned = true;
         g_aprgEventColonyNextInfestation = g_aprgMacroReadyTime + 180.0;
         if (g_aprgEventBank != null && !BankKeyExists(g_aprgEventBank, g_aprgEventSection, "ColonyStartedAt")) {
@@ -27432,7 +27432,7 @@ void APRG_TickEventColony(int player, fixed now) {
     }
     if (now < g_aprgEventColonyNextInfestation) { return; }
     g_aprgEventColonyNextInfestation = now + 45.0;
-    spawnPoint = APRG_FindGroundPointNear(UnitGetPosition(g_aprgEventColonyHut), 3.0, 8.0);
+    spawnPoint = APRG_FindGroundPointNear(UnitGetPosition(g_aprgEventColonyHut), 1.5, 3.5);
     if (spawnPoint == null) { return; }
     owner = APRG_FindAnyHostileOwner(player, spawnPoint);
     if (owner < 0) { return; }
@@ -27816,7 +27816,9 @@ void APRG_EventMechBoostUnit(unit u) {
 bool APRG_EventMechKill_Func(bool testConds, bool runActions) {
     unit killer;
     unit victim;
+    unit rewarded;
     int player;
+    int i;
     string key;
     if (!runActions || g_aprgEventMechMode != 1 || !g_aprgEventMechSpawned ||
         g_aprgEventMechSuccess || g_aprgEventMechTestUnits == null) { return true; }
@@ -27832,6 +27834,13 @@ bool APRG_EventMechKill_Func(bool testConds, bool runActions) {
     if (g_aprgEventBank != null && g_aprgEventSection != "") {
         BankValueSetFromInt(g_aprgEventBank, g_aprgEventSection, key, 1);
         BankSave(g_aprgEventBank);
+    }
+    // The gifted units gain their bonuses immediately on the 50th kill.
+    for (i = UnitGroupCount(g_aprgEventMechTestUnits, c_unitCountAlive); i > 0; i -= 1) {
+        rewarded = UnitGroupUnitFromEnd(g_aprgEventMechTestUnits, i);
+        if (rewarded != null && UnitIsAlive(rewarded)) {
+            APRG_EventMechBoostUnit(rewarded);
+        }
     }
     UIDisplayMessage(PlayerGroupSingle(player), c_messageAreaChat,
         StringToText("Rory Swann Quest Complete"));
@@ -27901,7 +27910,9 @@ void APRG_TickEventMechanical(int player, fixed now) {
             BankSave(g_aprgEventBank);
         }
     }
-    if (g_aprgEventMechMode == 2 && now >= g_aprgEventMechNextTick) {
+    if ((g_aprgEventMechMode == 2 ||
+         (g_aprgEventMechMode == 1 && g_aprgEventMechSuccess)) &&
+        now >= g_aprgEventMechNextTick) {
         g_aprgEventMechNextTick = now + 2.0;
         candidates = APRG_PlayerAllUnits(player);
         for (i = UnitGroupCount(candidates, c_unitCountAlive); i > 0; i -= 1) {

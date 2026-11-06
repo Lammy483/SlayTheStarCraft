@@ -56,7 +56,7 @@ try {
     $updater = Join-Path $source 'Tools\Update-ExistingSlay.ps1'
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $updater -ExistingInstall $ExistingInstall -NewBuild $source
     if ($LASTEXITCODE -ne 0) { throw "Full update failed with exit code $LASTEXITCODE" }
-    Write-Host "Update complete. Launch SlayTheStarCraft.exe from $ExistingInstall" -ForegroundColor Green
+    Write-Host "Update complete. Slay was launched from $ExistingInstall" -ForegroundColor Green
 }
 finally {
     if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue }
