@@ -1,4 +1,4 @@
-name: Events Dev18 full portable test build
+name: Events Dev19 full portable test build
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
         run: |
           python -m compileall -q Payload Tools
           python .\Payload\verify_release.py --source-only
-          python -m unittest Tools.test_v1231_dev3_deaths_thrashers_blink Tools.test_v1231_dev4_settings_mutations_mercs Tools.test_v1231_dev5_kerrigan_vortex Tools.test_v1231_dev6_events_framework Tools.test_v1231_dev8_events Tools.test_v1231_dev11_mechanical_events Tools.test_v1231_dev14_galaxy_and_assets Tools.test_v1231_dev15_events_and_updater Tools.test_v1231_dev16_event_handshake Tools.test_v1231_dev18_event_fixes
+          python -m unittest Tools.test_v1231_dev3_deaths_thrashers_blink Tools.test_v1231_dev4_settings_mutations_mercs Tools.test_v1231_dev5_kerrigan_vortex Tools.test_v1231_dev6_events_framework Tools.test_v1231_dev8_events Tools.test_v1231_dev11_mechanical_events Tools.test_v1231_dev14_galaxy_and_assets Tools.test_v1231_dev15_events_and_updater Tools.test_v1231_dev16_event_handshake Tools.test_v1231_dev18_event_fixes Tools.test_v1231_dev19_marauder_teams
           $errors = $null
           [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\Tools\Update-ExistingSlay.ps1'), [ref]$null, [ref]$errors) | Out-Null
           if ($errors.Count -gt 0) {
@@ -46,10 +46,10 @@ jobs:
         shell: pwsh
         run: .\Tools\build_launcher.ps1
 
-      - name: Assemble Dev18 event test folder
+      - name: Assemble Dev19 event test folder
         shell: pwsh
         run: |
-          $stage = Join-Path $env:RUNNER_TEMP 'Slay the StarCraft Events Dev18'
+          $stage = Join-Path $env:RUNNER_TEMP 'Slay the StarCraft Events Dev19'
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item -Recurse -Force .\Payload (Join-Path $stage 'Payload')
           Copy-Item -Recurse -Force .\Tools (Join-Path $stage 'Tools')
@@ -58,19 +58,19 @@ jobs:
             throw 'The launcher build did not produce SlayTheStarCraft.exe'
           }
           Copy-Item -Force .\SlayTheStarCraft.exe (Join-Path $stage 'SlayTheStarCraft.exe')
-          foreach ($file in @('VERSION.txt','launcher_manifest.json','README.txt','README.md','CHANGELOG.md','CONTRIBUTING.md','EVENTS_DEV11_TESTING.md','EVENTS_DEV12_TESTING.md','EVENTS_DEV13_TESTING.md','EVENTS_DEV14_TESTING.md','EVENTS_DEV15_TESTING.md','EVENTS_DEV16_TESTING.md','EVENTS_DEV18_TESTING.md')) {
+          foreach ($file in @('VERSION.txt','launcher_manifest.json','README.txt','README.md','CHANGELOG.md','CONTRIBUTING.md','EVENTS_DEV11_TESTING.md','EVENTS_DEV12_TESTING.md','EVENTS_DEV13_TESTING.md','EVENTS_DEV14_TESTING.md','EVENTS_DEV15_TESTING.md','EVENTS_DEV16_TESTING.md','EVENTS_DEV18_TESTING.md','EVENTS_DEV19_TESTING.md')) {
             if (Test-Path $file) { Copy-Item -Force $file (Join-Path $stage $file) }
           }
           Get-ChildItem -Path $stage -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
           Get-ChildItem -Path $stage -Recurse -File -Include '*.pyc','*.pyo' | Remove-Item -Force -ErrorAction SilentlyContinue
           'integration_branch=develop/v1.2.3.1-odin-missions' | Set-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
-          "build_type=events-dev18-untested" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
+          "build_type=events-dev19-untested" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
           "commit=$env:GITHUB_SHA" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
 
-      - name: Upload playable Events Dev18 full test build
+      - name: Upload playable Events Dev19 full test build
         uses: actions/upload-artifact@v4
         with:
-          name: slay-the-starcraft-events-dev18-full-windows
-          path: ${{ runner.temp }}/Slay the StarCraft Events Dev18/
+          name: slay-the-starcraft-events-dev19-full-windows
+          path: ${{ runner.temp }}/Slay the StarCraft Events Dev19/
           if-no-files-found: error
           retention-days: 14

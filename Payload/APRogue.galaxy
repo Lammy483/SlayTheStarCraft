@@ -765,6 +765,12 @@ bool g_aprgMarauderKillTeamsSpawned = false;
 unitgroup g_aprgMarauderKillTeamUnits;
 unitgroup g_aprgMarauderKillTeamOne;
 unitgroup g_aprgMarauderKillTeamTwo;
+bool g_aprgMarauderKillTeamOneCreated = false;
+bool g_aprgMarauderKillTeamTwoCreated = false;
+point g_aprgMarauderKillTeamOneWaypoint = null;
+point g_aprgMarauderKillTeamTwoWaypoint = null;
+fixed g_aprgMarauderKillTeamOneOrderAt = -1.0;
+fixed g_aprgMarauderKillTeamTwoOrderAt = -1.0;
 fixed g_aprgNextMarauderKillTeamRetargetTime = -1.0;
 fixed g_aprgNextNukeTime = 30.0;
 fixed g_aprgNextOccasionalThorTime = 60.0;
@@ -22645,6 +22651,12 @@ bool APRG_Load_Func(bool testConds, bool runActions) {
     g_aprgMarauderKillTeamUnits = UnitGroupEmpty();
     g_aprgMarauderKillTeamOne = UnitGroupEmpty();
     g_aprgMarauderKillTeamTwo = UnitGroupEmpty();
+    g_aprgMarauderKillTeamOneCreated = false;
+    g_aprgMarauderKillTeamTwoCreated = false;
+    g_aprgMarauderKillTeamOneWaypoint = null;
+    g_aprgMarauderKillTeamTwoWaypoint = null;
+    g_aprgMarauderKillTeamOneOrderAt = -1.0;
+    g_aprgMarauderKillTeamTwoOrderAt = -1.0;
     g_aprgNextMarauderKillTeamRetargetTime = -1.0;
     g_aprgNextNukeTime = now + 30.0;
     g_aprgNukePending = false;
@@ -23217,18 +23229,138 @@ void APRG_TickResourcePickups(int player) {
     if (!g_aprgResourcePickupsSpawned) { APRG_SpawnResourcePickups(player); }
 }
 
-void APRG_OrderMarauderKillTeamGroup(unitgroup team, int player) {
+// Spawn only on real ground connected to the player's base. An enemy
+// building center is not an acceptable fallback on cliffs or odd footprints.
+point APRG_MarauderKillTeamSpawnPoint(int player, point otherTeam) {
+    unitgroup structures;
+    unit anchor;
+    point homeGround;
+    point candidate;
+    int attempt;
+    homeGround = APRG_KerriganSafeHomePoint(player);
+    if (homeGround == null || !PointPathingPassable(homeGround)) { return null; }
+    structures = APRG_EnemyStructures(player);
+    if (UnitGroupCount(structures, c_unitCountAlive) == 0) { return null; }
+    for (attempt = 0; attempt < 96; attempt += 1) {
+        anchor = UnitGroupRandomUnit(structures, c_unitCountAlive);
+        if (anchor == null || !UnitIsAlive(anchor)) { continue; }
+        candidate = PointWithOffsetPolar(UnitGetPosition(anchor),
+            RandomFixed(4.0, 12.0), libNtve_gf_RandomAngle());
+        if (candidate == null || !RegionContainsPoint(RegionPlayableMap(), candidate) ||
+            !PointPathingPassable(candidate) ||
+            !PointPathingIsConnected(candidate, homeGround) ||
+            !APRG_LabRatEnemySpawnAllowed(candidate, player) ||
+            APRG_PointNearRakShirDuel(candidate, 24.0) ||
+            APRG_PointNearResourceField(candidate, 4.0) ||
+            APRG_PointNearPlayerOrAlliedBuilding(candidate, player, 12.0)) { continue; }
+        if (otherTeam != null && DistanceBetweenPoints(candidate, otherTeam) < 14.0) { continue; }
+        return candidate;
+    }
+    return null; // Retry on the next scan; do not create stranded units.
+}
+
+// Issue one common attack-move order to all 18 squad members. The existing
+// attack-move helper falls back to movement for weaponless Medics.
+void APRG_OrderMarauderKillTeamGroup(unitgroup team, point destination) {
     int i;
     unit u;
-    point destination;
-    bool restricted = APRG_TimeSinceMacroBase(GameGetMissionTime()) < 720.0;
-    if (team == null || UnitGroupCount(team, c_unitCountAlive) <= 0) { return; }
+    if (team == null || destination == null) { return; }
+    for (i = UnitGroupCount(team, c_unitCountAlive); i > 0; i -= 1) {
+        u = UnitGroupUnitFromEnd(team, i);
+        if (u != null && UnitIsAlive(u)) { APRG_OrderAttackMove(u, destination); }
+    }
+}
+
+// Dead units do not hold up the squad, but every surviving unit must
+// reach the waypoint before the group is sent anywhere else.
+bool APRG_MarauderKillTeamArrived(unitgroup team, point destination) {
+    int i;
+    int alive = 0;
+    unit u;
+    if (team == null || destination == null) { return false; }
     for (i = UnitGroupCount(team, c_unitCountAlive); i > 0; i -= 1) {
         u = UnitGroupUnitFromEnd(team, i);
         if (u == null || !UnitIsAlive(u)) { continue; }
-        if (restricted) { destination = APRG_GroundSafePatrolDestination(u, player, 15.0); }
-        else { destination = APRG_RandomFixedPatrolPointForUnit(u, player, true); }
-        if (destination != null) { APRG_OrderAttackMove(u, destination); }
+        alive += 1;
+        if (DistanceBetweenPoints(UnitGetPosition(u), destination) > 9.0) {
+            return false;
+        }
+    }
+    return alive > 0;
+}
+
+// Sample a reachable location once for the entire squad. Avoid the player's
+// territory during the original protected 12-minute window.
+point APRG_MarauderKillTeamNextWaypoint(unitgroup team, int player, point previous) {
+    unit leader;
+    point origin;
+    point candidate;
+    fixed clearance = 0.0;
+    int attempt;
+    leader = APRG_FirstLivingUnitInGroup(team);
+    if (leader == null) { return null; }
+    origin = UnitGetPosition(leader);
+    if (origin == null) { return null; }
+    if (APRG_TimeSinceMacroBase(GameGetMissionTime()) < 720.0) {
+        clearance = 15.0;
+    }
+    for (attempt = 0; attempt < 64; attempt += 1) {
+        if (clearance > 0.0 || attempt % 2 == 0) {
+            candidate = PointWithOffsetPolar(origin,
+                RandomFixed(16.0, 25.0), libNtve_gf_RandomAngle());
+        }
+        else if (attempt % 4 == 1 && g_aprgFixedPatrolPointCount > 0) {
+            candidate = APRG_RandomFixedPatrolPointForUnit(leader, player, true);
+        }
+        else {
+            candidate = RegionRandomPoint(RegionPlayableMap());
+        }
+        if (candidate == null || !RegionContainsPoint(RegionPlayableMap(), candidate) ||
+            !PointPathingPassable(candidate) ||
+            DistanceBetweenPoints(origin, candidate) < 14.0 ||
+            (previous != null && DistanceBetweenPoints(previous, candidate) < 14.0) ||
+            !PointPathingIsConnected(origin, candidate) ||
+            !UnitPathableToPoint(leader, candidate, 2.0, 100000.0) ||
+            APRG_PointNearRakShirDuel(candidate, 24.0)) { continue; }
+        if (clearance > 0.0 &&
+            !APRG_GoldenPatrolRouteSafe(origin, candidate, player, clearance)) { continue; }
+        return candidate;
+    }
+    return null;
+}
+
+// A timer may REISSUE the current waypoint if native AI interrupts it,
+// but only arrival of the whole team authorizes a NEW waypoint.
+void APRG_TickOneMarauderKillTeam(unitgroup team, int player, fixed now, bool first) {
+    point waypoint;
+    point next;
+    fixed issuedAt;
+    if (team == null || UnitGroupCount(team, c_unitCountAlive) == 0) { return; }
+    if (first) {
+        waypoint = g_aprgMarauderKillTeamOneWaypoint;
+        issuedAt = g_aprgMarauderKillTeamOneOrderAt;
+    }
+    else {
+        waypoint = g_aprgMarauderKillTeamTwoWaypoint;
+        issuedAt = g_aprgMarauderKillTeamTwoOrderAt;
+    }
+    if (waypoint == null || APRG_MarauderKillTeamArrived(team, waypoint)) {
+        next = APRG_MarauderKillTeamNextWaypoint(team, player, waypoint);
+        if (next == null) { return; }
+        APRG_OrderMarauderKillTeamGroup(team, next);
+        if (first) {
+            g_aprgMarauderKillTeamOneWaypoint = next;
+            g_aprgMarauderKillTeamOneOrderAt = now;
+        }
+        else {
+            g_aprgMarauderKillTeamTwoWaypoint = next;
+            g_aprgMarauderKillTeamTwoOrderAt = now;
+        }
+    }
+    else if (issuedAt >= 0.0 && now >= issuedAt + 90.0) {
+        APRG_OrderMarauderKillTeamGroup(team, waypoint);
+        if (first) { g_aprgMarauderKillTeamOneOrderAt = now; }
+        else { g_aprgMarauderKillTeamTwoOrderAt = now; }
     }
 }
 
@@ -23243,26 +23375,47 @@ void APRG_ApplyKillTeamMedicVisual(unit medic) {
 }
 
 unitgroup APRG_SpawnOneMarauderKillTeam(int player) {
-    unit anchor;
     point p;
+    point otherTeam;
+    point clusterPoint;
     int owner;
     unitgroup marauders;
     unitgroup medics;
+    unitgroup batch;
     int i;
+    int groupIndex;
     unit u;
     string marauderType = "Marauder";
     bool actualKillTeam = false;
     unitgroup team = UnitGroupEmpty();
-    anchor = APRG_RandomPathableHostileBaseAnchor(player);
-    if (anchor == null) { return team; }
-    p = APRG_FindGroundPointNear(UnitGetPosition(anchor), 4.0, 12.0);
-    if (p == null) { p = UnitGetPosition(anchor); }
-    owner = UnitGetOwner(anchor);
+    otherTeam = null;
+    if (g_aprgMarauderKillTeamOneCreated) {
+        u = APRG_FirstLivingUnitInGroup(g_aprgMarauderKillTeamOne);
+        if (u != null) { otherTeam = UnitGetPosition(u); }
+    }
+    p = APRG_MarauderKillTeamSpawnPoint(player, otherTeam);
+    if (p == null) { return team; }
+    owner = APRG_FindHostileOwnerNearPoint(player, p);
+    if (owner < 0) { return team; }
     if (CatalogEntryIsValid(c_gameCatalogUnit, "DominionKillTeam")) {
         marauderType = "DominionKillTeam";
         actualKillTeam = true;
     }
-    marauders = UnitCreate(15, marauderType, c_unitCreateIgnorePlacement, owner, p, libNtve_gf_RandomAngle());
+    // Create one tight cluster as three five-Marauder subgroups rather than
+    // spreading a large unitgroup around a wide random spawn ring.
+    marauders = UnitGroupEmpty();
+    for (groupIndex = 0; groupIndex < 3; groupIndex += 1) {
+        clusterPoint = p;
+        if (groupIndex > 0) {
+            clusterPoint = PointWithOffsetPolar(p, RandomFixed(0.8, 1.8),
+                libNtve_gf_RandomAngle());
+            if (clusterPoint == null || !PointPathingPassable(clusterPoint) ||
+                !PointPathingIsConnected(clusterPoint, p)) { clusterPoint = p; }
+        }
+        batch = UnitCreate(5, marauderType, c_unitCreateIgnorePlacement, owner,
+            clusterPoint, libNtve_gf_RandomAngle());
+        UnitGroupAddUnitGroup(marauders, batch);
+    }
     medics = UnitCreate(3, "Medic", c_unitCreateIgnorePlacement, owner, p, libNtve_gf_RandomAngle());
     for (i = UnitGroupCount(marauders, c_unitCountAlive); i > 0; i -= 1) {
         u = UnitGroupUnitFromEnd(marauders, i);
@@ -23285,27 +23438,43 @@ unitgroup APRG_SpawnOneMarauderKillTeam(int player) {
     UnitGroupAddUnitGroup(g_aprgMarauderKillTeamUnits, marauders);
     UnitGroupAddUnitGroup(g_aprgMarauderKillTeamUnits, medics);
     APRG_RegisterAlwaysVisibleGroup(team, player);
-    APRG_OrderMarauderKillTeamGroup(team, player);
     return team;
 }
 
 void APRG_TickMarauderKillTeams(int player, fixed now) {
-    if (!APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0 || now < g_aprgMacroReadyTime + 300.0) { return; }
-    if (!g_aprgMarauderKillTeamsSpawned) {
-        g_aprgMarauderKillTeamOne = APRG_SpawnOneMarauderKillTeam(player);
-        g_aprgMarauderKillTeamTwo = APRG_SpawnOneMarauderKillTeam(player);
-        g_aprgMarauderKillTeamsSpawned = true;
-        // Play once on the initial team spawn, not on subsequent retargets.
-        if (UnitGroupCount(g_aprgMarauderKillTeamUnits, c_unitCountAlive) > 0) {
+    bool hadAny;
+    if (!APRG_PlayerMacroBaseReady(player) || g_aprgMacroReadyTime < 0.0 ||
+        now < g_aprgMacroReadyTime + 300.0) { return; }
+    if (!g_aprgMarauderKillTeamsSpawned &&
+        now >= g_aprgNextMarauderKillTeamRetargetTime) {
+        hadAny = g_aprgMarauderKillTeamOneCreated || g_aprgMarauderKillTeamTwoCreated;
+        if (!g_aprgMarauderKillTeamOneCreated) {
+            g_aprgMarauderKillTeamOne = APRG_SpawnOneMarauderKillTeam(player);
+            g_aprgMarauderKillTeamOneCreated =
+                UnitGroupCount(g_aprgMarauderKillTeamOne, c_unitCountAlive) > 0;
+        }
+        if (!g_aprgMarauderKillTeamTwoCreated) {
+            g_aprgMarauderKillTeamTwo = APRG_SpawnOneMarauderKillTeam(player);
+            g_aprgMarauderKillTeamTwoCreated =
+                UnitGroupCount(g_aprgMarauderKillTeamTwo, c_unitCountAlive) > 0;
+        }
+        // Retry missing teams; never respawn a team that has already existed.
+        g_aprgMarauderKillTeamsSpawned =
+            g_aprgMarauderKillTeamOneCreated && g_aprgMarauderKillTeamTwoCreated;
+        if (!hadAny && (g_aprgMarauderKillTeamOneCreated ||
+                        g_aprgMarauderKillTeamTwoCreated)) {
             APRG_QueueCampaignVO("THorner01Horner00019", 0.0);
         }
-        g_aprgNextMarauderKillTeamRetargetTime = now + 30.0;
+        APRG_TickOneMarauderKillTeam(g_aprgMarauderKillTeamOne, player, now, true);
+        APRG_TickOneMarauderKillTeam(g_aprgMarauderKillTeamTwo, player, now, false);
+        g_aprgNextMarauderKillTeamRetargetTime = now + 5.0;
         return;
     }
     if (now < g_aprgNextMarauderKillTeamRetargetTime) { return; }
-    g_aprgNextMarauderKillTeamRetargetTime = now + 30.0;
-    APRG_OrderMarauderKillTeamGroup(g_aprgMarauderKillTeamOne, player);
-    APRG_OrderMarauderKillTeamGroup(g_aprgMarauderKillTeamTwo, player);
+    // This is an ARRIVAL check, not a periodic random patrol retarget.
+    g_aprgNextMarauderKillTeamRetargetTime = now + 2.0;
+    APRG_TickOneMarauderKillTeam(g_aprgMarauderKillTeamOne, player, now, true);
+    APRG_TickOneMarauderKillTeam(g_aprgMarauderKillTeamTwo, player, now, false);
 }
 // A one-time LifeRegen property edit may not produce healing on campaign
 // Aberrations, and can disappear after unit state changes. Heal explicitly
