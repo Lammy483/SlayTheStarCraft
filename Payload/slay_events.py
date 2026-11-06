@@ -771,9 +771,13 @@ def apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
                 new_grants[name] = int(new_grants.get(name, 0)) + 1
                 given.append(name)
         s["event_awarded_items"] = awards
-        message = ("Abathur's experiment completed. Lost units: " +
-                   ", ".join(lost) + ".\nUpgrades gained: " +
-                   (", ".join(given) if given else "none available") + ".")
+        # Results popup contents are deliberately data-only: no commentary
+        # about the event's mechanics or any added prose.
+        message = ("Units removed:\n" +
+                   "\n".join(f"- {unit}" for unit in lost) +
+                   "\n\nUpgrades gained:\n" +
+                   ("\n".join(f"- {name}" for name in sorted(given))
+                    if given else "- None"))
     else:
         penalty = {
             ("abathur", 1): "zerg_upgrade_50",
