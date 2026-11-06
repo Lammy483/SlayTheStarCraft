@@ -1,4 +1,4 @@
-name: Events Dev16 full portable test build
+name: Events Dev17 full portable test build
 
 on:
   push:
@@ -46,10 +46,10 @@ jobs:
         shell: pwsh
         run: .\Tools\build_launcher.ps1
 
-      - name: Assemble Dev16 event test folder
+      - name: Assemble Dev17 event test folder
         shell: pwsh
         run: |
-          $stage = Join-Path $env:RUNNER_TEMP 'Slay the StarCraft Events Dev16'
+          $stage = Join-Path $env:RUNNER_TEMP 'Slay the StarCraft Events Dev17'
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item -Recurse -Force .\Payload (Join-Path $stage 'Payload')
           Copy-Item -Recurse -Force .\Tools (Join-Path $stage 'Tools')
@@ -64,13 +64,13 @@ jobs:
           Get-ChildItem -Path $stage -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
           Get-ChildItem -Path $stage -Recurse -File -Include '*.pyc','*.pyo' | Remove-Item -Force -ErrorAction SilentlyContinue
           'integration_branch=develop/v1.2.3.1-odin-missions' | Set-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
-          "build_type=events-dev16-untested" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
+          "build_type=events-dev17-untested" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
           "commit=$env:GITHUB_SHA" | Add-Content -Encoding UTF8 (Join-Path $stage 'INTEGRATION_BUILD.txt')
 
-      - name: Upload playable Events Dev16 full test build
+      - name: Upload playable Events Dev17 full test build
         uses: actions/upload-artifact@v4
         with:
-          name: slay-the-starcraft-events-dev16-full-windows
-          path: ${{ runner.temp }}/Slay the StarCraft Events Dev16/
+          name: slay-the-starcraft-events-dev17-full-windows
+          path: ${{ runner.temp }}/Slay the StarCraft Events Dev17/
           if-no-files-found: error
           retention-days: 14
