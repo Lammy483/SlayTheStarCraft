@@ -14506,7 +14506,7 @@ void APRG_TickSlowWorkers(int player, fixed now) {
                 UnitSetPropertyFixed(u, c_unitPropMovementSpeed, normalSpeed);
             }
         }
-        else { UnitSetPropertyFixed(u, c_unitPropMovementSpeed, 0.2); }
+        else { UnitSetPropertyFixed(u, c_unitPropMovementSpeed, 0.5); }
     }
 }
 
