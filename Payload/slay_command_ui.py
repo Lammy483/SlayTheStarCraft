@@ -78,10 +78,12 @@ STATUS={'available':('Available',CYAN),'selected':('Current Mission',(.3,1,.64,1
         'future':('Locked',(.3,.47,.61,1)),'abandoned':('Unavailable',(.48,.38,.43,1)),'loading':('Loading',(.52,.63,.7,1))}
 
 DEFAULT_ROUTE_SCALE=.60
-NODE_PLANET_CENTER_Y=58
-ROUTE_FLOOR_SPACING=178
-NODE_CARD_HEIGHT=116
-NODE_PLANET_X=57
+NODE_PLANET_CENTER_Y=50
+ROUTE_FLOOR_SPACING=150
+SPECIAL_ROUTE_FLOOR_SPACING=107
+NODE_CARD_HEIGHT=101
+SPECIAL_NODE_CARD_HEIGHT=78
+NODE_PLANET_X=48
 SHOP_SECTION_COLUMNS={
     'Terran Units':0,'Terran Upgrades':0,'Defensive Structures & Detectors':0,
     'Zerg Units':1,'Zerg Upgrades':1,'General Upgrades':1,
@@ -483,6 +485,9 @@ class CardConsole:
             top.add_widget(control('Shop',lambda *_:self.navigate_to('shop'),size_hint_x=None,width=dp(145)))
             top.add_widget(control('Exit Inventory',lambda *_:self.close(),size_hint_x=None,width=dp(170)))
         root.add_widget(top)
+        self.freeze_notice = label('', size_hint_y=None, height=0,
+                                   color=(1,.68,.32,1), halign='left', font_size=dp(14))
+        root.add_widget(self.freeze_notice)
         body=BoxLayout(spacing=dp(14))
         sidebar_scroll=ScrollView(size_hint_x=None,width=dp(170),do_scroll_x=False)
         self.sidebar=BoxLayout(orientation='vertical',size_hint_y=None,spacing=dp(6))
@@ -648,7 +653,12 @@ class CardConsole:
                 card.buy5_button.disabled=budget<5*cost
                 card.buy5_button.text=f'Buy 5 ({5*cost} credits)'
 
+    def show_freeze_notice(self, message):
+        self.freeze_notice.text = message
+        self.freeze_notice.height = dp(26) if message else 0
+
     def toggle_freeze(self):
+        self.show_freeze_notice('')
         self.freeze_select_mode = not self.freeze_select_mode
         self.render()
 
@@ -658,6 +668,12 @@ class CardConsole:
             return
         from worlds.sc2 import slay_the_starcraft as slay
         name = entry.get('freeze_name',entry['id']) if self.crew else entry['id']
+        if (entry.get('crew_kind') == 'boon' or
+            slay.shop_category_for_item(name, self.manager.ctx) == 'Boons'):
+            self.show_freeze_notice('boons cannot be frozen')
+            self.inspect(entry)
+            return
+        self.show_freeze_notice('')
         # Selecting another frozen offer automatically unfreezes the old one.
         # Selecting the same offer again clears its frozen status.
         selected = "" if name == slay.frozen_shop_item(self.manager.ctx) else name
@@ -1175,16 +1191,16 @@ def decorate_node(manager,b):
         Color(.95,.29,.24,1 if danger else 0);warning=Line(circle=(0,0,1),width=dp(3))
         Color(*accent);marker=Line(points=[],width=dp(2));marker_cross=Line(points=[],width=dp(2))
     def update(*_):
-        cx=b.x+dp(NODE_PLANET_X);cy=b.y+dp(NODE_PLANET_CENTER_Y);radius=dp(39)
+        cx=b.x+dp(NODE_PLANET_X);cy=b.y+dp(NODE_PLANET_CENTER_Y);radius=dp(32)
         nameplate.pos=(b.x,b.y);nameplate.size=b.size
         card_edge.rounded_rectangle=(b.x+dp(1),b.y+dp(1),max(0,b.width-dp(2)),max(0,b.height-dp(2)),dp(18))
         halo.pos=(cx-radius-dp(6),cy-radius-dp(6));halo.size=(2*(radius+dp(6)),)*2
-        planet.pos=(cx-dp(44),cy-dp(44));planet.size=(dp(88),dp(88))
+        planet.pos=(cx-dp(36),cy-dp(36));planet.size=(dp(72),dp(72))
         ring.circle=(cx,cy,radius+dp(5));orbit.circle=(cx,cy,radius+dp(11));warning.circle=(cx,cy,radius+dp(11))
-        text_x=b.x+dp(110);text_width=max(dp(40),b.width-dp(121))
-        status_label.pos=(text_x,b.y+dp(81));status_label.size=(text_width,dp(24))
-        race_label.pos=(text_x,b.y+dp(56));race_label.size=(text_width,dp(23))
-        title.pos=(text_x,b.y+dp(8));title.size=(text_width,dp(47))
+        text_x=b.x+dp(98);text_width=max(dp(40),b.width-dp(109))
+        status_label.pos=(text_x,b.y+dp(71));status_label.size=(text_width,dp(23))
+        race_label.pos=(text_x,b.y+dp(47));race_label.size=(text_width,dp(22))
+        title.pos=(text_x,b.y+dp(4));title.size=(text_width,dp(42))
         if status=='completed':
             marker.points=[cx-7,cy-2,cx-1,cy-8,cx+10,cy+7];marker_cross.points=[]
         elif status=='abandoned':
@@ -1196,10 +1212,170 @@ def decorate_node(manager,b):
     b.slay_node_race_caption=race_label
     if getattr(b,'_tooltip',None) is not None:b._tooltip.md_bg_color=(.014,.041,.067,.98)
 
+def decorate_noncombat_node(manager, b):
+    """A clickable true route node, with no Archipelago mission ID."""
+    from worlds.sc2 import slay_the_starcraft as slay
+    mid = int(b.mission_id)
+    data = slay.node(manager.ctx, mid) or {}
+    kind = data.get('node_type')
+    status = slay.node_status(manager.ctx, mid)
+    subtitle, accent = STATUS.get(status, STATUS['future'])
+    name = 'TREASURE CHEST' if kind == 'chest' else 'EVENT'
+    b.background_normal = ''
+    b.background_down = ''
+    b.background_color = (0, 0, 0, 0)
+    b.color = accent
+    b.font_size = dp(21)
+    b.text = name + '\n' + ('Claim reward' if kind == 'chest' and status == 'available'
+                           else 'Choose encounter' if kind == 'event' and status == 'available'
+                           else subtitle)
+    b.halign = 'center'
+    b.valign = 'middle'
+    b.bind(size=lambda widget, size: setattr(widget, 'text_size', size))
+    b.slay_sound = 'command'
+    b.size = (dp(280), dp(SPECIAL_NODE_CARD_HEIGHT))
+    b.slay_virtual = True
+    def enter(_button):
+        if slay.node_status(manager.ctx, mid) not in ('available', 'selected'):
+            return
+        ok, message = slay.select_special_node(manager.ctx, mid)
+        if not ok:
+            return
+        Clock.schedule_once(lambda dt: manager.build_mission_table(dt), .05)
+        Clock.schedule_once(lambda dt: _slay_noncombat_tick(manager, dt), .13)
+    b.bind(on_release=enter)
+
+
+def _slay_open_chest_popup(manager):
+    from worlds.sc2 import slay_the_starcraft as slay
+    if getattr(manager, 'launching', False) or slay.chest_pending(manager.ctx) is None:
+        return
+    if getattr(manager, 'slay_chest_popup', None) is not None or getattr(manager, 'slay_modal_open', False):
+        return
+    choices = slay.chest_display(manager.ctx)
+    if len(choices) != 3:
+        return
+    begin = getattr(manager, '_slay_begin_modal', None)
+    if callable(begin): begin()
+    root = BoxLayout(orientation='vertical', spacing=dp(9), padding=dp(13))
+    scroll = ScrollView(do_scroll_x=False)
+    grid = GridLayout(cols=1, size_hint_y=None, spacing=dp(12), padding=dp(6))
+    grid.bind(minimum_height=grid.setter('height'))
+    scroll.add_widget(grid)
+    root.add_widget(scroll)
+    feedback = Label(text='', size_hint_y=None, height=dp(31),
+                     color=(1, .7, .4, 1), font_size=dp(14))
+    root.add_widget(feedback)
+    dialog = Popup(title='TREASURE CHEST — CHOOSE ONE', content=root,
+                   size_hint=(.82, .90), auto_dismiss=False)
+    manager.slay_chest_popup = dialog
+    def dismissed(*args):
+        if manager.slay_chest_popup is dialog:
+            manager.slay_chest_popup = None
+        end = getattr(manager, '_slay_end_modal', None)
+        if callable(end): end()
+    dialog.bind(on_dismiss=dismissed)
+
+    def reward_row(title, identifier='', description='', quantity=1, category=''):
+        # Every reward gets its own framed, clearly separated row. Use the
+        # existing shop item/potion icon lookup instead of placeholder images.
+        tall = bool(description)
+        row = BoxLayout(orientation='horizontal', size_hint_y=None,
+                        height=dp(77 if tall else 55), spacing=dp(9),
+                        padding=[dp(9), dp(5), dp(9), dp(5)])
+        panel(row, color=(.045, .105, .155, .96), border=True)
+        art = shop_icon_texture(identifier, slay.shop_entry_icon(identifier), category) if identifier else None
+        if art is not None:
+            row.add_widget(Image(texture=art, size_hint_x=None, width=dp(43)))
+        else:
+            row.add_widget(Label(text='◆', color=(.35, .69, .85, 1),
+                                 font_size=dp(22), size_hint_x=None, width=dp(43)))
+        text = BoxLayout(orientation='vertical', spacing=dp(1))
+        name = ('×' + str(quantity) + '  ' if quantity > 1 else '') + title
+        main = Label(text=name, font_size=dp(15), bold=True,
+                     halign='left', valign='middle')
+        main.bind(size=lambda widget, value: setattr(widget, 'text_size', value))
+        text.add_widget(main)
+        if description:
+            detail = Label(text=description, font_size=dp(12), color=(.70, .81, .89, 1),
+                           halign='left', valign='middle', shorten=True, shorten_from='right')
+            detail.bind(size=lambda widget, value: setattr(widget, 'text_size', value))
+            text.add_widget(detail)
+        row.add_widget(text)
+        return row
+
+    for index, choice in enumerate(choices):
+        items = list(choice.get('items', ()))
+        potions = list(choice.get('potions', ()))
+        count = len(items) + len(potions) + bool(int(choice.get('credits', 0)))
+        note = str(choice.get('note', '')).strip()
+        # Card height tracks actual contents; scroll accommodates large bundles.
+        total_rows_height = sum(dp(55) for _ in items) + sum(dp(77) for _ in potions)
+        if int(choice.get('credits', 0)): total_rows_height += dp(55)
+        height = dp(22 + 36 + 12 + 46 + 12 + 8 * max(0, count - 1)) + total_rows_height
+        if note: height += dp(37)
+        card = BoxLayout(orientation='vertical', size_hint_y=None, height=height,
+                         spacing=dp(8), padding=dp(11))
+        panel(card, color=(.028, .065, .105, .98), border=True)
+        head = Label(text=str(choice['name']), font_size=dp(19), bold=True,
+                     color=(.66, .88, 1, 1), halign='left', valign='middle',
+                     size_hint_y=None, height=dp(36))
+        head.bind(size=lambda w, value: setattr(w, 'text_size', value))
+        card.add_widget(head)
+        for item in items:
+            ident = str(item['name'])
+            card.add_widget(reward_row(slay.shop_entry_display_name(ident), ident,
+                                       quantity=int(item.get('count', 1))))
+        for potion in potions:
+            ident = str(potion)
+            info = slay.POTION_CATALOG.get(ident, {})
+            card.add_widget(reward_row(str(info.get('name', ident)), ident,
+                                       description=str(info.get('description', '')),
+                                       category='Consumables'))
+        amount = int(choice.get('credits', 0))
+        if amount:
+            card.add_widget(reward_row(f'{amount} Credits'))
+        if note:
+            note_label = Label(text=note, font_size=dp(13),
+                               size_hint_y=None, height=dp(29), color=(.7, .8, .9, 1),
+                               halign='left', valign='middle')
+            note_label.bind(size=lambda w, value: setattr(w, 'text_size', value))
+            card.add_widget(note_label)
+        choose = Button(text='Take ' + str(choice['name']), size_hint_y=None,
+                        height=dp(46), font_size=dp(15), background_normal='',
+                        background_color=(.07, .27, .40, 1))
+        def claim(_button, i=index):
+            ok, message = slay.chest_choose(manager.ctx, i)
+            if not ok:
+                feedback.text = message
+                return
+            dialog.dismiss()
+            invalidate = getattr(manager, '_slay_invalidate_shop_cache', None)
+            if callable(invalidate):
+                invalidate(.05)
+            Clock.schedule_once(lambda dt: manager.build_mission_table(dt), .08)
+        choose.bind(on_release=claim)
+        card.add_widget(choose)
+        grid.add_widget(card)
+    dialog.open()
+
+def _slay_noncombat_tick(manager, _dt):
+    from worlds.sc2 import slay_the_starcraft as slay
+    if not slay.special_nodes_enabled(manager.ctx) or getattr(manager, 'launching', False):
+        return
+    if slay.chest_pending(manager.ctx) is not None:
+        _slay_open_chest_popup(manager)
+    if slay.events_enabled(manager.ctx):
+        _slay_event_tick(manager, _dt)
+
+
 def build_chart(manager):
     from worlds.sc2 import slay_the_starcraft as slay
-    buttons=manager.mission_buttons
-    if not buttons:return
+    native_buttons=list(manager.mission_buttons)
+    if not native_buttons:return
+    buttons=list(native_buttons)
+    signature=(tuple(native_buttons),tuple(slay.chosen_path(manager.ctx)),
+               tuple(sorted(slay.state(manager.ctx).get('special_resolved', {}))))
     scroll=manager.campaign_scroll_panel
     if not getattr(manager,'slay_chart_container',False):
         # Attach through the known ScrollView instead of trusting old_panel.parent.
@@ -1239,18 +1415,33 @@ def build_chart(manager):
                 _command_ui_log('Chart container reattach failed:\n'+traceback.format_exc())
                 Clock.schedule_once(lambda _dt: build_chart(manager),0)
                 return
-    if getattr(manager,'slay_chart_buttons',())==tuple(buttons) and getattr(manager,'slay_chart',None) and manager.slay_chart.parent:
+    if getattr(manager,'slay_chart_signature',None)==signature and getattr(manager,'slay_chart',None) and manager.slay_chart.parent:
         # Original refreshes can restore the compact rectangular-table height.
         # Keep the scroll extent owned by the taller planet chart.
         manager.campaign_panel.height=manager.slay_chart_scene.height
         return
+    if slay.special_nodes_enabled(manager.ctx):
+        for mid, data in slay.nodes(manager.ctx).items():
+            if data.get('node_type') not in ('event', 'chest'):
+                continue
+            b=Button(size_hint=(None,None))
+            b.mission_id=int(mid)
+            decorate_noncombat_node(manager,b)
+            buttons.append(b)
     rows=defaultdict(list)
-    for b in buttons:rows[int((slay.node(manager.ctx,int(b.mission_id)) or {}).get('layer',0))].append(b)
+    for b in buttons:
+        data=slay.node(manager.ctx,int(b.mission_id)) or {}
+        rows[int(data.get('map_layer',data.get('layer',0)))].append(b)
     layers=sorted(rows);max_width=max(map(len,rows.values()))
-    chart=FloatLayout(size_hint=(None,None),size=(dp(max(1100,max_width*362+175)),dp((len(layers))*ROUTE_FLOOR_SPACING+120)))
+    floor_offsets, chart_height = route_floor_offsets({int(b.mission_id):
+        dict(slay.node(manager.ctx, int(b.mission_id)) or {}) for b in buttons})
+    chart=FloatLayout(size_hint=(None,None),size=(dp(max(1100,max_width*362+175)),dp(chart_height)))
     for b in buttons:
         if b.parent:b.parent.remove_widget(b)
-        b.size_hint=(None,None);b.size=(dp(294),dp(NODE_CARD_HEIGHT));decorate_node(manager,b);chart.add_widget(b)
+        b.size_hint=(None,None)
+        if not getattr(b,'slay_virtual',False):
+            b.size=(dp(294),dp(NODE_CARD_HEIGHT));decorate_node(manager,b)
+        chart.add_widget(b)
     # Preserve lane spacing after widening title/nameplate widgets. Different
     # floors can have different name lengths, so use the densest floor.
     chart_min_width=max(dp(1100),max(
@@ -1335,6 +1526,8 @@ def build_chart(manager):
     scroll.scroll_wheel_distance=dp(45)
     manager.campaign_panel.size_hint_x=None
     manager.slay_chart=chart;manager.slay_chart_buttons=tuple(buttons)
+    manager.slay_chart_signature=signature
+    manager.slay_display_buttons=tuple(buttons)
     manager.slay_chart_lines=None
     graph_data={int(b.mission_id):dict(slay.node(manager.ctx,int(b.mission_id)) or {}) for b in buttons}
     preferred=slay.route_layout_x_fractions(manager.ctx)
@@ -1363,8 +1556,9 @@ def build_chart(manager):
             cx,y=positions[int(b.mission_id)]
             b.pos=(cx-b.width/2,y)
         for index, layer in enumerate(layers):
-            if layer in floor_labels:floor_labels[layer].pos=(dp(8),dp(95+index*205))
+            if layer in floor_labels:floor_labels[layer].pos=(dp(8), dp(floor_offsets[layer] + 65))
         manager.draw_slay_edges()
+        _slay_draw_event_lines(manager, chart, rows)
     manager.campaign_scroll_panel.bind(size=layout)
     # Unbind the previous chart's resize callback when it is replaced.
     old=getattr(manager,'slay_chart_resize',None)
@@ -1379,12 +1573,201 @@ def build_chart(manager):
 
 
 
+
+def _slay_draw_event_lines(manager, chart, rows):
+    """Horizontal encounter barriers, independent of native mission IDs."""
+    from worlds.sc2 import slay_the_starcraft as slay
+    prior = getattr(manager, 'slay_event_line_group', None)
+    if prior is not None:
+        try:
+            chart.canvas.after.remove(prior)
+        except Exception:
+            pass
+    group = InstructionGroup()
+    if not slay.events_enabled(manager.ctx):
+        manager.slay_event_line_group = None
+        return
+    completed = slay.victory_count(manager.ctx)
+    pending = slay.event_pending(manager.ctx)
+    for checkpoint in slay.event_checkpoints(manager.ctx):
+        if checkpoint == 0:
+            first = rows.get(0, [])
+            if not first:
+                continue
+            y = min(b.y for b in first) - dp(34)
+        else:
+            before, after = rows.get(checkpoint - 1, []), rows.get(checkpoint, [])
+            if not before or not after:
+                continue
+            y = (max(b.top for b in before) + min(b.y for b in after)) / 2
+        if y < 0:
+            y = dp(12)
+        if pending is not None and pending["checkpoint"] == checkpoint:
+            color = (.28, .88, 1, .95)
+        elif checkpoint <= completed:
+            color = (.27, .78, .47, .72)
+        else:
+            color = (.55, .60, .65, .52)
+        group.add(Color(*color))
+        group.add(Line(points=[dp(16), y, chart.width - dp(16), y], width=dp(3.5)))
+        # A short centered segment makes the barrier recognizable at low zoom.
+        group.add(Line(points=[chart.width / 2 - dp(90), y,
+                               chart.width / 2 + dp(90), y], width=dp(6)))
+    chart.canvas.after.add(group)
+    manager.slay_event_line_group = group
+
+def _slay_show_abathur_results(message):
+    """Display the actual AP item changes, and nothing beyond their names."""
+    outer = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(16))
+    scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
+    details = Label(text=message, font_size=dp(16), halign='left',
+                    valign='top', size_hint_y=None, markup=False)
+    details.bind(width=lambda widget, width: setattr(
+        widget, 'text_size', (max(dp(100), width - dp(12)), None)))
+    details.bind(texture_size=lambda widget, size: setattr(
+        widget, 'height', max(dp(80), size[1] + dp(12))))
+    scroll.add_widget(details)
+    outer.add_widget(scroll)
+    close = Button(text='Close', size_hint_y=None, height=dp(46))
+    outer.add_widget(close)
+    popup = Popup(title="Abathur's Evolution", content=outer,
+                  size_hint=(.74, .75), auto_dismiss=False)
+    close.bind(on_release=lambda _button: popup.dismiss())
+    popup.open()
+
+
+def _slay_open_event_popup(manager):
+    from worlds.sc2 import slay_the_starcraft as slay
+    if getattr(manager, 'launching', False) or not slay.events_enabled(manager.ctx):
+        return
+    info = slay.event_display(manager.ctx)
+    existing = getattr(manager, 'slay_event_popup', None)
+    if info is None or existing is not None:
+        return
+    # The mission HoverBehavior still fires behind Kivy popups. Use the same
+    # guard as Shop/Inventory, and do not stack the event on an open shop.
+    if getattr(manager, 'slay_modal_open', False):
+        return
+    begin_modal = getattr(manager, '_slay_begin_modal', None)
+    if callable(begin_modal):
+        begin_modal()
+    outer = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(16))
+    subtitle = Label(text=info['description'], font_size=dp(16),
+                     size_hint_y=None, halign='left', valign='middle')
+    subtitle.bind(width=lambda w, width: setattr(w, 'text_size', (max(dp(100), width), None)))
+    subtitle.bind(texture_size=lambda w, v: setattr(w, 'height', max(dp(66), v[1] + dp(16))))
+    outer.add_widget(subtitle)
+    scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
+    options = GridLayout(cols=1, spacing=dp(10), padding=[dp(4)] * 4, size_hint_y=None)
+    options.bind(minimum_height=options.setter('height'))
+    scroll.add_widget(options)
+    outer.add_widget(scroll)
+    notice = Label(text='', font_size=dp(14), size_hint_y=None, height=dp(38),
+                   color=(1, .75, .36, 1), halign='left')
+    notice.bind(size=lambda widget, size: setattr(widget, 'text_size', size))
+    outer.add_widget(notice)
+    dialog = Popup(title='EVENT: ' + info['name'], content=outer,
+                   size_hint=(.84, .86), auto_dismiss=False)
+    manager.slay_event_popup = dialog
+
+    def event_dismissed(*_args):
+        if manager.slay_event_popup is dialog:
+            manager.slay_event_popup = None
+        end_modal = getattr(manager, '_slay_end_modal', None)
+        if callable(end_modal):
+            end_modal()
+    dialog.bind(on_dismiss=event_dismissed)
+
+    def close_and_refresh(_dt=0):
+        if manager.slay_event_popup is dialog:
+            manager.slay_event_popup = None
+        dialog.dismiss()
+        if slay.event_pending(manager.ctx) is None:
+            Clock.schedule_once(lambda dt: manager.build_mission_table(dt), .05)
+        else:
+            Clock.schedule_once(lambda dt: _slay_open_event_popup(manager), .10)
+
+    for index, choice in enumerate(info['options']):
+        label_text = choice['text']
+        enabled = bool(choice['enabled'])
+        item = Button(text=label_text, disabled=not enabled,
+                      size_hint_y=None, height=dp(175 if len(label_text)>210 else
+                                                   145 if len(label_text)>140 else
+                                                   110 if len(label_text)>85 else 60),
+                      halign='left', valign='middle', font_size=dp(15),
+                      background_normal='', background_down='',
+                      background_color=(.11, .20, .27, 1) if enabled else (.11, .13, .16, 1))
+        item.bind(size=lambda w, size: setattr(w, 'text_size', (max(dp(80), size[0]-dp(24)), size[1]-dp(8))))
+        if info['id'] == '__test_select__':
+            def pick_event(_button, index=index):
+                event_id = info['selector_ids'][index]
+                ok, message = slay.event_select_test(manager.ctx, event_id)
+                if ok:
+                    close_and_refresh()
+                else:
+                    notice.text = message
+            item.bind(on_release=pick_event)
+        else:
+            def pick_option(_button, index=index):
+                ok, message, complete = slay.event_apply_choice(manager.ctx, index)
+                if not ok:
+                    notice.text = message
+                    return
+                # Refresh available prices, owned counts, and eligibility
+                # without advancing the shop cycle or rerolling offers.
+                # The event is not a victory and must never restock the shop.
+                invalidate = getattr(manager, '_slay_invalidate_shop_cache', None)
+                if callable(invalidate):
+                    invalidate(0.05)
+                else:
+                    manager.slay_shop_cache = None
+                # Multiple merchant purchases intentionally leave event open.
+                # Recreate the popup so sold-out offers and credits refresh.
+                close_and_refresh()
+                # Only Abathur's Evolution has a post-choice results popup:
+                # list actual lost units and item upgrades without extra prose.
+                if info['id'] == 'abathur' and index == 0:
+                    Clock.schedule_once(
+                        lambda _dt, result=message: _slay_show_abathur_results(result), .12)
+            item.bind(on_release=pick_option)
+        options.add_widget(item)
+    if any(not o.get('implemented', True) for o in info['options']):
+        notice.text = 'Unavailable choices cannot be selected.'
+    dialog.open()
+
+def _slay_event_tick(manager, _dt):
+    from worlds.sc2 import slay_the_starcraft as slay
+    if not slay.events_enabled(manager.ctx):
+        return
+    if getattr(manager, 'slay_chart', None) is not None:
+        chart = manager.slay_chart
+        rows = getattr(chart, 'rows', {})
+        if rows:
+            _slay_draw_event_lines(manager, chart, rows)
+    if not getattr(manager, 'launching', False) and slay.event_pending(manager.ctx) is not None:
+        _slay_open_event_popup(manager)
+
+def route_floor_offsets(nodes):
+    """Floor positions in map dp: compact rows containing only events/chests."""
+    floors = defaultdict(list)
+    for node in nodes.values():
+        floors[int(node.get('map_layer', node.get('layer', 0)))].append(node)
+    offsets = {}
+    y = 30
+    for floor in sorted(floors):
+        offsets[floor] = y
+        only_special = all(row.get('node_type') in ('event', 'chest') for row in floors[floor])
+        y += SPECIAL_ROUTE_FLOOR_SPACING if only_special else ROUTE_FLOOR_SPACING
+    return offsets, y + 70
+
+
 def resolve_route_positions(nodes,width,preferred=None,node_widths=None):
     """Keep original branch positions; separate widened labels without overlaps."""
     preferred=preferred or {};node_widths=node_widths or {};rows=defaultdict(list)
-    for mid,data in nodes.items():rows[int(data.get('layer',0))].append(mid)
+    for mid,data in nodes.items():rows[int(data.get('map_layer',data.get('layer',0)))].append(mid)
     lanes=[float(data.get('lane',0)) for data in nodes.values()];lo=min(lanes,default=0);span=max(1,max(lanes,default=1)-lo)
     out={};margin=dp(120)
+    floor_offsets, _ = route_floor_offsets(nodes)
     def radius(mid):return float(node_widths.get(mid,dp(306)))/2
     for index,layer in enumerate(sorted(rows)):
         targets={}
@@ -1417,7 +1800,7 @@ def resolve_route_positions(nodes,width,preferred=None,node_widths=None):
                 xs[i]=min(xs[i],xs[i+1]-gap)
         for mid,x in zip(ordered,xs):
             vertical=((int(mid)*23+layer*11)%19-9)*dp(1)
-            out[mid]=(x,dp(30+index*ROUTE_FLOOR_SPACING)+vertical)
+            out[mid]=(x, dp(floor_offsets[layer])+vertical)
     return out
 
 def draw_edges(manager,*_):
@@ -1426,7 +1809,7 @@ def draw_edges(manager,*_):
     if chart is None or chart.parent is None:return
     old=getattr(manager,'slay_chart_lines',None)
     if old:chart.canvas.before.remove(old)
-    group=InstructionGroup();by_id={int(b.mission_id):b for b in manager.mission_buttons};traversed=slay.traversed_edge_pairs(manager.ctx);count=0
+    group=InstructionGroup();by_id={int(b.mission_id):b for b in getattr(manager,'slay_display_buttons',manager.mission_buttons)};traversed=slay.traversed_edge_pairs(manager.ctx);count=0
     # First paint race-tinted rectangles, then routes on the SAME chart layer.
     # Kivy draws the child mission buttons (and their planet graphics) later,
     # masking the final part of each line behind the planet itself.
@@ -1437,7 +1820,10 @@ def draw_edges(manager,*_):
     for mission_id,b in by_id.items():
         data=slay.node(manager.ctx,mission_id) or {}
         race=str(data.get('race') or '').strip().title()
-        group.add(Color(*race_fills.get(race,(.10,.12,.14,.50))))
+        special=data.get('node_type')
+        fill=((.18,.13,.08,.67) if special=='chest' else (.13,.08,.17,.67)
+              if special=='event' else race_fills.get(race,(.10,.12,.14,.50)))
+        group.add(Color(*fill))
         group.add(RoundedRectangle(pos=b.pos,size=b.size,radius=[dp(18)]*4))
         group.add(Color(*race_edges.get(race,(.85,.90,.96,.095))))
         group.add(Line(rounded_rectangle=(b.x+dp(1),b.y+dp(1),max(0,b.width-dp(2)),
@@ -1448,8 +1834,10 @@ def draw_edges(manager,*_):
         # End 10-12dp *inside* each planet silhouette. The planets render after
         # this canvas group and cover the endpoints; only emerging angled stems
         # remain visible, instead of a line across the face of the planet.
-        sx,sy=a.x+dp(NODE_PLANET_X),a.y+dp(NODE_PLANET_CENTER_Y+27)
-        dx,dy=b.x+dp(NODE_PLANET_X),b.y+dp(NODE_PLANET_CENTER_Y-27)
+        sx = a.center_x if getattr(a, 'slay_virtual', False) else a.x+dp(NODE_PLANET_X)
+        sy = a.center_y+dp(17) if getattr(a, 'slay_virtual', False) else a.y+dp(NODE_PLANET_CENTER_Y+22)
+        dx = b.center_x if getattr(b, 'slay_virtual', False) else b.x+dp(NODE_PLANET_X)
+        dy = b.center_y-dp(17) if getattr(b, 'slay_virtual', False) else b.y+dp(NODE_PLANET_CENTER_Y-22)
         bend=max(dp(15),(dy-sy)*.52)
         sway=(dx-sx)*.18
         selected=(src,dst) in traversed
@@ -1504,6 +1892,14 @@ def install(module):
                 manager._slay_command_ui_legacy_panel=manager.campaign_panel
             try:
                 build_chart(manager)
+                if slay.special_nodes_enabled(manager.ctx):
+                    if not getattr(manager, 'slay_special_timer', None):
+                        manager.slay_special_timer = Clock.schedule_interval(
+                            lambda dt: _slay_noncombat_tick(manager, dt), 0.8)
+                    Clock.schedule_once(lambda dt: _slay_noncombat_tick(manager, dt), 0)
+                elif slay.events_enabled(manager.ctx) and not getattr(manager, 'slay_event_timer', None):
+                    manager.slay_event_timer = Clock.schedule_interval(lambda dt: _slay_event_tick(manager, dt), 0.8)
+                    Clock.schedule_once(lambda dt: _slay_event_tick(manager, dt), 0)
             except Exception:
                 manager._slay_command_ui_disabled=True
                 _command_ui_log('Command UI disabled after build_chart exception:\n'+traceback.format_exc())

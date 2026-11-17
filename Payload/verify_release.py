@@ -1,9 +1,9 @@
 from __future__ import annotations
-import argparse, ast, csv, importlib.util, py_compile, sys, xml.etree.ElementTree as ET
+import argparse, ast, csv, hashlib, importlib.util, py_compile, re, sys, xml.etree.ElementTree as ET
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 RELEASE_ROOT=ROOT.parent
-VERSION="1.2.3"
+VERSION="1.3.0"
 
 def load_installer():
     spec=importlib.util.spec_from_file_location("slay_release_installer", ROOT/"install_slay.py")
@@ -688,8 +688,11 @@ def verify_v10216_changes(payload_dir: Path) -> None:
 def verify_v10217_changes(payload_dir: Path) -> None:
     generator = (payload_dir / "generate_slay_run.py").read_text(encoding="utf-8")
     galaxy = (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8")
-    if 'EFFECT_SELECTION_MULTIPLIER = {"general": 3.0, "multi_class": 2.0}' not in generator:
-        raise RuntimeError("New-effect development selection boosts were not removed")
+    # General/Multi-Class are the established weights. The intentional 2x
+    # Swarms of [unit] mutation from Dev4 is a gameplay rule, not a leaked
+    # development test multiplier.
+    if 'EFFECT_SELECTION_MULTIPLIER = {"general": 3.0, "multi_class": 2.0, "swarms_of_unit": 2.0}' not in generator:
+        raise RuntimeError("Effect selection weights differ from the declared release balance")
     for token in (
         "destination = RegionRandomPoint(RegionPlayableMap());",
         "this deliberately allows routes through the player's base",
@@ -718,12 +721,30 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
         "scale/DEFAULT_ROUTE_SCALE",
         "width=dp(2.4 if status=='available' else 1.2)",
         "width=dp(3)",
-        "NODE_CARD_HEIGHT=116",
         "RoundedRectangle(pos=(0,0),size=(0,0),radius=[dp(18)]*4)",
         "font_size=dp(21)",
     ):
         if token not in command:
             raise RuntimeError(f"Missing v1.2.1 UI batch command token: {token}")
+    # Node card sizes are intentional layout parameters. Dev26 reduced combat
+    # and special-floor card heights, so do not pin verification to an obsolete
+    # literal such as NODE_CARD_HEIGHT=116. Check both sizes and their row
+    # spacing instead, preserving a useful guard without blocking UI tuning.
+    dimensions = {}
+    for name in ("NODE_CARD_HEIGHT", "SPECIAL_NODE_CARD_HEIGHT",
+                 "ROUTE_FLOOR_SPACING", "SPECIAL_ROUTE_FLOOR_SPACING"):
+        match = re.search(r"(?m)^" + name + r"\s*=\s*(\d+)\s*$", command)
+        if match is None:
+            raise RuntimeError(f"Missing or invalid mission-map dimension: {name}")
+        dimensions[name] = int(match.group(1))
+    if not (60 <= dimensions["NODE_CARD_HEIGHT"] <= 150):
+        raise RuntimeError("Mission map card height outside supported range")
+    if not (40 <= dimensions["SPECIAL_NODE_CARD_HEIGHT"] <= dimensions["NODE_CARD_HEIGHT"]):
+        raise RuntimeError("Event/chest card height must not exceed combat card height")
+    if dimensions["ROUTE_FLOOR_SPACING"] < dimensions["NODE_CARD_HEIGHT"]:
+        raise RuntimeError("Mission row spacing is smaller than its card")
+    if dimensions["SPECIAL_ROUTE_FLOOR_SPACING"] < dimensions["SPECIAL_NODE_CARD_HEIGHT"]:
+        raise RuntimeError("Event/chest row spacing is smaller than its card")
     # An unsupported Galaxy native breaks APRogue globally: all three races
     # appear broken even if the invalid function would never execute.
     galaxy = (payload_dir / "APRogue.galaxy").read_text(encoding="utf-8")
@@ -769,6 +790,33 @@ def verify_v110_ui_batch(payload_dir: Path) -> None:
         if token not in installer:
             raise RuntimeError(f"Missing shop purchase reveal path: {token}")
 
+def check_original_sc2_art():
+    """Guard against generating placeholder images over recovered SC2 artwork.
+
+    The public source tree omits copyrighted SC2 media and carries only mappings;
+    the Windows ZIP includes the exact v1.2.3 images. This check runs only when
+    a source tree actually contains PNGs (as the portable ZIP does).
+    """
+    art = ROOT / "slay_assets"
+    images = list(art.rglob("*.png")) if art.exists() else []
+    if not images:
+        return
+    if len(images) < 818:
+        raise RuntimeError(f"Bundled StarCraft artwork incomplete: {len(images)} of 818 originals")
+    originals = {
+        "icons/btn-unit-terran-marine.png": "c21c8ec6aa98aeaa24fc012b8f43860726a95d42805d3bd828d7caec17633215",
+        "icons/btn-unit-zerg-zergling.png": "583c2adb1f00cac922317bbba24acbbda2245f1df3977f5a096703178f83960d",
+        "icons/btn-unit-protoss-zealot.png": "ae317b57c3a2782ffd7454e58e27a1784fe316e105502324f4c6e36caaba9c06",
+        "planets/planetview_marsaradiffuse2.png": "03b916ef9cac9bc84121c50671999a6ffbf402e2498dd2f64cae77dff5d40b64",
+        "ui_screen_mainmenurebrandlow.png": "54240359a098911263b4a99f6ce2a4b5498ed53cab65f8be7f718b2874042aea",
+        "sc2_ui_glues_bluebuttons_taskbarbuttonup.png": "cd35b9e4ac92b5ebb7677ad02c6b41d167d3a7c716fdc8dc45152910e82ee5f0",
+    }
+    for name, expected in originals.items():
+        path = art / name
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise RuntimeError(f"Original StarCraft artwork changed or missing: {name}")
+
+
 def main():
     pa = argparse.ArgumentParser()
     pa.add_argument("--archipelago", type=Path)
@@ -778,6 +826,7 @@ def main():
     try:
         check_python()
         check_payload()
+        check_original_sc2_art()
         if not a.source_only:
             if a.archipelago is None or a.sc2 is None:
                 pa.error("--archipelago and --sc2 are required unless --source-only is used")

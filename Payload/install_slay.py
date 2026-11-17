@@ -240,7 +240,7 @@ def refresh_ap_content_docs_cache(target: pathlib.Path) -> int:
 
             AP_CONTENT_DOCS_URL,
 
-            headers={"User-Agent": "SlayTheStarCraft/1.2.3"},
+            headers={"User-Agent": "SlayTheStarCraft/1.3.0"},
 
         )
 
@@ -1650,6 +1650,36 @@ def patch_client(text: str) -> str:
         text = text[:match.start()] + replacement + text[match.end():]
 
 
+    # Optional native event packet. Keep the original 25 APRogue arguments
+    # unchanged so old normal-run behavior remains bit-for-bit compatible.
+    event_send = (
+        '            event_mask, event_unit, event_count = '
+        'slay.event_native_values_for_mission(self.ctx, self.mission_id)\n'
+        '            await self.chat_send(f"?SlayEvent {event_mask} {event_unit} {event_count}")\n'
+        '            mech_unit, mech_qty, mech_mode, mech_checkpoint = '
+        'slay.event_mechanical_values_for_mission(self.ctx, self.mission_id)\n'
+        '            await self.chat_send(f"?SlayMech {mech_unit} {mech_qty} {mech_mode} {mech_checkpoint}")\n'
+    )
+    if "event_native_values_for_mission(self.ctx, self.mission_id)" not in text:
+        current_launch = '            await self.chat_send(f"' + current_send + '")\n'
+        if text.count(current_launch) != 1:
+            raise RuntimeError("Cannot identify unique APRogue mission launch for native event handshake")
+        text = text.replace(current_launch, current_launch + event_send, 1)
+    elif "event_mechanical_values_for_mission(self.ctx, self.mission_id)" not in text:
+        # Users upgrading an existing Dev10 install already have ?SlayEvent
+        # injected. Add only the new optional packet; never double-insert
+        # or rewrite the stable APRogue parameter positions.
+        prior_event_line = (
+            '            await self.chat_send(f"?SlayEvent {event_mask} {event_unit} {event_count}")\n'
+        )
+        mechanical_lines = (
+            '            mech_unit, mech_qty, mech_mode, mech_checkpoint = '
+            'slay.event_mechanical_values_for_mission(self.ctx, self.mission_id)\n'
+            '            await self.chat_send(f"?SlayMech {mech_unit} {mech_qty} {mech_mode} {mech_checkpoint}")\n'
+        )
+        if text.count(prior_event_line) != 1:
+            raise RuntimeError("Cannot upgrade a preexisting Slay event packet for the mechanical field test")
+        text = text.replace(prior_event_line, prior_event_line + mechanical_lines, 1)
 
     return text
 
@@ -2500,6 +2530,11 @@ def patch_gui(text: str) -> str:
             tuple(state.get("shop_sale_items", ())),
             tuple(sorted(state.get("shop_cycle_purchases", {}).items())),
             tuple(sorted(state.get("purchases", {}).items())),
+            # Event choices refresh cached prices and eligibility. They never
+            # change the persisted rolled shop offers or sale assignments.
+            tuple(state.get("event_price_penalties", ())),
+            tuple(sorted(state.get("event_awarded_items", {}).items())),
+            tuple(sorted(state.get("event_forfeited_ap_counts", {}).items())),
             tuple(state.get("permanent_blessings", ())),
             tuple(state.get("permanent_boons", ())),
             tuple(sorted(state.get("duplicate_replacements", {}).items())),
@@ -4618,12 +4653,16 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
 
     bundled_runtime = source / "slay_the_starcraft.py"
+    bundled_events = source / "slay_events.py"
+    bundled_route_nodes = source / "slay_route_nodes.py"
+    bundled_chests = source / "slay_chests.py"
 
     bundled_launcher = source / "slay_launcher.py"
 
     bundled_client_entry = source / "slay_client_entry.py"
 
     bundled_theme = source / "slay_theme.py"
+    bundled_asset_recovery = source / "slay_asset_recovery.py"
     bundled_theme_assets = source / "slay_assets"
 
     bundled_effect_catalog = source / "EFFECT_CATALOG.csv"
@@ -4657,12 +4696,16 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
         (trigger_doc_header, "ArchipelagoTriggers DocumentHeader"),
 
         (bundled_runtime, "runtime module"),
+        (bundled_events, "event catalog and engine"),
+        (bundled_route_nodes, "Standard-mode route nodes"),
+        (bundled_chests, "Standard-mode chest offers"),
 
         (bundled_launcher, "portable launcher module"),
 
         (bundled_client_entry, "portable launcher client entry"),
 
         (bundled_theme, "English SC2 theme module"),
+        (bundled_asset_recovery, "optional local SC2 art recovery module"),
 
         (bundled_effect_catalog, "effect catalog"),
 
@@ -4867,6 +4910,9 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
     validate_galaxy(galaxy_new, apr_text)
 
     validate_python(bundled_runtime.read_text(encoding="utf-8"), "slay_the_starcraft.py")
+    validate_python(bundled_events.read_text(encoding="utf-8"), "slay_events.py")
+    validate_python(bundled_route_nodes.read_text(encoding="utf-8"), "slay_route_nodes.py")
+    validate_python(bundled_chests.read_text(encoding="utf-8"), "slay_chests.py")
 
     validate_python(bundled_launcher.read_text(encoding="utf-8"), "slay_launcher.py")
 
@@ -4932,7 +4978,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         client_entry_target: bundled_client_entry.read_text(encoding="utf-8"),
 
-        **{ap_root / name: (source / name).read_text(encoding="utf-8-sig") for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py")},
+        **{ap_root / name: (source / name).read_text(encoding="utf-8-sig") for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_asset_recovery.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py")},
 
         generator_target: bundled_generator.read_text(encoding="utf-8"),
 
@@ -4969,7 +5015,7 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         dependency_variant_live_targets.extend((info_path, header_path))
 
-    live_targets = (client, gui, galaxy_lib, trigger_doc_info, trigger_doc_header, runtime_target, launcher_target, client_entry_target, ap_docs_target, effect_catalog_target, boon_catalog_target, mercenary_catalog_target, kerrigan_catalog_target, spear_catalog_target, unit_catalog_target, generator_target, apr_target, warpgate_game_hotkeys, aprogue_game_strings, game_data_include, aprogue_data_target, *dependency_variant_live_targets)
+    live_targets = (client, gui, galaxy_lib, trigger_doc_info, trigger_doc_header, runtime_target, runtime_target.parent / "slay_route_nodes.py", runtime_target.parent / "slay_chests.py", launcher_target, client_entry_target, ap_docs_target, effect_catalog_target, boon_catalog_target, mercenary_catalog_target, kerrigan_catalog_target, spear_catalog_target, unit_catalog_target, generator_target, apr_target, warpgate_game_hotkeys, aprogue_game_strings, game_data_include, aprogue_data_target, *dependency_variant_live_targets)
 
     prior_bytes = {
 
@@ -5022,6 +5068,9 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
         aprogue_data_target.write_text(aprogue_data_text, encoding="ascii")
 
         shutil.copy2(bundled_runtime, runtime_target)
+        shutil.copy2(bundled_events, runtime_target.parent / "slay_events.py")
+        shutil.copy2(bundled_route_nodes, runtime_target.parent / "slay_route_nodes.py")
+        shutil.copy2(bundled_chests, runtime_target.parent / "slay_chests.py")
         # Crew Challenge's independent ledger and workbook-derived whitelist.
         for crew_file in ('crew_auto.py', 'crew_bank_receipts.py', 'crew_batch.py', 'crew_bridge.py', 'crew_catalog.py', 'crew_challenge.py', 'crew_field_build.py', 'crew_live_bot.py', 'crew_native_train.py', 'crew_queue_budget.py', 'crew_runtime.py', 'crew_sc2_adapter.py', 'crew_tags.py', 'crew_rules.json', 'crew_effects.json'):
             shutil.copy2(source / crew_file, runtime_target.parent / crew_file)
@@ -5031,11 +5080,29 @@ def install(ap_root: pathlib.Path, sc2_root: pathlib.Path, source: pathlib.Path)
 
         shutil.copy2(bundled_client_entry, client_entry_target)
 
-        for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py"):
+        for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_asset_recovery.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py"):
             shutil.copy2(source / name, ap_root / name)
         assets_source = source / "slay_assets"
         if assets_source.is_dir():
-            shutil.copytree(assets_source, ap_root / "slay_assets", dirs_exist_ok=True)
+            # Keep the runtime's official bundled art in sync with the Payload.
+            # Older Dev packages generated placeholders with the same filenames:
+            # an exists-only copy would permanently preserve those wrong images.
+            # Preserve extra locally extracted assets not present in the bundle.
+            assets_target = ap_root / "slay_assets"
+            for art in assets_source.rglob("*"):
+                if not art.is_file():
+                    continue
+                destination = assets_target / art.relative_to(assets_source)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                if not destination.is_file() or art.read_bytes() != destination.read_bytes():
+                    shutil.copy2(art, destination)
+            # Discard synthetic planet pictures from the first 1.3.0 package;
+            # these were not part of the v1.2.3 StarCraft artwork set.
+            synthetic_planet_names = ('smx2_starmap_ui_mission_belshirplanet_dif.png', 'smx2_starmap_ui_mission_braxisplanet_dif.png', 'smx2_starmap_ui_mission_charplanet_dif.png', 'smx2_starmap_ui_mission_korhalplanet_dif.png', 'smx2_starmap_ui_mission_ulnarplanet_dif.png', 'smx2_starmap_ui_mission_xilplanet_dif.png', 'smx2_starmap_ui_mission_zerusplanet_dif.png', 'ui_planetpanel_honeycomb.png', 'ui_screens_zeratul_prologue_starfield_generic_diff.png')
+            for name in synthetic_planet_names:
+                placeholder = assets_target / "planets" / name
+                if placeholder.is_file() and not (assets_source / "planets" / name).is_file():
+                    placeholder.unlink()
 
 
 
@@ -5307,7 +5374,7 @@ def uninstall(ap_root: pathlib.Path, sc2_root: pathlib.Path) -> None:
 
             path.unlink()
 
-    for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py"):
+    for name in ("slay_theme.py", "slay_command_ui.py", "slay_ui_support.py", "slay_asset_recovery.py", "slay_ui_icons.json", "slay_docs_icon_overrides.json", "slay_endless_ui.py"):
         extra = ap_root / name
         if extra.exists():
             extra.unlink()

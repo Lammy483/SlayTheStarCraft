@@ -47,7 +47,7 @@ from typing import Any
 
 
 
-PACKAGE_VERSION = "1.2.3"
+PACKAGE_VERSION = "1.3.0"
 
 LAUNCHER_ENV = "SLAY_LAUNCHER_MODE"
 
@@ -403,6 +403,9 @@ def generate_run(
     start_with_kerrigan: bool = DEFAULT_START_WITH_KERRIGAN,
     game_mode: str = "adventure",
     selected_races: tuple[str, ...] = DEFAULT_RACES,
+    excluded_missions: tuple[str, ...] = ("Lab Rat",),
+    events: bool = False,
+    chests: bool = True,
 
 ) -> tuple[Path, dict[str, Any]]:
 
@@ -500,6 +503,11 @@ def generate_run(
 
     ]
     command.extend(["--races", *selected_races])
+    command.extend(["--excluded-missions-json", json.dumps(list(excluded_missions))])
+    if events and game_mode == "adventure":
+        command.append("--events")
+    if not chests or game_mode != "adventure":
+        command.append("--no-chests")
     if start_with_spear:
         command.append("--start-with-spear")
     if start_with_kerrigan:
@@ -1303,6 +1311,14 @@ def install_launcher_tab(manager: Any) -> None:
             instructions.text = "[b]Standard Mode[/b]\n\n" + standard_description + "\n\n" + instruction_footer
         start_spear_button.disabled = mode == "crew"
         start_kerrigan_button.disabled = mode == "crew"
+        events_checkbox.disabled = mode != "adventure"
+        chests_checkbox.disabled = mode != "adventure"
+        if mode != "adventure":
+            events_checkbox.active = False
+            chests_checkbox.active = False
+        else:
+            events_checkbox.active = node_defaults["events"]
+            chests_checkbox.active = node_defaults["chests"]
         if mode == "crew":
             start_spear_button.text = "No"
             start_kerrigan_button.text = "No"
@@ -1321,9 +1337,95 @@ def install_launcher_tab(manager: Any) -> None:
     mode_button.bind(text=adjust_mode_defaults)
 
     # Column 4: starting progression.
-    add_field(3, "Extra Shop Slots", extra_shop_slots_button)
     add_field(3, "Start with Spear of Adun", start_spear_button)
     add_field(3, "Start with Kerrigan", start_kerrigan_button)
+    # Keep the two optional encounter types on ONE compact horizontal row.
+    # A full-height field for each toggle wastes space in the fourth column.
+    events_checkbox = CheckBox(active=True, size_hint_x=None, width=dp(34))
+    chests_checkbox = CheckBox(active=True, size_hint_x=None, width=dp(34))
+    node_defaults = {"events": True, "chests": True}
+    def remember_event_default(_checkbox, active):
+        if mode_button.text == "Standard":
+            node_defaults["events"] = bool(active)
+    def remember_chest_default(_checkbox, active):
+        if mode_button.text == "Standard":
+            node_defaults["chests"] = bool(active)
+    events_checkbox.bind(active=remember_event_default)
+    chests_checkbox.bind(active=remember_chest_default)
+    optional_nodes = BoxLayout(orientation="horizontal", spacing=dp(8),
+                               size_hint_y=None, height=dp(56))
+    for text, checkbox in (("Events (BETA)", events_checkbox),
+                           ("Chests (BETA)", chests_checkbox)):
+        toggle = BoxLayout(orientation="horizontal", spacing=dp(1), size_hint_x=.5)
+        caption = Label(text=text, halign="right", valign="middle", font_size=dp(12))
+        caption.bind(size=lambda inst, value: setattr(inst, "text_size", value))
+        toggle.add_widget(caption)
+        toggle.add_widget(checkbox)
+        optional_nodes.add_widget(toggle)
+    option_columns[3].add_widget(optional_nodes)
+
+    # Mission chooser uses the exact Archipelago pool rules, including build
+    # eligibility, supported campaigns and grouping all race variants together.
+    # Import the installed generator from the AP root (the same code used when
+    # Generate Run is pressed), so the GUI and generator cannot drift apart.
+    from importlib.util import spec_from_file_location, module_from_spec
+    _mission_spec = spec_from_file_location("slay_possible_mission_catalog", archipelago_root() / "SlayTheStarCraft.py")
+    if _mission_spec is None or _mission_spec.loader is None:
+        raise RuntimeError("Slay generator is missing; cannot load Possible Missions")
+    _mission_module = module_from_spec(_mission_spec)
+    _mission_spec.loader.exec_module(_mission_module)
+
+    mission_groups = _mission_module.possible_mission_groups(archipelago_root())
+    mission_names = tuple(dict.fromkeys(name for group in mission_groups.values() for name in group))
+    mission_checks = {name: CheckBox(active=name.casefold() != "lab rat", size_hint_x=None, width=dp(42))
+                      for name in mission_names}
+    mission_select_button = Button(text="Possible Missions...", size_hint_y=None, height=dp(42))
+    add_field(3, "Possible Missions", mission_select_button)
+    add_field(3, "Extra Shop Slots", extra_shop_slots_button)
+
+    def show_possible_missions(*_args: Any) -> None:
+        shell = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(12))
+        columns = BoxLayout(orientation="horizontal", spacing=dp(14))
+        for title, names in mission_groups.items():
+            panel = BoxLayout(orientation="vertical", spacing=dp(5), size_hint_x=1)
+            header = Label(text=title, size_hint_y=None, height=dp(32),
+                           font_size=dp(17), bold=True, halign="center", valign="middle")
+            header.bind(size=lambda widget, size: setattr(widget, "text_size", size))
+            panel.add_widget(header)
+            scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
+            contents = GridLayout(cols=1, spacing=dp(2), size_hint_y=None)
+            contents.bind(minimum_height=contents.setter("height"))
+            for name in names:
+                # Kivy widgets cannot be reparented on successive popup opens.
+                previous_checkbox = mission_checks[name]
+                checkbox = CheckBox(active=previous_checkbox.active, size_hint_x=None, width=dp(38))
+                mission_checks[name] = checkbox
+                row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(35))
+                row.add_widget(checkbox)
+                label = Button(text=name, halign="left", background_normal="",
+                               background_color=(0, 0, 0, 0))
+                label.bind(on_release=lambda _button, check=checkbox: setattr(check, "active", not check.active))
+                row.add_widget(label)
+                contents.add_widget(row)
+            scroll.add_widget(contents)
+            panel.add_widget(scroll)
+            columns.add_widget(panel)
+        shell.add_widget(columns)
+        actions = BoxLayout(orientation="horizontal", spacing=dp(8), size_hint_y=None, height=dp(44))
+        select_all = Button(text="Select All")
+        select_none = Button(text="Deselect All")
+        done = Button(text="Done")
+        actions.add_widget(select_all)
+        actions.add_widget(select_none)
+        actions.add_widget(done)
+        shell.add_widget(actions)
+        popup = Popup(title="Possible Missions", content=shell, size_hint=(0.94, 0.90))
+        select_all.bind(on_release=lambda *_: [setattr(ch, "active", True) for ch in mission_checks.values()])
+        select_none.bind(on_release=lambda *_: [setattr(ch, "active", False) for ch in mission_checks.values()])
+        done.bind(on_release=lambda *_: popup.dismiss())
+        popup.open()
+
+    mission_select_button.bind(on_release=show_possible_missions)
     root.add_widget(form)
 
     # Race selection belongs with the other generator settings, not beside
@@ -1435,6 +1537,7 @@ def install_launcher_tab(manager: Any) -> None:
         victory_multiplier_input.disabled = busy
 
         item_credit_input.disabled = busy
+        mission_select_button.disabled = busy
 
         status.text = message
 
@@ -1567,12 +1670,18 @@ def install_launcher_tab(manager: Any) -> None:
         start_spear_button.slay_value = "no"
         start_kerrigan_button.text = "No"
         start_kerrigan_button.slay_value = "no"
+        node_defaults["events"] = True
+        node_defaults["chests"] = True
+        events_checkbox.active = True
+        chests_checkbox.active = True
         victory_multiplier_input.text = f"{DEFAULT_VICTORY_CREDIT_REWARD_MULTIPLIER:.2f}"
 
         item_credit_input.text = str(DEFAULT_ITEM_CREDIT_REWARD)
 
         for checkbox in race_checks.values():
             checkbox.active = True
+        for name, checkbox in mission_checks.items():
+            checkbox.active = name.casefold() != "lab rat"
         status.text = "Settings reset to defaults."
 
 
@@ -1699,7 +1808,10 @@ def install_launcher_tab(manager: Any) -> None:
                     extra_shop_slots=extra_shop_slots, start_with_spear=start_with_spear,
                     start_with_kerrigan=start_with_kerrigan,
                     selected_races=selected_races,
+                    excluded_missions=tuple(name for name, checkbox in mission_checks.items() if not checkbox.active),
                     game_mode=str(getattr(mode_button, "slay_value", "adventure")),
+                    events=events_checkbox.active,
+                    chests=chests_checkbox.active,
 
                 )
 

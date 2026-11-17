@@ -49,7 +49,7 @@ import yaml
 
 FORMAT_VERSION = 39
 
-PACKAGE_VERSION = "1.2.3"
+PACKAGE_VERSION = "1.3.0"
 
 DEFAULT_CHOICE_LAYERS = 11
 DEFAULT_CAMPAIGN_CHOICE_LAYERS = 8
@@ -146,8 +146,9 @@ def dependency_sensitive_effect_exclusions(mission_name: str) -> tuple[set[str],
 
 
 
-MUTATORS = {'golden_armada': 2, 'true_golden_armada': 6, 'low_quality_minerals': 2, 'conga_line': 3, 'ten_minutes_until_destruction': 4, 'siege_mode': 1, 'drakken_laser_drill_enemy': 4, 'dark_archons': 1, 'drop_pods': 3, 'dark_templar': 3, 'fragile_workers': 1, 'decay': 3, 'zombies_mutation': 3, 'limited_bank': 1, 'leviathan_in_orbit': 5, 'heroes_of_the_storm': 3, 'too_many_wraiths': 2, 'void_thrashers': 4, 'not_enough_energy': 1, 'viking_raids': 2, 'nuclear_annihilation': 3, 'darkness': 2, 'adrenaline': 3, 'picky_eaters': 2, 'arms_race': 3, 'rising_gas_prices': 2, 'squishy': 2, 'forced_variety': 2, 'occasional_thor_mutation': 1, 'occasional_ultralisk_mutation': 1, 'occasional_colossus_mutation': 1, 'enemy_regeneration': 3, 'sniper_thor': 1, 'another_gorgon_mutation': 2, 'burrowed_zerglings': 1, 'tower_defense': 2, 'cloaked_nightmare': 5, 'jetpacks': 2, 'tactical_binoculars': 4, 'no_deaths_allowed': 7, 'victory_is_temporary': 5, 'nuclear_workers': 1, 'taldarim_reinforcements': 4, 'miras_mercenaries': 2, 'double_time': 1, 'shrinkage': 3, 'mineral_thieves': 1, 'active_enemies': 2, 'zagaras_banelings': 3, 'buddy_system': 3, 'torrasque': 3, 'nexus_shield': 4, 'gargantuan_enemies': 5, 'raynors_raiders': 6, 'purifier': 4, 'dehakas_pack': 5, 'zombie_apocalypse': 5, 'arguments': 2, 'combat_pay': 2, 'marauder_kill_teams': 2, 'dark_archons_x5': 4, 'siege_mode_x5': 4, 'nuclear_structures': 1, 'hellion_run_by': 2, 'diamondback_wanderers': 3, 'leviathan_outside_base': 5, 'odin_delayed_assault': 3, 'combined_raids': 5, 'brakk_primal_army': 5, 'orlan_fortress': 4, 'enemy_spear_of_adun': 7, 'immortal_zergling': 1, 'tosh_and_his_boys': 3}
+MUTATORS = {'golden_armada': 2, 'true_golden_armada': 6, 'low_quality_minerals': 2, 'conga_line': 3, 'ten_minutes_until_destruction': 4, 'siege_mode': 1, 'drakken_laser_drill_enemy': 4, 'dark_archons': 1, 'drop_pods': 3, 'dark_templar': 3, 'fragile_workers': 1, 'decay': 3, 'zombies_mutation': 3, 'limited_bank': 1, 'leviathan_in_orbit': 5, 'heroes_of_the_storm': 3, 'too_many_wraiths': 2, 'void_thrashers': 4, 'not_enough_energy': 1, 'viking_raids': 2, 'nuclear_annihilation': 3, 'darkness': 2, 'adrenaline': 3, 'picky_eaters': 2, 'arms_race': 3, 'rising_gas_prices': 2, 'squishy': 2, 'forced_variety': 2, 'occasional_thor_mutation': 1, 'occasional_ultralisk_mutation': 1, 'occasional_colossus_mutation': 1, 'enemy_regeneration': 3, 'sniper_thor': 1, 'another_gorgon_mutation': 2, 'burrowed_zerglings': 1, 'tower_defense': 2, 'cloaked_nightmare': 5, 'jetpacks': 2, 'tactical_binoculars': 4, 'no_deaths_allowed': 7, 'victory_is_temporary': 5, 'nuclear_workers': 1, 'taldarim_reinforcements': 4, 'miras_mercenaries': 2, 'double_time': 1, 'shrinkage': 3, 'mineral_thieves': 1, 'active_enemies': 2, 'zagaras_banelings': 3, 'buddy_system': 3, 'torrasque': 3, 'nexus_shield': 4, 'gargantuan_enemies': 5, 'raynors_raiders': 6, 'purifier': 4, 'dehakas_pack': 5, 'zombie_apocalypse': 5, 'arguments': 2, 'combat_pay': 2, 'marauder_kill_teams': 2, 'dark_archons_x5': 4, 'siege_mode_x5': 4, 'nuclear_structures': 1, 'hellion_run_by': 2, 'diamondback_wanderers': 3, 'leviathan_outside_base': 5, 'odin_delayed_assault': 3, 'combined_raids': 5, 'brakk_primal_army': 5, 'orlan_fortress': 4, 'enemy_spear_of_adun': 7, 'immortal_zergling': 1, 'tosh_and_his_boys': 3, 'slow_workers': 4, 'creep_reliance': 3}
 MUTATORS["nydus_worms"] = 3
+MUTATORS.update({"swarms_of_unit": 4, "explosive_armor_mutation": 4})
 MUTATORS.update({"point_defense_drones": 1, "heavily_defended_drakken_laser_drill": 6, "multiple_air_bogies": 1, "hybrid_research": 4, "fifty_immortals": 3})
 
 BLESSINGS = {'investors': 1, 'multi_class': 1, 'speedy': 3, 'general': 2, 'farseers': 1, 'air_support': 2, 'fire_squad': 1, 'fuel_pipeline': 2, 'rapid_evolution': 2, 'zombies_blessing': 4, 'compounding_interest': 2, 'transports': 1, 'lost_vikings': 1, 'warfields_reinforcements': 4, 'energy_overload': 1, 'explosive_armor': 3, 'instant_workers': 2, 'juggernaut': 1, 'assembly_line': 2, 'elite_soldiers': 2, 'blinding_light': 2, 'specialists': 1, 'fortifications': 1, 'baneling_stream': 4, 'tychus': 1, 'zagaras_aid': 2, 'logistics': 1, 'occasional_thor_blessing': 1, 'occasional_ultralisk_blessing': 1, 'occasional_colossus_blessing': 1, 'horde_mode': 3, 'unexpected_evolution': 2, 'another_gorgon_blessing': 2, 'rapid_repair': 1, 'blink_blessing': 2, 'power_overwhelming': 2, 'drakken_laser_drill_blessing': 4, 'lurker_defense': 1, 'combat_workers': 2, 'glass_cannons': 2, 'odin': 4, 'bounty_kills': 1, 'building_overcharge': 3, 'ghost_reporting': 1, 'glorious_martyrs': 4, 'infinite_larva': 2, 'reflective_armor': 2, 'rich_minerals': 1, 'resource_pickups': 1}
@@ -201,7 +202,7 @@ DESTRUCTION_MISSION_EXCLUSIONS = {"The Essence of Eternity", "Essence of Eternit
 
 
 
-DESTRUCTION_TIMED_DEFENSE_ALLOWLIST = {"Zero Hour", "All-In"}
+DESTRUCTION_TIMED_DEFENSE_ALLOWLIST = {"Zero Hour"}
 
 RICH_MINERALS_MISSION_EXCLUSIONS = {"Devil's Playground"}
 GORGON_MISSION_EXCLUSIONS = {"fire in the sky"}
@@ -1709,7 +1710,7 @@ def _effect_selection_weight(severity: int, mutation_profile: bool = False) -> f
     table = MUTATION_SELECTION_WEIGHT if mutation_profile else EFFECT_SELECTION_WEIGHT
     return table[max(1, min(5, int(severity)))]
 
-EFFECT_SELECTION_MULTIPLIER = {"general": 3.0, "multi_class": 2.0}
+EFFECT_SELECTION_MULTIPLIER = {"general": 3.0, "multi_class": 2.0, "swarms_of_unit": 2.0}
 
 
 
@@ -2684,6 +2685,61 @@ def slay_mission_difficulty_pool(short_name: str, native_pool: int) -> int:
 
 
 
+def possible_mission_names(ap_root: Path) -> tuple[str, ...]:
+    """All normally supported build-mission families, without race-swap duplicates.
+
+    Uses the same AP campaign and NoBuild rules as load_archipelago_catalog.
+    This is also the source of truth for the launcher checkbox list.
+    """
+    root_str = str(ap_root)
+    if root_str not in sys.path:
+        sys.path.insert(0, root_str)
+    from worlds.sc2.mission_tables import SC2Campaign, SC2Mission, MissionFlag
+    return tuple(sorted({m.get_short_name() for m in SC2Mission
+                         if m.campaign != SC2Campaign.GLOBAL
+                         and m.campaign.campaign_name in DEFAULT_CAMPAIGNS
+                         and MissionFlag.NoBuild not in m.flags}, key=str.casefold))
+
+
+
+def possible_mission_groups(ap_root: Path) -> dict[str, tuple[str, ...]]:
+    """Normally supported missions, grouped by their ORIGINAL campaign.
+
+    Race-swapped versions are intentionally represented once under the original
+    mission's campaign. Prologue and epilogue belong in the LotV column.
+    """
+    root_str = str(ap_root)
+    if root_str not in sys.path:
+        sys.path.insert(0, root_str)
+    from worlds.sc2.mission_tables import SC2Campaign, SC2Mission, MissionFlag
+    groups: dict[str, set[str]] = {
+        "Wings of Liberty": set(),
+        "Heart of the Swarm": set(),
+        "Legacy of the Void": set(),
+    }
+    for mission in SC2Mission:
+        if (mission.campaign == SC2Campaign.GLOBAL
+                or mission.campaign.campaign_name not in DEFAULT_CAMPAIGNS
+                or MissionFlag.NoBuild in mission.flags):
+            continue
+        campaign = mission.campaign.campaign_name
+        if campaign == "Wings of Liberty":
+            column = "Wings of Liberty"
+        elif campaign == "Heart of the Swarm":
+            column = "Heart of the Swarm"
+        else:
+            column = "Legacy of the Void"
+        groups[column].add(mission.get_short_name())
+    return {name: tuple(sorted(names, key=str.casefold)) for name, names in groups.items()}
+
+
+def filter_possible_missions(candidates: list[dict[str, Any]], excluded: list[str]) -> list[dict[str, Any]]:
+    """Exclude every race-swapped variant of each unchecked mission family."""
+    forbidden = {name.strip().casefold() for name in excluded}
+    return [m for m in candidates
+            if str(m.get("short_name", m.get("name", ""))).strip().casefold() not in forbidden]
+
+
 def load_archipelago_catalog(
 
     ap_root: Path, races: set[str], allow_race_swap: bool,
@@ -3428,6 +3484,11 @@ def _effect_exclusions_for_mission(mission: dict[str, Any]) -> tuple[set[str], s
         forbidden_mutators.add("victory_is_temporary")
     if mission_short_name.strip().casefold() == "lab rat":
         forbidden_mutators.add("tower_defense")
+    # Outbreak already produces huge amounts of infested units; don't add
+    # randomly rolled zombie-on-death blessings or mutations on top of it.
+    # Purchased permanent blessings are deliberately unaffected.
+    if mission_short_name.strip().casefold().split(" (")[0] == "outbreak":
+        forbidden_mutators.update({"zombies_mutation", "zombie_apocalypse"})
 
 
     if mission_short_name.strip().casefold() in ISLAND_MISSION_NAMES:
@@ -3460,6 +3521,8 @@ def _effect_exclusions_for_mission(mission: dict[str, Any]) -> tuple[set[str], s
 
 
     forbidden_blessings: set[str] = set()
+    if mission_short_name.strip().casefold().split(" (")[0] == "outbreak":
+        forbidden_blessings.add("zombies_blessing")
     if mission_short_name.strip().casefold() in ISLAND_MISSION_NAMES:
         forbidden_blessings.add("covert_assistance")
     if mission_short_name.strip().casefold() in GORGON_MISSION_EXCLUSIONS:
@@ -3476,6 +3539,8 @@ def _effect_exclusions_for_mission(mission: dict[str, Any]) -> tuple[set[str], s
     forbidden_blessings.update(dependency_forbidden_blessings)
 
     mission_race = str(mission.get("race", "")).lower()
+    if mission_race != "zerg":
+        forbidden_mutators.add("creep_reliance")
 
     if mission_race != "terran":
 
@@ -4683,7 +4748,7 @@ def build_run_json(
 
     game_speed: str = "default", extra_shop_slots: int = 0,
     start_with_spear: bool = False, start_with_kerrigan: bool = False,
-    game_mode: str = "adventure",
+    game_mode: str = "adventure", events: bool = False, chests: bool = True,
 
 ) -> dict[str, Any]:
 
@@ -4717,7 +4782,8 @@ def build_run_json(
 
             "next": [int(by_pos[p]) for p in data["next_positions"]],
 
-            "credit_reward": int(data["credit_reward"]),
+            "credit_reward": max(0, int(data["credit_reward"]) -
+                                 (100 if game_mode == "adventure" and chests else 0)),
 
             "mutators": list(data["mutators"]),
 
@@ -4766,7 +4832,10 @@ def build_run_json(
         "seed": run_seed,
 
         "layers": choice_layers,
-
+        "events": bool(events) if game_mode == "adventure" else False,
+        "chests": bool(chests) if game_mode == "adventure" else False,
+        "node_encounters": game_mode == "adventure",
+        "node_map_version": 25 if game_mode == "adventure" else 0,
         "difficulty": difficulty,
 
         "game_speed": str(game_speed),
@@ -4813,7 +4882,10 @@ def build_run_json(
 
         "enabled": True,
         "game_mode": game_mode,
-
+        "events": bool(events) if game_mode == "adventure" else False,
+        "chests": bool(chests) if game_mode == "adventure" else False,
+        "node_encounters": game_mode == "adventure",
+        "node_map_version": 25 if game_mode == "adventure" else 0,
         "run_id": run_id,
 
         "player_name": name,
@@ -5168,10 +5240,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start-with-spear", action="store_true")
 
     parser.add_argument("--start-with-kerrigan", action="store_true")
+    parser.add_argument("--events", action="store_true", help="Enable Standard-mode event nodes")
+    parser.add_argument("--no-chests", action="store_true", help="Disable Standard-mode chest nodes")
 
     parser.add_argument("--races", nargs="+", choices=["terran", "zerg", "protoss"], default=["terran", "zerg", "protoss"])
 
     parser.add_argument("--race-swap", action=argparse.BooleanOptionalAction, default=True, help="Allow race-swapped mission variants")
+    parser.add_argument("--excluded-missions-json", default='["Lab Rat"]',
+                        help="JSON array of disabled mission families (default: Lab Rat)")
 
     parser.add_argument("--seed", type=int, default=None, help="Run/AP seed; random if omitted")
 
@@ -5344,11 +5420,23 @@ def main() -> int:
 
         )
 
-        # Crew has no Lab Rat: its scripted start is incompatible with the
-        # persistent purchased-production rules. Other modes keep the mission.
+        # The UI's Possible Missions checkboxes exclude a mission *family*,
+        # including all AP race-swapped variants. Lab Rat is off by default.
+        try:
+            excluded_missions = json.loads(args.excluded_missions_json)
+            if not isinstance(excluded_missions, list) or any(not isinstance(x, str) for x in excluded_missions):
+                raise ValueError("Expected a JSON array of mission names")
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"Invalid --excluded-missions-json: {exc}") from exc
+        known_names = {name.casefold() for name in possible_mission_names(ap_root)}
+        unknown = sorted(x for x in excluded_missions if x.strip().casefold() not in known_names)
+        if unknown:
+            raise ValueError(f"Unknown excluded mission(s): {', '.join(unknown)}")
         if args.game_mode == "crew":
-            candidates = [m for m in candidates if not str(m.get("short_name", m.get("name", ""))).strip().casefold().startswith("lab rat")
-                          and not str(m.get("name", "")).strip().casefold().startswith("lab rat")]
+            excluded_missions.append("Lab Rat")  # Crew's permanent mission restriction.
+        candidates = filter_possible_missions(candidates, excluded_missions)
+        if not candidates:
+            raise ValueError("No missions remain enabled for the selected races and Possible Missions settings")
 
         edges = (generate_campaign_edges(args.layers, rng) if args.game_mode == "campaign"
                  else generate_crew_edges(args.layers, rng, len(candidates)) if args.game_mode == "crew"
@@ -5387,7 +5475,8 @@ def main() -> int:
             mutation_frequency, blessing_frequency,
 
             victory_reward_multiplier, item_reward_credits, args.game_speed,
-            args.extra_shop_slots, args.start_with_spear, args.start_with_kerrigan, args.game_mode,
+            args.extra_shop_slots, args.start_with_spear, args.start_with_kerrigan, args.game_mode, args.events,
+            not args.no_chests,
 
         )
 

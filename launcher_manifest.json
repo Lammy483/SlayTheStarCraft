@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "slay_version": "1.2.3",
+  "slay_version": "1.3.0",
   "distribution": "lightweight_on_demand_windows_x64",
   "launcher_present_in_initial_zip": true,
   "heavy_runtime_bundled": false,

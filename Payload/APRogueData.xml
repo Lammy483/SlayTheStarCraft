@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="us-ascii"?>
 <Catalog>
+  <!-- Dev29 visual-only enemy tracking: a free-standing model actor with its
+       own fog rendering, not hosted by a unit or inheriting unit visibility.
+       It is moved and shown/hidden by APRogue.galaxy. It is never selectable
+       and never grants vision or detection. -->
+  <CActorModel id="APRogueTrackedFogProxy">
+    <Model value="Marine"/>
+    <FogVisibility value="Visible"/>
+    <Inherits index="Visibility" value="0"/>
+    <ModelFlags index="AllowHitTest" value="0"/>
+    <ModelFlags index="UpdateVisibility" value="0"/>
+    <Flags index="SuppressSaveLoad" value="1"/>
+  </CActorModel>
+
   <!-- Native potion cursor is attached to an isolated dummy unit. Move order
        carries precise engine-resolved ground/unit targets; the Galaxy order
        event runs potion logic before the unit can travel. -->
@@ -96,7 +109,7 @@
 
   <CBehaviorBuff id="APRogueKerriganRecklessPower">
     <InfoFlags index="Hidden" value="1"/>
-    <MaxCount value="255"/>
+    <MaxCount value="255"/><MaxStackCount value="255"/><MaxStackCountPerCaster value="255"/>
     <Modification>
       <DamageDealtFraction index="Melee" value="0.5"/>
       <DamageDealtFraction index="Ranged" value="0.5"/>
@@ -106,7 +119,7 @@
   </CBehaviorBuff>
   <CBehaviorBuff id="APRogueKerriganRecklessSpeed">
     <InfoFlags index="Hidden" value="1"/>
-    <MaxCount value="255"/>
+    <MaxCount value="255"/><MaxStackCount value="255"/><MaxStackCountPerCaster value="255"/>
     <Modification AdditiveMoveSpeedFactor="0.5" AdditiveAttackSpeedFactor="0.5"/>
   </CBehaviorBuff>
 
@@ -189,6 +202,16 @@
     <Modification ShieldArmorBonus="0.05"/>
   </CBehaviorBuff>
 
+  <CBehaviorBuff id="APRogueEliteMercenaryDamage">
+    <InfoFlags index="Hidden" value="1"/>
+    <MaxCount value="255"/><MaxStackCount value="255"/><MaxStackCountPerCaster value="255"/>
+    <Modification>
+      <DamageDealtFraction index="Melee" value="0.25"/>
+      <DamageDealtFraction index="Ranged" value="0.25"/>
+      <DamageDealtFraction index="Spell" value="0.25"/>
+      <DamageDealtFraction index="Splash" value="0.25"/>
+    </Modification>
+  </CBehaviorBuff>
   <CBehaviorBuff id="APRogueSupportCrewDamage">
     <InfoFlags index="Hidden" value="1"/>
     <MaxCount value="2147483647"/><MaxStackCount value="2147483647"/><MaxStackCountPerCaster value="2147483647"/>

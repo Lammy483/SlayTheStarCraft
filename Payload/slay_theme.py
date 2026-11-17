@@ -1,4 +1,4 @@
-"""English SC2 campaign presentation layer for Slay the StarCraft v1.2.3.
+"""English SC2 campaign presentation layer for Slay the StarCraft v1.3.0.
 
 Ported from Wangfeng's themed launcher while preserving the current launcher
 controls and callbacks. This module only changes presentation/navigation.
@@ -25,8 +25,11 @@ from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
+from slay_asset_recovery import THEME_BANNER
 
 ASSETS = Path(__file__).with_name("slay_assets")
+_PORTABLE_ROOT_TEXT = os.environ.get("SLAY_PORTABLE_ROOT", "").strip()
+_PORTABLE_ROOT = Path(_PORTABLE_ROOT_TEXT) if _PORTABLE_ROOT_TEXT else ASSETS.parent.parent
 BLUE = (0.28, 0.76, 1, 1)
 _SOUNDS = {}
 _LAST_SOUND = 0.0
@@ -276,8 +279,11 @@ def _style_setup(manager, container) -> None:
     root.spacing = dp(16)
 
     hero = BoxLayout(orientation="vertical", padding=[dp(30), dp(16)], size_hint_y=None, height=dp(118))
-    panel(hero, "ui_screen_mainmenurebrandlow.png", color=(0.62, 0.73, 0.88, 1))
-    title.text = "[b]SLAY THE STARCRAFT[/b]  [size=16]v1.2.3[/size]"
+    # If the extracted texture is missing, use a dark header instead of pale blue.
+    banner_available = (ASSETS / THEME_BANNER).is_file()
+    panel(hero, THEME_BANNER, color=(0.62, 0.73, 0.88, 1) if banner_available
+          else (0.06, 0.12, 0.20, 1))
+    title.text = "[b]SLAY THE STARCRAFT[/b]  [size=16]v1.3.0[/size]"
     title.halign = "left"
     title.bind(size=lambda w, v: setattr(w, "text_size", v))
     hero.add_widget(title)
@@ -304,18 +310,23 @@ def _style_setup(manager, container) -> None:
     panel(settings)
     # No redundant Adventure Configuration heading; settings start with the form.
 
-    # Keep the current v1.2.3 launcher controls and callbacks. We only restyle
+    # Keep the current v1.3.0 launcher controls and callbacks. We only restyle
     # and reposition them, including the new playable-race row.
     form.spacing = [dp(18), dp(12)]
     form.height = max(form.height, dp(350))
     form.size_hint_y = None
+    # Race selectors must not occupy their own row ABOVE the settings grid.
+    # Keep all four option columns aligned at the top, with the race choices
+    # directly beneath the options inside the SAME scrolling content.
+    settings_scroll = ScrollView(do_scroll_x=False)
+    scroll_contents = BoxLayout(orientation="vertical", spacing=dp(10), size_hint_y=None)
+    scroll_contents.bind(minimum_height=scroll_contents.setter("height"))
+    scroll_contents.add_widget(form)
     if race_row is not None:
         race_row.size_hint_y = None
         race_row.height = dp(42)
-        settings.add_widget(race_row)
-
-    settings_scroll = ScrollView(do_scroll_x=False)
-    settings_scroll.add_widget(form)
+        scroll_contents.add_widget(race_row)
+    settings_scroll.add_widget(scroll_contents)
     settings.add_widget(settings_scroll)
 
     status.size_hint_y = None
@@ -441,7 +452,7 @@ def decorate(manager, container) -> None:
     _install_navigation(manager)
     campaign = manager.slay_mission_tab.content
     panel(campaign, "ui_screens_zeratul_prologue_starfield_generic_diff.png", color=(0.45, 0.6, 0.75, 1), border=False)
-    _theme_log("English v1.2.3 SC2 theme installed")
+    _theme_log("English v1.3.0 SC2 theme installed")
 
 
 def install(module) -> None:

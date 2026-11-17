@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 2.0
 $BootstrapScriptPath = $PSCommandPath
 
-$PackageVersion = "1.2.3"
+$PackageVersion = "1.3.0"
 $RuntimeRevision = "v1.2.3-release"
 $PythonVersion = "3.13.16"
 $PythonArchiveName = "python-$PythonVersion-embed-amd64.zip"
@@ -23,7 +23,7 @@ $ArchipelagoUrl = "https://github.com/ArchipelagoMW/Archipelago/archive/$Archipe
 $Sc2DataApiUrl = "https://api.github.com/repos/archipelago-sc2/Archipelago-SC2-data/releases/tags/API4"
 $PipUrl = "https://bootstrap.pypa.io/pip/pip.pyz"
 
-$PortableRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$PortableRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 if (-not $ErrorPath) { $ErrorPath = Join-Path $PortableRoot "install-error.txt" }
 $RuntimeRoot = Join-Path $PortableRoot "Runtime"
 $DownloadsRoot = Join-Path $RuntimeRoot "Downloads"

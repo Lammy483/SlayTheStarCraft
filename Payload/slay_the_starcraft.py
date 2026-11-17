@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-PACKAGE_VERSION = "1.2.3"
+PACKAGE_VERSION = "1.3.0"
 
 
 
@@ -1044,8 +1044,46 @@ EFFECT_DESCRIPTIONS["armored_enemies"] = "All enemies gain +5 armor"
 EFFECT_DISPLAY_NAMES["fifty_immortals"] = "Immortals"
 EFFECT_DESCRIPTIONS["fifty_immortals"] = "There are 30 immortals patrolling around the map"
 
+
+# Dev4 workbook mutations. Transported via mission_flags; existing bank bits stay unchanged.
+EFFECT_BANK_BITS["swarms_of_unit"] = (7, 1)
+EFFECT_BANK_BITS["explosive_armor_mutation"] = (7, 2)
+EFFECT_DISPLAY_NAMES["swarms_of_unit"] = "Swarms of [unit]"
+EFFECT_DISPLAY_NAMES["explosive_armor_mutation"] = "Explosive Armor"
+EFFECT_DESCRIPTIONS["swarms_of_unit"] = "Every 4 minutes, a swarm of [unit]s attacks your base."
+EFFECT_DESCRIPTIONS["explosive_armor_mutation"] = "Enemy units explode on death, dealing damage to enemies proportional to their supply cost"
+
+# Bits 24-27 in mission flags store a deterministic per-run swarm-unit index.
+# Last five are air units that can appear on island missions.
+SWARM_UNITS = (
+    ("Marine", "Marines", 50),
+    ("Marauder", "Marauders", 125),
+    ("Zealot", "Zealots", 100),
+    ("Stalker", "Stalkers", 175),
+    ("Zergling", "Zerglings", 25),
+    ("Hydralisk", "Hydralisks", 150),
+    ("Roach", "Roaches", 100),
+    ("Ultralisk", "Ultralisks", 500),
+    ("Colossus", "Colossi", 500),
+    ("Thor", "Thors", 500),
+    ("Immortal", "Immortals", 375),
+    ("Mutalisk", "Mutalisks", 200),
+    ("Banshee", "Banshees", 250),
+    ("VikingFighter", "Vikings", 225),
+    ("VoidRay", "Void Rays", 400),
+    ("Battlecruiser", "Battlecruisers", 700),
+)
+
+def swarm_unit_index(ctx: Any, mission_id: int) -> int:
+    mission = node(ctx, int(mission_id)) or {}
+    base_name = _mission_base_name(mission.get("mission_name", "")).casefold()
+    pool = range(11, len(SWARM_UNITS)) if base_name in ISLAND_MISSION_NAMES else range(len(SWARM_UNITS))
+    run_seed = int(getattr(ctx, "slay_config", {}).get("run_seed", 0))
+    token = hashlib.sha256(f"swarm:{run_seed}:{int(mission_id)}".encode("utf-8")).digest()
+    return tuple(pool)[int.from_bytes(token[:8], "big") % len(pool)]
+
 # v1.0.2.17 mutations are transported in mission_flags because banks A-F are full.
-_V1024_MUTATIONS: dict[str, tuple[str, str, int]] = {'hellion_run_by': ('Hellion Run-by', 'Hellions try to run into your mineral lines', 2), 'diamondback_wanderers': ('Diamondbacks', '50 diamondbacks wander all over the place', 3), 'leviathan_outside_base': ('Leviathan Approaching', 'The Leviathan floats outside your base spawning mutalisks and brood lords', 5), 'odin_delayed_assault': ('Odin', 'The enemy base has an odin in it. After 13 minutes it attacks your base.', 3), 'combined_raids': ('Ultimate Harassment', 'The enemy sends many wraiths, vikings, and hellions bother you', 5), 'brakk_primal_army': ("Brakk's Pack", 'Brakk and a massive primal army awaits on the map. It attacks after 10 minutes.', 5), 'orlan_fortress': ("Orlan's Planetary Fortress", 'Colonel Orlan has a well-defended Planetary Fortress on the map that gains 1 range every 30 seconds.', 4), 'enemy_spear_of_adun': ('Enemy Spear of Adun', "The enemy has the Spear of Adun. Let's see how YOU like it", 7), 'true_golden_armada': ('True Golden Armada', 'A massive golden armada patrols the map', 6), 'immortal_zergling': ('Immortal Zergling', 'A single immortal zergling attacks you constantly', 1), 'tosh_and_his_boys': ('Tosh and his Boys', 'Tosh is somewhere on the map. While he lives, cloaked spectres periodically try to nuke your base.', 3)}
+_V1024_MUTATIONS: dict[str, tuple[str, str, int]] = {'hellion_run_by': ('Hellion Run-by', 'Hellions try to run into your mineral lines', 2), 'diamondback_wanderers': ('Diamondbacks', '50 diamondbacks wander all over the place', 3), 'leviathan_outside_base': ('Leviathan Approaching', 'The Leviathan floats outside your base spawning mutalisks and brood lords', 5), 'odin_delayed_assault': ('Odin', 'An enemy Odin waits near an enemy stronghold. After about 14 minutes from base establishment, it attacks your base.', 3), 'combined_raids': ('Ultimate Harassment', 'The enemy sends many wraiths, vikings, and hellions bother you', 5), 'brakk_primal_army': ("Brakk's Pack", 'Brakk and a massive primal army awaits on the map. It attacks after 10 minutes.', 5), 'orlan_fortress': ("Orlan's Planetary Fortress", 'Colonel Orlan has a well-defended Planetary Fortress on the map that gains 1 range every 30 seconds.', 4), 'enemy_spear_of_adun': ('Enemy Spear of Adun', "The enemy has the Spear of Adun. Let's see how YOU like it", 7), 'true_golden_armada': ('True Golden Armada', 'A massive golden armada patrols the map', 6), 'immortal_zergling': ('Immortal Zergling', 'A single immortal zergling attacks you constantly', 1), 'tosh_and_his_boys': ('Tosh and his Boys', 'Tosh is somewhere on the map. While he lives, cloaked spectres periodically try to nuke your base.', 3)}
 EFFECT_BANK_BITS.update({effect_id: (5, 0) for effect_id in _V1024_MUTATIONS})
 EFFECT_DISPLAY_NAMES.update({effect_id: values[0] for effect_id, values in _V1024_MUTATIONS.items()})
 EFFECT_DESCRIPTIONS.update({effect_id: values[1] for effect_id, values in _V1024_MUTATIONS.items()})
@@ -1067,6 +1105,15 @@ _NEW_DEV5_BOON_KEYS: dict[str, int] = {
     "boon_armor_disintegration": 1024,
 }
 EFFECT_BANK_BITS.update({name: (6, bit) for name, bit in _NEW_DEV5_BOON_KEYS.items()})
+
+# Next free mask-G bits; the six existing effect banks and launch protocol
+# stay unchanged. These apply per combat mission, not permanently.
+EFFECT_BANK_BITS.update({"slow_workers": (6, 2048), "creep_reliance": (6, 4096)})
+EFFECT_DISPLAY_NAMES.update({"slow_workers": "Slow Workers", "creep_reliance": "Creep Reliance"})
+EFFECT_DESCRIPTIONS.update({
+    "slow_workers": "Your workers move extremely slowly",
+    "creep_reliance": "Your units lose 2 HP per second off creep and heal 2 HP per second on creep",
+})
 
 
 _NEW_BOON_TITLES: dict[str, str] = {
@@ -1203,6 +1250,42 @@ DEFAULT_STATE: dict[str, Any] = {
     "crew_roster": None,
 
     "purchases": {},
+    "event_assignments": {},
+    "event_resolutions": {},
+    "event_merchant_purchases": {},
+    "event_merchant_potions": {},
+    "event_credit_bonus": 0,
+    "event_price_penalties": [],
+    "event_forfeited_ap_counts": {},
+    "event_awarded_items": {},
+    "special_resolved": {},
+    "chest_offers": {},
+    "chest_claims": {},
+    "event_crystalis_checkpoint": -1,
+    "event_crystalis_reroll_nonce": 0,
+    "event_nova_side": "",
+    "event_nova_checkpoint": -1,
+    "event_colonists_checkpoint": -1,
+    "event_colonists_dead_at": -1,
+    "event_fallen_actors": [],
+    "event_zagara_side": "",
+    "event_zagara_checkpoint": -1,
+    "event_zagara_quest_pending": False,
+    "event_zagara_quest_target": 0,
+    "event_organism_checkpoint": -1,
+    "event_organism_pending": False,
+    "event_organism_target": 0,
+    "event_solarite_resource": 0,
+    "event_solarite_checkpoint": -1,
+    "event_solarite_pending": False,
+    "event_solarite_target": 0,
+    "event_mechanical_offers": {},
+    "event_mechanical_checkpoint": -1,
+    "event_mechanical_target": 0,
+    "event_mechanical_pending": False,
+    "event_mechanical_rewarded": False,
+    "event_merchant_raid_pending": False,
+    "event_merchant_raid_target": 0,
 
     # Display-only inventory safety net for transient AP reconnect states.
     "inventory_received_snapshot": [],
@@ -1674,6 +1757,7 @@ GOLDEN_GOOSE_MUTATIONS.update({
 })
 GOLDEN_GOOSE_MUTATIONS["dehakas_pack"] = 6
 GOLDEN_GOOSE_MUTATIONS["armored_enemies"] = 3
+GOLDEN_GOOSE_MUTATIONS.update({"swarms_of_unit": 4, "explosive_armor_mutation": 4})
 BLESSING_SEVERITY["covert_assistance"] = 1
 
 
@@ -1876,6 +1960,10 @@ def _normalize_config(raw: Any) -> dict[str, Any]:
         cfg["extra_shop_slots"] = 0
     cfg["start_with_spear"] = bool(cfg.get("start_with_spear", False))
     cfg["start_with_kerrigan"] = bool(cfg.get("start_with_kerrigan", False))
+    # Old saves retain their original border-event maps. New runs explicitly
+    # opt in to visible map nodes so a pre-existing chosen route never moves.
+    cfg["node_encounters"] = bool(cfg.get("node_encounters", False))
+    cfg["chests"] = bool(cfg.get("chests", False)) if cfg["node_encounters"] else False
 
     try:
 
@@ -2480,6 +2568,102 @@ def _sanitize_state(value: Any) -> dict[str, Any]:
             except (TypeError, ValueError):
                 continue
     state["inventory_received_snapshot"] = inventory_snapshot
+    # Event consequences and choices are durable, independently of AP receipts.
+    for key in ("event_assignments", "event_resolutions", "event_merchant_purchases", "event_merchant_potions", "event_mechanical_offers"):
+        raw = value.get(key, {})
+        if isinstance(raw, Mapping):
+            state[key] = {str(k)[:40]: copy.deepcopy(v) for k, v in raw.items() if len(str(k)) <= 40}
+    # Chest previews and choices must survive reconnects exactly, with no rerolls.
+    for key in ("special_resolved", "chest_offers", "chest_claims"):
+        raw = value.get(key, {})
+        if isinstance(raw, Mapping):
+            state[key] = {str(k): copy.deepcopy(v) for k, v in raw.items()
+                          if str(k).lstrip('-').isdigit() and len(str(k)) <= 16}
+    # Keep event item grants/losses across restarts; receipt-backed forfeits
+    # are applied to the AP item stream, not removed from the AP server.
+    for key in ("event_forfeited_ap_counts", "event_awarded_items"):
+        original = value.get(key, {})
+        if isinstance(original, Mapping):
+            checked = {}
+            for item_name, quantity in original.items():
+                if not isinstance(item_name, str) or len(item_name) > 200:
+                    continue
+                try:
+                    amount = min(1000, max(0, int(quantity)))
+                except (TypeError, ValueError):
+                    continue
+                if amount:
+                    checked[item_name] = amount
+            state[key] = checked
+    raw_penalties = value.get("event_price_penalties", [])
+    valid_penalties = {"zerg_upgrade_50", "zerg_upgrade_20", "terran_unlock_50", "kerrigan_upgrade_20", "spear_upgrade_20"}
+    if isinstance(raw_penalties, list):
+        state["event_price_penalties"] = list(dict.fromkeys(str(x) for x in raw_penalties if str(x) in valid_penalties))
+    for key in ("event_credit_bonus", "event_merchant_raid_target"):
+        try:
+            state[key] = max(-1000000000, min(1000000000, int(value.get(key, 0))))
+        except (TypeError, ValueError):
+            state[key] = 0
+    state["event_merchant_raid_pending"] = bool(value.get("event_merchant_raid_pending", False))
+    try:
+        state["event_crystalis_checkpoint"] = max(-1, min(1000, int(value.get("event_crystalis_checkpoint", -1))))
+        state["event_crystalis_reroll_nonce"] = max(0, min(1000000, int(value.get("event_crystalis_reroll_nonce", 0))))
+    except (TypeError, ValueError):
+        state["event_crystalis_checkpoint"] = -1
+        state["event_crystalis_reroll_nonce"] = 0
+    nova_side = str(value.get("event_nova_side", ""))
+    state["event_nova_side"] = nova_side if nova_side in ("nova", "tosh") else ""
+    try:
+        state["event_nova_checkpoint"] = max(-1, min(1000, int(value.get("event_nova_checkpoint", -1))))
+    except (TypeError, ValueError):
+        state["event_nova_checkpoint"] = -1
+    try:
+        state["event_colonists_checkpoint"] = max(-1, min(1000, int(value.get("event_colonists_checkpoint", -1))))
+    except (TypeError, ValueError):
+        state["event_colonists_checkpoint"] = -1
+    try:
+        state["event_colonists_dead_at"] = max(-1, min(1000, int(value.get("event_colonists_dead_at", -1))))
+    except (TypeError, ValueError):
+        state["event_colonists_dead_at"] = -1
+    raw_fallen = value.get("event_fallen_actors", [])
+    if isinstance(raw_fallen, list):
+        allowed = {"ColonyDead", "NovaDead", "ToshDead", "ZagaraDead", "BrakkAllyDead"}
+        state["event_fallen_actors"] = sorted({str(k) for k in raw_fallen if isinstance(k, str) and k in allowed})
+    zagara_side = str(value.get("event_zagara_side", ""))
+    state["event_zagara_side"] = zagara_side if zagara_side in ("zagara", "brakk") else ""
+    try:
+        state["event_zagara_checkpoint"] = max(-1, min(1000, int(value.get("event_zagara_checkpoint", -1))))
+        state["event_zagara_quest_target"] = max(0, int(value.get("event_zagara_quest_target", 0)))
+    except (TypeError, ValueError):
+        state["event_zagara_checkpoint"] = -1
+        state["event_zagara_quest_target"] = 0
+    state["event_zagara_quest_pending"] = bool(value.get("event_zagara_quest_pending", False))
+    try:
+        state["event_organism_checkpoint"] = max(-1, min(1000, int(value.get("event_organism_checkpoint", -1))))
+        state["event_organism_target"] = max(0, int(value.get("event_organism_target", 0)))
+    except (TypeError, ValueError):
+        state["event_organism_checkpoint"] = -1
+        state["event_organism_target"] = 0
+    state["event_organism_pending"] = bool(value.get("event_organism_pending", False))
+    try:
+        state["event_solarite_resource"] = int(value.get("event_solarite_resource", 0))
+        if state["event_solarite_resource"] not in (1, 2):
+            state["event_solarite_resource"] = 0
+        state["event_solarite_checkpoint"] = max(-1, min(1000, int(value.get("event_solarite_checkpoint", -1))))
+        state["event_solarite_target"] = max(0, int(value.get("event_solarite_target", 0)))
+    except (TypeError, ValueError):
+        state["event_solarite_resource"] = 0
+        state["event_solarite_checkpoint"] = -1
+        state["event_solarite_target"] = 0
+    state["event_solarite_pending"] = bool(value.get("event_solarite_pending", False))
+    try:
+        state["event_mechanical_checkpoint"] = max(-1, min(1000, int(value.get("event_mechanical_checkpoint", -1))))
+        state["event_mechanical_target"] = max(0, int(value.get("event_mechanical_target", 0)))
+    except (TypeError, ValueError):
+        state["event_mechanical_checkpoint"] = -1
+        state["event_mechanical_target"] = 0
+    state["event_mechanical_pending"] = bool(value.get("event_mechanical_pending", False))
+    state["event_mechanical_rewarded"] = bool(value.get("event_mechanical_rewarded", False))
 
     cycle_purchases: dict[str, int] = {}
 
@@ -3098,8 +3282,37 @@ def _merged_nodes(ctx: Any) -> dict[int, dict[str, Any]]:
 
                 merged.pop("kerrigan_adjustment", None)
 
+        # Crystalis-added mutations are actual mission effects in the map and
+        # Galaxy launch masks. They never change generated credit rewards,
+        # severity, danger weighting, or reroll credit calculations.
+        if events_enabled(ctx) and state_ready(ctx):
+            ev_state = state(ctx)
+            checkpoint = int(ev_state.get("event_crystalis_checkpoint", -1))
+            if checkpoint >= 0 and int(merged.get("layer", -1)) >= checkpoint:
+                names = list(merged.get("mutators", ()))
+                if not {"brakk_primal_army", "dehakas_pack"} & set(names):
+                    material = (f"{ctx.slay_config.get('run_seed', 0)}:crystalis:{mid}:"
+                                f"{ev_state.get('event_crystalis_reroll_nonce', 0)}")
+                    roll = hashlib.sha256(material.encode("utf-8")).digest()[0] % 2
+                    names.append(("brakk_primal_army", "dehakas_pack")[roll])
+                    merged["mutators"] = names
+                    merged["_event_crystalis_mutation"] = names[-1]
+        if events_enabled(ctx) and state_ready(ctx):
+            ev_state = state(ctx)
+            if (ev_state.get("event_zagara_side") == "zagara" and
+                ((int(ev_state.get("event_zagara_quest_target", 0)) == mid) or
+                 (bool(ev_state.get("event_zagara_quest_pending", False)) and
+                  int(merged.get("layer", -1)) == int(ev_state.get("event_zagara_checkpoint", -1))))):
+                mutators = list(merged.get("mutators", ()))
+                if "brakk_primal_army" not in mutators:
+                    mutators.append("brakk_primal_army")
+                    merged["mutators"] = mutators
+                merged["_event_zagara_brakk_quest"] = "brakk_primal_army"
         result[mid] = merged
 
+    if str(ctx.slay_config.get("game_mode", "adventure")) == "adventure" and ctx.slay_config.get("node_encounters", False):
+        from .slay_route_nodes import augment
+        return augment(result, ctx.slay_config)
     return result
 
 
@@ -3116,6 +3329,9 @@ def nodes(ctx: Any) -> dict[int, dict[str, Any]]:
 
     for mid, data in result.items():
 
+        if data.get("node_type") in {"event", "chest"}:
+            data["danger_credit_bonus"] = 0
+            continue
         if endless_mode(ctx):
             data["danger_credit_bonus"] = 0
             data["_endless_floor"] = True
@@ -3356,6 +3572,9 @@ MISSION_FLAG_SMASH_AND_GRAB_EXTRA_WORKERS = 262144
 MISSION_FLAG_DEVILS_PLAYGROUND_ZERG_ELIMINATION = 524288
 MISSION_FLAG_EPILOGUE_KERRIGAN = 1048576
 MISSION_FLAG_CREW_CHALLENGE = 2097152
+MISSION_FLAG_SWARMS_OF_UNIT = 4194304
+MISSION_FLAG_EXPLOSIVE_ARMOR_MUTATION = 8388608
+MISSION_FLAG_OUTLAWS_EARLY_MUTATIONS = 536870912
 
 GORGON_MISSION_EXCLUSIONS = {"fire in the sky"}
 
@@ -3408,6 +3627,8 @@ def mission_flags_for_mission(ctx: Any, mission_id: int) -> int:
     if mission_name.casefold() == "lab rat":
 
         flags |= MISSION_FLAG_LAB_RAT_OPENING
+    if mission_name.casefold() in {"the outlaws", "outlaws"}:
+        flags |= MISSION_FLAG_OUTLAWS_EARLY_MUTATIONS
     if mission_name.casefold() == "domination":
         flags |= MISSION_FLAG_DOMINATION_ANY_PICKER
     if mission_name.casefold() == "engine of destruction":
@@ -3429,10 +3650,16 @@ def mission_flags_for_mission(ctx: Any, mission_id: int) -> int:
         "true_golden_armada": MISSION_FLAG_TRUE_GOLDEN_ARMADA,
         "immortal_zergling": MISSION_FLAG_IMMORTAL_ZERGLING,
         "tosh_and_his_boys": MISSION_FLAG_TOSH_AND_HIS_BOYS,
+        "swarms_of_unit": MISSION_FLAG_SWARMS_OF_UNIT,
+        "explosive_armor_mutation": MISSION_FLAG_EXPLOSIVE_ARMOR_MUTATION,
     }
     for effect in _effective_mutations(ctx, int(mission_id)):
         flags |= int(mutation_flag_bits.get(str(effect), 0))
 
+    if (flags & MISSION_FLAG_SWARMS_OF_UNIT) != 0:
+        flags |= swarm_unit_index(ctx, int(mission_id)) << 24
+    if events_enabled(ctx) and int(state(ctx).get("event_merchant_raid_target", 0)) == int(mission_id):
+        flags |= 268435456  # Event merchant raid (mission flag bit 28).
     return flags
 
 
@@ -4851,7 +5078,8 @@ def completed_mission_ids(ctx: Any) -> set[int]:
 
             return set(cached)
 
-    result = {mid for mid in nodes(ctx) if ctx.is_mission_completed(mid)}
+    result = {mid for mid, data in nodes(ctx).items()
+              if data.get("node_type", "combat") == "combat" and ctx.is_mission_completed(mid)}
 
     ctx.slay_completed_missions_signature = signature
 
@@ -4904,7 +5132,7 @@ def _raw_frontier(ctx: Any) -> list[int]:
 
     last = path[-1]
 
-    if not ctx.is_mission_completed(last):
+    if not route_node_completed(ctx, last):
 
         return [last]
 
@@ -4914,7 +5142,7 @@ def _raw_frontier(ctx: Any) -> list[int]:
 
         return []
 
-    return [mid for mid in data.get("next", []) if mid in nodes(ctx) and not ctx.is_mission_completed(mid)]
+    return [mid for mid in data.get("next", []) if mid in nodes(ctx) and not route_node_completed(ctx, mid)]
 
 
 
@@ -4944,7 +5172,7 @@ def sync_commit_from_checks(ctx: Any) -> bool:
 
 
 
-    if path and not ctx.is_mission_completed(path[-1]):
+    if path and not route_node_completed(ctx, path[-1]):
 
         return False
 
@@ -5024,17 +5252,176 @@ def sync_commit_from_checks(ctx: Any) -> bool:
 
 
 
+def special_nodes_enabled(ctx: Any) -> bool:
+    return enabled(ctx) and str(getattr(ctx, "slay_config", {}).get("game_mode", "adventure")) == "adventure" \
+        and bool(getattr(ctx, "slay_config", {}).get("node_encounters", False))
+
+
+def route_node_completed(ctx: Any, mission_id: int) -> bool:
+    data = node(ctx, int(mission_id)) or {}
+    if data.get("node_type") in ("event", "chest"):
+        if bool(state(ctx).get("special_resolved", {}).get(str(int(mission_id)), False)):
+            return True
+        if data.get("node_type") == "event":
+            # Dev24 could persist the event resolution but fail to persist its
+            # synthetic node flag. Recover the completed node using the event
+            # receipt, but ONLY on the selected route; unrelated branches must
+            # not become completed merely because they share a checkpoint.
+            chosen = state(ctx).get("chosen", ())
+            if int(mission_id) in chosen:
+                key = str(int(data.get("after_combats", -1)))
+                return key in state(ctx).get("event_resolutions", {})
+        return False
+    return bool(ctx.is_mission_completed(int(mission_id)))
+
+
+def select_special_node(ctx: Any, mission_id: int) -> tuple[bool, str]:
+    """Enter a client-side node without launching StarCraft or refreshing shop."""
+    if not special_nodes_enabled(ctx) or not state_ready(ctx):
+        return False, "Noncombat nodes are unavailable."
+    mission_id = int(mission_id)
+    data = node(ctx, mission_id) or {}
+    if data.get("node_type") not in ("chest", "event"):
+        return False, "That node is a combat mission."
+    if route_node_completed(ctx, mission_id):
+        return False, "Node already completed."
+    if mission_id not in _raw_frontier(ctx):
+        return False, "That node is not currently reachable."
+    s = state(ctx)
+    path = list(s.get("chosen", []))
+    if not path or path[-1] != mission_id:
+        if mission_id in path:
+            return False, "That node was already visited."
+        path.append(mission_id)
+        s["chosen"] = path
+        _persist_state(ctx)
+    if data["node_type"] == "chest":
+        from .slay_chests import preview
+        preview(ctx, mission_id)  # stable, persisted before showing the user
+    return True, data["mission_name"] + " entered."
+
+
+def chest_pending(ctx: Any) -> int | None:
+    if not special_nodes_enabled(ctx) or not state_ready(ctx):
+        return None
+    path = chosen_path(ctx)
+    if not path:
+        return None
+    mid = path[-1]
+    if (node(ctx, mid) or {}).get("node_type") != "chest" or route_node_completed(ctx, mid):
+        return None
+    return mid
+
+
+def chest_display(ctx: Any) -> list[dict[str, Any]]:
+    mid = chest_pending(ctx)
+    if mid is None:
+        return []
+    from .slay_chests import display
+    return display(ctx, mid)
+
+
+def chest_choose(ctx: Any, index: int) -> tuple[bool, str]:
+    mid = chest_pending(ctx)
+    if mid is None:
+        return False, "No chest is currently selected."
+    from .slay_chests import claim
+    return claim(ctx, mid, int(index))
+
+
 def current_frontier(ctx: Any) -> list[int]:
 
 
 
     sync_commit_from_checks(ctx)
 
-    return _raw_frontier(ctx)
+    return [] if event_pending(ctx) is not None else _raw_frontier(ctx)
 
 
 
 
+
+
+# Standard-mode event logic is isolated from the native AP mission graph.
+def events_enabled(ctx: Any) -> bool:
+    return (enabled(ctx) and not crew_mode(ctx)
+            and str(getattr(ctx, "slay_config", {}).get("game_mode", "adventure")) == "adventure"
+            and bool(getattr(ctx, "slay_config", {}).get("events", False)))
+
+def event_pending(ctx: Any) -> dict[str, Any] | None:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return None
+    from . import slay_events
+    return slay_events.pending(ctx)
+
+def event_display(ctx: Any) -> dict[str, Any] | None:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return None
+    from . import slay_events
+    return slay_events.display(ctx)
+
+def event_select_test(ctx: Any, event_id: str) -> tuple[bool, str]:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return False, "Events are not enabled in this run."
+    from . import slay_events
+    return slay_events.select_test(ctx, event_id)
+
+def event_apply_choice(ctx: Any, index: int) -> tuple[bool, str, bool]:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return False, "Events are not enabled in this run.", False
+    from . import slay_events
+    ok, message, complete = slay_events.apply_choice(ctx, int(index))
+    if ok:
+        # AP grants/forfeitures affect actual SC2 inventory. Refresh the
+        # client projection without touching the shop cycle or stock.
+        _request_live_item_refresh(ctx)
+    return ok, message, complete
+
+def event_checkpoints(ctx: Any) -> tuple[int, ...]:
+    if special_nodes_enabled(ctx):
+        return ()  # New runs show actual nodes, never horizontal event borders.
+    if not events_enabled(ctx):
+        return ()
+    from . import slay_events
+    return slay_events.checkpoints(int(ctx.slay_config.get("campaign_length", 12)))
+
+def event_native_values_for_mission(ctx: Any, mission_id: int) -> tuple[int, int, int]:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return 0, 0, 0
+    from . import slay_events
+    return slay_events.native_values(ctx, int(mission_id))
+
+def event_mechanical_values_for_mission(ctx: Any, mission_id: int) -> tuple[int, int, int, int]:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return 0, 0, 0, 0
+    from . import slay_events
+    return slay_events.mechanical_values(ctx, int(mission_id))
+
+def sync_event_quest_rewards(ctx: Any) -> bool:
+    if not events_enabled(ctx) or not state_ready(ctx):
+        return False
+    from . import slay_events
+    return slay_events.sync_mechanical_quest(ctx)
+
+def _event_adjust_shop_price(ctx: Any | None, item_name: str, price: int) -> int:
+    if ctx is None or not events_enabled(ctx) or not state_ready(ctx):
+        return int(price)
+    data = _item_table().get(item_name)
+    type_name = str(getattr(getattr(data, "type", None), "display_name", "")).casefold()
+    race = _item_race_key(item_name, data)
+    multiplier = 1.0
+    for penalty in state(ctx).get("event_price_penalties", []):
+        if penalty == "zerg_upgrade_50" and race == "zerg" and "upgrade" in type_name:
+            multiplier *= 1.5
+        elif penalty == "zerg_upgrade_20" and race == "zerg" and "upgrade" in type_name:
+            multiplier *= 1.2
+        elif penalty == "terran_unlock_50" and race == "terran" and _is_unit_or_morph_unlock_type(type_name):
+            multiplier *= 1.5
+        elif penalty == "kerrigan_upgrade_20" and (_is_kerrigan_item(item_name, data) or item_name == KERRIGAN_UNLOCK):
+            multiplier *= 1.2
+        elif penalty == "spear_upgrade_20" and (_is_spear_item(item_name, data) or item_name == SPEAR_UNLOCK):
+            multiplier *= 1.2
+    return int(math.ceil(price * multiplier))
 
 def _reachable_from(ctx: Any, starts: Iterable[int]) -> set[int]:
 
@@ -5140,6 +5527,8 @@ def commander_hero_index(ctx: Any, mission_id: int) -> int:
 
 def _mission_effect_name(ctx: Any, mission_id: int, effect_id: str) -> str:
 
+    if effect_id == "swarms_of_unit":
+        return "Swarms of " + SWARM_UNITS[swarm_unit_index(ctx, mission_id)][1]
     if effect_id == "general":
 
         idx = commander_hero_index(ctx, mission_id)
@@ -5173,6 +5562,8 @@ def crew_effect_description(effect_id: str, kind: str | None = None) -> str | No
 
 def _mission_effect_description(ctx: Any, mission_id: int, effect_id: str) -> str:
 
+    if effect_id == "swarms_of_unit":
+        return "Every 4 minutes, a swarm of " + SWARM_UNITS[swarm_unit_index(ctx, mission_id)][1] + " attacks your base."
     if effect_id == "general":
 
         idx = commander_hero_index(ctx, mission_id)
@@ -5214,7 +5605,7 @@ def node_status(ctx: Any, mission_id: int) -> str:
 
         return "loading"
 
-    if ctx.is_mission_completed(mission_id):
+    if route_node_completed(ctx, mission_id):
 
         return "completed"
 
@@ -5227,7 +5618,7 @@ def node_status(ctx: Any, mission_id: int) -> str:
 
     path = chosen_path(ctx)
 
-    if path and mission_id == path[-1] and not ctx.is_mission_completed(path[-1]):
+    if path and mission_id == path[-1] and not route_node_completed(ctx, path[-1]):
 
         return "selected"
 
@@ -5241,7 +5632,7 @@ def node_status(ctx: Any, mission_id: int) -> str:
 
     last = path[-1]
 
-    reachable_starts = [last] if not ctx.is_mission_completed(last) else nodes(ctx).get(last, {}).get("next", [])
+    reachable_starts = [last] if not route_node_completed(ctx, last) else nodes(ctx).get(last, {}).get("next", [])
 
     reachable = _reachable_from(ctx, reachable_starts)
 
@@ -5269,12 +5660,14 @@ def can_launch(ctx: Any, mission_id: int) -> bool:
 
         return False
 
-    if ctx.is_mission_completed(mission_id):
+    if route_node_completed(ctx, mission_id):
 
         logger.info("Slay rule: completed missions are permanently closed.")
 
         return False
 
+    if (node(ctx, mission_id) or {}).get("node_type", "combat") != "combat":
+        return False
     return mission_id in current_frontier(ctx)
 
 
@@ -5769,9 +6162,22 @@ def commit_mission(ctx: Any, mission_id: int) -> bool:
     path = list(s.get("chosen", []))
 
     path.append(mission_id)
-
     s["chosen"] = path
-
+    if events_enabled(ctx) and s.get("event_merchant_raid_pending", False):
+        s["event_merchant_raid_target"] = mission_id
+        s["event_merchant_raid_pending"] = False
+    if events_enabled(ctx) and s.get("event_zagara_quest_pending", False):
+        s["event_zagara_quest_target"] = mission_id
+        s["event_zagara_quest_pending"] = False
+    if events_enabled(ctx) and s.get("event_organism_pending", False):
+        s["event_organism_target"] = mission_id
+        s["event_organism_pending"] = False
+    if events_enabled(ctx) and s.get("event_solarite_pending", False):
+        s["event_solarite_target"] = mission_id
+        s["event_solarite_pending"] = False
+    if events_enabled(ctx) and s.get("event_mechanical_pending", False):
+        s["event_mechanical_target"] = mission_id
+        s["event_mechanical_pending"] = False
     _persist_state(ctx)
 
     _consume_auto_victory_for_mission(ctx, mission_id)
@@ -5879,14 +6285,8 @@ def _mutation_allowed_for_mission(ctx: Any, mission_id: int, effect: str) -> boo
     data = node(ctx, int(mission_id)) or {}
 
     mission_name = _mission_base_name(data.get("mission_name", ""))
-
-
-
-
-
-
-
-
+    if effect == "creep_reliance" and str(data.get("race", "")).casefold() != "zerg":
+        return False
 
     if effect == "burrowed_zerglings" and str(mission_name).startswith("Rak'Shir"):
 
@@ -5894,6 +6294,8 @@ def _mutation_allowed_for_mission(ctx: Any, mission_id: int, effect: str) -> boo
     if mission_name.casefold() in GORGON_MISSION_EXCLUSIONS and effect == "another_gorgon_mutation":
         return False
     if mission_name.casefold().startswith("smash and grab") and effect in {"nexus_shield", "jetpacks"}:
+        return False
+    if effect == "ten_minutes_until_destruction" and bool(data.get("timed_defense", False)) and mission_name.casefold() != "zero hour":
         return False
     if effect == "point_defense_drones" and bool(data.get("timed_defense", False)):
         return False
@@ -6243,7 +6645,12 @@ def _effective_mutations(ctx: Any, mission_id: int) -> list[str]:
 
         result.extend(str(x) for x in state(ctx).get("permanent_mutations", []))
 
-    return list(dict.fromkeys(x for x in result if x in EFFECT_BANK_BITS and _mutation_allowed_for_mission(ctx, mission_id, x)))
+    forced = {str(data.get("_event_crystalis_mutation", "")),
+              str(data.get("_event_zagara_brakk_quest", ""))}
+    return list(dict.fromkeys(
+        x for x in result if x in EFFECT_BANK_BITS and
+        (x in forced or _mutation_allowed_for_mission(ctx, mission_id, x))
+    ))
 
 
 
@@ -6282,6 +6689,15 @@ def dependency_variant_for_mission(ctx: Any, mission_id: int) -> str:
     campaign = str(data.get("campaign", ""))
 
     need_swarm = bool(mutations & SWARM_DEPENDENCY_MUTATIONS or blessings & SWARM_DEPENDENCY_BLESSINGS)
+    if events_enabled(ctx) and state_ready(ctx):
+        ev_state = state(ctx)
+        ev_layer = int((node(ctx, mission_id) or {}).get("layer", -1))
+        if (ev_state.get("event_zagara_side") in ("zagara", "brakk") and
+            ev_layer >= int(ev_state.get("event_zagara_checkpoint", 10000))):
+            need_swarm = True
+        if (int(ev_state.get("event_organism_checkpoint", -1)) >= 0 and
+            ev_layer >= int(ev_state.get("event_organism_checkpoint", 10000))):
+            need_swarm = True
 
     # K5Kerrigan needs the Swarm and SwarmStory catalogs on non-HotS campaigns
     # too. In particular Archipelago classifies A Sinister Turn under Prophecy,
@@ -7061,7 +7477,12 @@ def credits(ctx: Any) -> int:
 
     test_bonus = int(state(ctx).get("test_credit_bonus", 0)) if state_ready(ctx) else 0
 
-    raw_balance = earned + test_bonus - int(state(ctx).get("spent", 0))
+    colony_bonus = 0
+    if events_enabled(ctx):
+        from . import slay_events
+        colony_bonus = slay_events.colony_earned_credits(ctx)
+    raw_balance = (earned + test_bonus + int(state(ctx).get("event_credit_bonus", 0))
+                   + colony_bonus - int(state(ctx).get("spent", 0)))
     # Developer /credits deductions may intentionally put any mode into debt.
     balance = raw_balance if crew_mode(ctx) or test_bonus < 0 else max(0, raw_balance)
 
@@ -7152,6 +7573,13 @@ def _actual_item_counts(ctx: Any) -> Counter[str]:
             name = str(replacement)
         if name is not None:
             counts[name] += 1
+    if enabled(ctx) and state_ready(ctx):
+        s = state(ctx)
+        for name, amount in s.get("event_forfeited_ap_counts", {}).items():
+            counts[name] = max(0, int(counts.get(name, 0)) - max(0, int(amount)))
+        for name, amount in s.get("event_awarded_items", {}).items():
+            if name in table:
+                counts[name] += max(0, int(amount))
     return counts
 
 
@@ -7224,12 +7652,14 @@ def _logic_owned_item_counts(ctx: Any) -> Counter[str]:
 
     counts = _raw_logic_owned_item_counts(ctx)
 
+    for name, amount in state(ctx).get("event_forfeited_ap_counts", {}).items():
+        counts[name] = max(0, int(counts.get(name, 0)) - max(0, int(amount)))
     for name, count in state(ctx).get("purchases", {}).items():
-
         if int(count) > 0 and name in table:
-
             counts[str(name)] += _effective_shop_copies(str(name), int(count))
-
+    for name, amount in state(ctx).get("event_awarded_items", {}).items():
+        if name in table:
+            counts[name] += max(0, int(amount))
     return counts
 
 
@@ -9088,6 +9518,10 @@ def freeze_shop_item(ctx: Any, item_name: str) -> bool:
             return False
     elif name and name not in shop_stock(ctx):
         return False
+    # Boons are never eligible for freeze, even through a direct API call
+    # rather than the themed shop popup. Clearing an old freeze is allowed.
+    if name and shop_category_for_item(name, ctx) == "Boons":
+        return False
     state(ctx)["shop_frozen_item"] = name
     _persist_state(ctx)
     return True
@@ -9483,6 +9917,36 @@ def _owned_defensive_structure_count(ctx: Any) -> int:
 
 
 
+# Names of Zerg unit forms created by morphing an existing non-larva unit.
+# Keep synchronized with APRG_IsDev5MorphType in APRogue.galaxy.
+_IMPROVED_MORPH_UNIT_NAMES = frozenset({
+    "igniter", "primaligniter", "ravager", "guardian", "broodlord",
+    "overseer", "lurker", "impaler", "devourer", "baneling",
+})
+
+
+def _improved_morphs_owned(ctx: Any) -> bool:
+    """Only a real purchased/received Zerg unit unlock enables this boon.
+
+    In particular, the presence of a similarly named upgrade, building, or
+    spear ability (e.g. Guardian Shell) must not unlock Improved Morphs.
+    """
+    table = _item_table()
+    for name, count in _logic_owned_item_counts(ctx).items():
+        if int(count) <= 0 or name not in table:
+            continue
+        normalized = re.sub(r"[^a-z0-9]", "", str(name).casefold())
+        if normalized not in _IMPROVED_MORPH_UNIT_NAMES:
+            continue
+        data = table[name]
+        item_type = str(getattr(getattr(data, "type", None), "display_name", ""))
+        if not (_is_unit_unlock_type(item_type) or item_type == "Morph"):
+            continue
+        if _item_race_key(name, data) == "zerg":
+            return True
+    return False
+
+
 def _boon_candidates(
 
     ctx: Any, rng: random.Random | None = None, shop_snapshot: Sequence[str] | None = None,
@@ -9708,7 +10172,7 @@ def _boon_candidates(
       ("harvesting_equipment","boon_harvesting_equipment",owns(("HERC","Herc"))),
       ("refective_diamondbacks","boon_refective_diamondbacks",owns(("Diamondback",))),
       ("psionic_guardians","boon_psionic_guardians",owns(("Guardian",))),
-      ("improved_morphs","boon_improved_morphs",owns(("Igniter","Ravager","Guardian","Brood Lord","BroodLord","Overseer","Lurker","Impaler","Devourer","Baneling"))),
+      ("improved_morphs","boon_improved_morphs",_improved_morphs_owned(ctx)),
       ("psionic_lords","boon_psionic_lords",owns(("Templar","Archon","Sentry","Infestor","Oracle","Ghost","Spectre","Viper","HighTemplar"))),
       ("unlimited_scarabs","boon_unlimited_scarabs",owns(("Reaver",))),
       ("armor_disintegration","boon_armor_disintegration",owns(("Void Ray","VoidRay","Destroyer","Pulsar"))),
@@ -10482,9 +10946,9 @@ def price_for_item(
 
             capped_price = max(1, int(base) - 400)
 
-            return max(half_price, capped_price)
+            return _event_adjust_shop_price(ctx, item_name, max(half_price, capped_price))
 
-    return int(base)
+    return _event_adjust_shop_price(ctx, item_name, int(base))
 
 
 
@@ -11151,6 +11615,8 @@ def _reroll_future_nodes(ctx: Any, purchase_index: int) -> int:
         if str(mission_name).startswith("Rak'Shir"): forbidden_mut.add("burrowed_zerglings")
 
         forbidden_mut.update(gen.crucible_mutation_exclusions(mission_name))
+        if bool(original.get("timed_defense", False)) and mission_name.casefold() != "zero hour":
+            forbidden_mut.add("ten_minutes_until_destruction")
         if mission_name.strip().casefold() in {"evacuation", "the evacuation"}:
             forbidden_mut.add("nuclear_annihilation")
 
@@ -11172,7 +11638,9 @@ def _reroll_future_nodes(ctx: Any, purchase_index: int) -> int:
 
         if race != "terran": forbidden_bless.add("rapid_repair")
 
-        if race != "zerg": forbidden_bless.update({"stealth_tunnels","infinite_larva"})
+        if race != "zerg":
+            forbidden_bless.update({"stealth_tunnels", "infinite_larva"})
+            forbidden_mut.add("creep_reliance")
 
         if mission_name == "Devil's Playground": forbidden_bless.add("rich_minerals")
 
@@ -11313,6 +11781,8 @@ def _reroll_future_nodes(ctx: Any, purchase_index: int) -> int:
         changed+=1
 
     s["node_effect_overrides"]=overrides
+    if changed and events_enabled(ctx) and int(s.get("event_crystalis_checkpoint", -1)) >= 0:
+        s["event_crystalis_reroll_nonce"] = int(s.get("event_crystalis_reroll_nonce", 0)) + 1
 
     return changed
 
@@ -12541,6 +13011,24 @@ def augment_network_items(ctx: Any, items: list[NetworkItem], item_list: Mapping
 
             items[i]=NetworkItem(data.code,item.location,item.player,int(data.classification))
 
+    # Abathur's event can sacrifice receipt-backed unit unlocks. Removing
+    # their items here (before shop/event injections) affects SC2 itself,
+    # not merely the Slay inventory/eligibility UI.
+    forfeited = state(ctx).get("event_forfeited_ap_counts", {})
+    remaining_forfeit = {}
+    for item_name, quantity in forfeited.items():
+        data = item_list.get(item_name)
+        if data is not None and getattr(data, "code", None) is not None:
+            remaining_forfeit[int(data.code)] = max(0, int(quantity))
+    if remaining_forfeit:
+        filtered = []
+        for item in items:
+            code = int(item.item)
+            if int(getattr(item, "location", 0)) != 0 and remaining_forfeit.get(code, 0):
+                remaining_forfeit[code] -= 1
+                continue
+            filtered.append(item)
+        items[:] = filtered
     by_code=Counter(item.item for item in items)
 
 
@@ -12600,6 +13088,18 @@ def augment_network_items(ctx: Any, items: list[NetworkItem], item_list: Mapping
         inject=effective_bought if cap is None else max(0,min(effective_bought,cap-by_code[data.code]))
 
         for _ in range(inject): items.append(NetworkItem(data.code,0,0,int(data.classification))); by_code[data.code]+=1
+
+    # Event upgrade rewards are real synthetic AP items in the mission stream,
+    # replay-safe via the run's saved event_awarded_items ledger.
+    for item_name, amount in state(ctx).get("event_awarded_items", {}).items():
+        data = item_list.get(item_name)
+        if data is None or getattr(data, "code", None) is None:
+            continue
+        cap = _max_owned_copies(data)
+        inject = max(0, int(amount)) if cap is None else max(0, min(int(amount), cap - by_code[data.code]))
+        for _ in range(inject):
+            items.append(NetworkItem(data.code, 0, 0, int(data.classification)))
+            by_code[data.code] += 1
 
 
 
@@ -13170,19 +13670,21 @@ def _mutation_tooltip_name_markup(ctx: Any, mission_id: int, effect_id: str) -> 
 
     severity = int(GOLDEN_GOOSE_MUTATIONS.get(str(effect_id), 0))
 
-    if severity < 4:
+    if severity < 3:
 
         return f"[b]{name}[/b]"
 
     colors = {
 
-        4: "FFB0B0",
+        3: "FFB0B0",
 
-        5: "FF8888",
+        4: "FF8888",
 
-        6: "FF5C5C",
+        5: "FF5C5C",
 
-        7: "FF3333",
+        6: "FF3333",
+
+        7: "FF2020",
 
     }
 
@@ -13359,6 +13861,7 @@ def ui_signature(ctx: Any) -> tuple[Any, ...]:
 
     sync_commit_from_checks(ctx)
 
+    sync_event_quest_rewards(ctx)
     sync_duplicate_item_replacements(ctx)
 
     s = state(ctx)
@@ -13376,6 +13879,10 @@ def ui_signature(ctx: Any) -> tuple[Any, ...]:
         int(s.get("shop_cycle", -1)),
 
         tuple(s.get("shop_stock", [])),
+        tuple(s.get("event_price_penalties", [])),
+        tuple(sorted(s.get("event_awarded_items", {}).items())),
+        tuple(sorted(s.get("event_forfeited_ap_counts", {}).items())),
+        repr(s.get("event_resolutions", {})),
         str(s.get("shop_frozen_item", "")),
         tuple((row["id"], row["serial"]) for row in potion_inventory(ctx)),
 
@@ -13479,7 +13986,8 @@ def remember_route_layout_x_fractions(ctx: Any, positions: Mapping[int, float]) 
 
     graph = nodes(ctx)
 
-    expected = {int(mid) for mid in graph}
+    expected = {int(mid) for mid, data in graph.items()
+                if data.get("node_type", "combat") == "combat"}
 
     clean: dict[str, float] = {}
 
@@ -13561,7 +14069,8 @@ def route_horizontal_positions(ctx: Any) -> dict[int, float]:
 
         graph.items(),
 
-        key=lambda pair: (int(pair[1].get("layer", 0)), int(pair[1].get("lane", 0)), int(pair[0])),
+        key=lambda pair: (int(pair[1].get("map_layer", pair[1].get("layer", 0))),
+                          float(pair[1].get("lane", 0)), int(pair[0])),
 
     )
 
